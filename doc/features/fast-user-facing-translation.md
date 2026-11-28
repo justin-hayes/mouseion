@@ -1,6 +1,9 @@
 # Fast user-facing prepared-deck translation
 
-Status: **Implemented** · Date: 2026-08-29 · Owner: Mouseion
+Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-08-29 · Owner: Mouseion
+
+> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck at the Study cutover: there is no deck preparation, status or download page, no Anki export and no deck job. This document records the retired design and is kept for provenance. Current vocabulary behavior is in [Study](study.md).
+
 
 Amended by [ADR 0100](../adr/0100-retryable-provider-omissions-preparation.md)
 (2026-10-17): a standard run now finishes `ready` with the successful cards when

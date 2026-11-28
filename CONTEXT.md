@@ -701,9 +701,9 @@ _Avoid_: Start, Switch (the retired two-step actions), commit.
 
 **Book detail**:
 The page for one Book in My Books, in the Book's own study language, at
-`/books/{id}`. It hosts the Book's analysis actions (retry, Analysis update,
-Source structure update and Book language) and a read-only list of the Book's
-words as Mature, in study or not yet introduced, each linking to its
+`/books/{id}`. It hosts the Book's analysis actions (retry, Analysis update and
+Source structure update), shows its Book language, and lists the Book's words
+as Mature, in study or not yet introduced, read-only, each linking to its
 Concordance. It edits no vocabulary: fixes start only from a Study report.
 _Avoid_: working desk (the retired Reading surface), Reading page.
 

@@ -1,8 +1,8 @@
 # Reading-owned Book vocabulary and deck preparation
 
-Status: **Accepted specification — implemented** · Date: 2026-10-06
+Status: **Retired at the Study cutover (ADR 0136)** · Date: 2026-10-06
 
-**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), the Current-reading snapshot, Reserved vocabulary, Book vocabulary candidates and Book-deck preparation are retired; the Current reading only puts its words first in Study until it reaches Target coverage. Until then this document describes the running system.
+> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Current-reading snapshot, Reserved vocabulary, Book vocabulary candidates and Book-deck preparation. Starting a reading freezes nothing; the Current reading only puts its words first in [Study](study.md) until it reaches Target coverage, and the To Read Books set the order of the other new words. The contract below records the retired design and is kept for provenance.
 
 Implementation status: issue #1505 binds new Book preparation, retries, and
 re-preparation to the active Current-reading snapshot; issue #1506 freezes the

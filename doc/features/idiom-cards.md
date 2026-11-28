@@ -1,10 +1,10 @@
 # Idiom cards
 
-Status: **Implemented; Italian reviewed (German and Modern Greek pending)** · Date: 2026-11-07 · Decisions:
+Status: **Idiom cards retired at the Study cutover (ADR 0136); idiom detection serves Study (ADR 0137)** · Date: 2026-11-07 · Decisions:
 [ADR 0114](../adr/0114-idiom-cards-from-dictionary-evidence.md),
 [ADR 0112](../adr/0112-gloss-is-lemma-sense-in-citation-form.md)
 
-**Direction:** at the Study cutover in [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md), Idiom cards leave the Prepared deck; Idioms become items Study introduces and reviews, which is a prerequisite of the cutover; [ADR 0137](../adr/0137-idioms-are-study-items.md) decides how. Until then this document describes the running system.
+**Direction (now implemented):** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck, so there are no Idiom cards, no per-deck idiom-card bound and no Idiom omission or overflow. An Idiom is a Study item with its own Study progress, Learned meaning and batch place ([ADR 0137](../adr/0137-idioms-are-study-items.md)); candidates are matched across the Corpus and still confirmed by the provider. The sections below that describe cards in a deck record the retired design.
 
 Decided in [#2351](https://github.com/justin-hayes/mouseion/issues/2351).
 

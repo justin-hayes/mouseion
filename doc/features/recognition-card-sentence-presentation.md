@@ -1,5 +1,7 @@
 # Recognition-card sentence presentation
 
+> **Retired design.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck and its Anki cards at the Study cutover. This document records the retired card presentation and is kept for provenance. [Study](study.md) presents a word in its own context.
+
 ## Product contract
 
 Mouseion generates **recognition cards**. The complete selected source sentence
