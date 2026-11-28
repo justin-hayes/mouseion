@@ -83,26 +83,3 @@ templ CurrentReadingLifecycleActions(item readingBookView, csrf string) {
 	</div>
 }
 
-templ ReadingEvidence(item readingBookView, csrf string) {
-	{{ action := readingAnalysisAction(item) }}
-	{{ shadowed := item.Book.EvidenceClassification().ReAnalysisShadowed() }}
-	if readingEvidenceState(item) != "current" {
-		<p><strong>{ readingEvidenceLabel(item) }:</strong> { readingEvidenceDescription(item) }</p>
-	}
-	if shadowed {
-		<p><strong>{ action.Status }.</strong> { action.Description }</p>
-	}
-	if readingEvidenceState(item) != "current" || shadowed {
-		if action.Status != "" {
-			if action.Label != "" && action.Submit {
-				<form class="inline-action" method="post" action={ templ.SafeURL(action.URL) }><input type="hidden" name="csrf_token" value={ csrf }/><button type="submit" class="button button--outline">{ action.Label }</button></form>
-			} else if action.Label != "" && action.URL != "" {
-				<p><a href={ templ.SafeURL(action.URL) }>{ action.Label }</a></p>
-			}
-		}
-	}
-}
-
-func readingEntryAvailable(item readingBookView) bool {
-	return analysisReadyForReading(item.Book)
-}

@@ -102,6 +102,11 @@ func TestCurrentReadingHeroStatusLineAppearsOnlyWhenTheBookNeedsAction(t *testin
 			return item
 		}, "Analysis failed."},
 		{"stale analysis", func() readingBookView { return testReadingBook("stale", "Stale", testStale) }, "Analysis out of date."},
+		{"failed re-analysis", func() readingBookView {
+			item := heroTestBook()
+			item.Book.Signals.LatestRun = domain.RunFailed
+			return item
+		}, "Re-analysis failed."},
 		{"missing Book language", func() readingBookView {
 			item := heroTestBook()
 			item.LanguageMissing = true

@@ -14,8 +14,6 @@ import (
 
 // vocabularyCountsUpdatingDescription explains why a Book shows no coverage
 // while its effective vocabulary counts are rebuilt.
-const vocabularyCountsUpdatingDescription = "This Book's vocabulary counts are being refreshed. Coverage appears when they are ready."
-
 // redirectMyBooksFeedback sends a retired Reading address to Reading in the
 // request's study language, keeping the message or error it carried.
 func redirectMyBooksFeedback(w http.ResponseWriter, r *http.Request, query url.Values) {
