@@ -1,5 +1,7 @@
 # Interface components
 
+> **Study cutover.** [ADR 0136](../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) merged the Reading page into My Books, moved Book-scoped vocabulary Browse to the Book detail page (`/books/{id}`), retired the Prepared deck and Known vocabulary, and made [Study](../features/study.md) the only vocabulary workflow. The Reading title-page and chooser patterns, and any deck pattern, are retired with their pages. Where this document names a Reading page or destination, a working desk, a prepared deck or Known vocabulary, read it as the retired design; the current contract is in the [Reading workflow](../features/reading-workflow.md). A full rewrite of this document to the merged page is still to do.
+
 Status: **Established implementation components plus shipped learner-facing
 patterns.** My Books compact-list and Reading title-page/chooser patterns are shipped. The
 JourneyOrder, JourneyForecast, and PrimaryGoalSummary sections below are
