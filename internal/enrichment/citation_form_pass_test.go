@@ -99,14 +99,12 @@ func TestCitationFormPassContractsAreRecordedExactly(t *testing.T) {
 // TestCitationFormChangeLeavesOtherContractsByteForByte pins the contracts the
 // change must not touch by the SHA-256 of their system prompts and their
 // prompt versions: the modern contextual-Gloss contract, German's Fluency
-// agreement contract (and the source-evidence variant) and the #2171 Greek pass
-// contract.
+// agreement contract and its source-evidence variant.
 func TestCitationFormChangeLeavesOtherContractsByteForByte(t *testing.T) {
 	tests := []struct {
 		name, prompt, hash string
 	}{
 		{"modern contextual Gloss", contextualGlossSystemPrompt, "8da909d12ca1801c8cf69d3433e2833e9143c46db4082a755c93e82f6f022dfe"},
-		{"Greek deck pass (#2171)", evidenceAssistedPassSystemPrompt, "655c1c9e2cbbd9eccc5b019baf2fd7d24f892e3382f1bef8b96c45036642b915"},
 		{"Fluency agreement", fluencyAgreementSystemPrompt, "250b76d75a294df28c6c612b7519414527676d975f5c27cdb8d2b35e49be3560"},
 		{"Fluency agreement, source evidence", fluencyAgreementSourceEvidenceSystemPrompt, "27979bd063f2d59e78557fb160203a5fdcba836dcf5f7371a1a7cbee94619825"},
 	}
@@ -116,7 +114,6 @@ func TestCitationFormChangeLeavesOtherContractsByteForByte(t *testing.T) {
 		})
 	}
 	assert.Equal(t, "translation-v17-clause-lemma-mismatch", contextualGlossPromptVersion)
-	assert.Equal(t, "translation-v16-evidence-assisted-greek", evidenceAssistedPassPromptVersion)
 	assert.Equal(t, "fluency-agreement-v2", fluencyAgreementPromptVersion)
 	assert.Equal(t, "fluency-agreement-source-evidence-v2", fluencyAgreementSourceEvidencePromptVersion)
 }
@@ -130,11 +127,8 @@ func TestCheckPassAssessmentAllowsFrozenWorkUnderTheRecordedContracts(t *testing
 	latin.RequireEvidenceAssistedPass = true
 	greekStudy := greekEntryPassRequest()
 	greekStudy.RequireEvidenceAssistedPass = true
-	greekDeck := greekEntryPassRequest()
-	greekDeck.RequireEvidenceAssistedPass, greekDeck.StudyPass = true, false
 
 	require.NoError(t, CheckPassAssessment(codec, latin))
 	require.NoError(t, CheckPassAssessment(codec, greekStudy))
-	require.NoError(t, CheckPassAssessment(codec, greekDeck))
 	require.NoError(t, CheckPassAssessment(codec, TranslationRequest{Language: "la"}), "a request that is not a pass is never refused")
 }

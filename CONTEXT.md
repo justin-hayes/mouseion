@@ -1153,9 +1153,9 @@ truncating.
 _Avoid_: definition, first sense, Gloss.
 
 **Sense summary**:
-A provider-written, context-free condensation of one dictionary entry, each part
-citing the entry's senses. It is shown above the entry it condenses, never
-instead of it, and never chooses a sense for the representative sentence.
+A historical label for a provider-written, context-free condensation of one
+dictionary entry, each part citing the entry's senses. It belonged to the
+retired Prepared deck (ADR 0136); no current surface requests or shows one.
 _Avoid_: Gloss, contextual meaning, definition.
 
 **Fallback gloss**:

@@ -188,11 +188,6 @@ type Querier interface {
 	// prepared-deck enrichment is resolved separately from its manifest keys.
 	GetEnrichmentCache(ctx context.Context, arg GetEnrichmentCacheParams) (GetEnrichmentCacheRow, error)
 	GetExtractedUnitSnapshotIdentity(ctx context.Context, arg GetExtractedUnitSnapshotIdentityParams) (GetExtractedUnitSnapshotIdentityRow, error)
-	// Per-entry cache for the provider-written Ancient Greek LSJ sense summary
-	// (ADR 0101, ticket #2172). Its identity is the LSJ pin, the entry's native
-	// identity and the provider prompt version; it carries no learner identity and
-	// no Book data.
-	GetLSJSenseSummary(ctx context.Context, arg GetLSJSenseSummaryParams) ([]byte, error)
 	GetLatestAnalysisFailureCode(ctx context.Context, arg GetLatestAnalysisFailureCodeParams) (string, error)
 	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookCompletionSummaryParams) (GetMyBookCompletionSummaryRow, error)
@@ -360,7 +355,6 @@ type Querier interface {
 	ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentStudyMaterialParams) ([]ListCurrentStudyMaterialRow, error)
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
-	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
 	ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error)
 	// The one definition of a legacy classical Book. The catalog precondition
 	// counts these rows through ListLegacyLanguageRows and startup conversion reads
@@ -642,7 +636,6 @@ type Querier interface {
 	UpsertCuratedSentence(ctx context.Context, arg UpsertCuratedSentenceParams) (UpsertCuratedSentenceRow, error)
 	UpsertEdition(ctx context.Context, arg UpsertEditionParams) (UpsertEditionRow, error)
 	UpsertEnrichmentCache(ctx context.Context, arg UpsertEnrichmentCacheParams) error
-	UpsertLSJSenseSummary(ctx context.Context, arg UpsertLSJSenseSummaryParams) error
 	UpsertReadingUnit(ctx context.Context, arg UpsertReadingUnitParams) (UpsertReadingUnitRow, error)
 	// Installation-wide reference translations (ADR 0116, ticket #2412). A pinned
 	// English translation file is parsed once per installation; its cited sections

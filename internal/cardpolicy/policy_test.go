@@ -91,24 +91,23 @@ func TestPassContractIsChosenByPolicy(t *testing.T) {
 		language string
 		contract PassContract
 	}{
-		{"grc", PassContractGreek},
+		{"grc", PassContractGreekEntries},
 		{"la", PassContractLatin},
 		{"LA", PassContractLatin},
-		{"de", PassContractGreek}, // no pass runs for a modern language; the zero value is the Greek contract
+		{"de", PassContractNone}, // no pass runs for a modern language
 	}
 	for _, tc := range tests {
 		t.Run(tc.language, func(t *testing.T) {
-			require.Equal(t, tc.contract, For(tc.language).PassContract)
+			require.Equal(t, tc.contract, For(tc.language).StudyPassContract)
 		})
 	}
 }
 
-// TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne proves the policy keeps
-// the deck's lookup and pass contract and gives Study its own (ADR 0139).
+// TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne proves Greek Study looks
+// up every competing entry and carries entry handles in its pass (ADR 0139).
 func TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne(t *testing.T) {
 	policy := For("grc")
-	assert.Equal(t, LookupExactlyOne, policy.DictionaryLookup, "the deck keeps one candidate")
-	assert.Equal(t, PassContractGreek, policy.PassContract, "the deck keeps the existing Greek contract")
+	assert.Equal(t, LookupExactlyOne, policy.DictionaryLookup, "the generic lookup keeps one candidate")
 	assert.Equal(t, LookupEveryEntry, policy.StudyLookup)
 	assert.Equal(t, PassContractGreekEntries, policy.StudyPassContract)
 	assert.True(t, policy.Study, "Greek's Study switch is on after the evidence run (#2767)")
@@ -117,5 +116,5 @@ func TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne(t *testing.T) {
 func TestLatinStudyUsesTheDeckLookupAndContract(t *testing.T) {
 	policy := For("la")
 	assert.Equal(t, policy.DictionaryLookup, policy.StudyLookup)
-	assert.Equal(t, policy.PassContract, policy.StudyPassContract)
+	assert.Equal(t, PassContractLatin, policy.StudyPassContract)
 }

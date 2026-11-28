@@ -19,7 +19,6 @@ func greekEntryPassRequest() TranslationRequest {
 		ExampleSentence:             "ὁ ἀνὴρ λέγει.",
 		PassageContext:              "The man speaks.",
 		RequireEvidenceAssistedPass: true,
-		StudyPass:                   true,
 		CandidateSenses: []LexicalSense{
 			{EvidenceID: EntryEvidenceID("n61607", "n61607.0"), Source: "lsj", Gloss: "to lay"},
 			{EvidenceID: EntryEvidenceID("n61607", "n61607.1"), Source: "lsj", Gloss: "to pick"},
@@ -101,25 +100,9 @@ func TestGreekStudyPassRejectsUnknownAndRepeatedHandles(t *testing.T) {
 	}
 }
 
-// TestGreekDeckPassContractIsUnchanged proves the Prepared deck's pass, which
-// does not set StudyPass, keeps the existing Greek contract byte for byte.
-func TestGreekDeckPassContractIsUnchanged(t *testing.T) {
-	codec := passCodec(t)
-	deck := greekEntryPassRequest()
-	deck.StudyPass = false
-	deck.CandidateSenses = []LexicalSense{{EvidenceID: "n61607.0", Source: "lsj", Gloss: "to lay"}}
-	body, err := codec.EncodeRequest(deck)
-	require.NoError(t, err)
-	assert.NotContains(t, string(body), `"entry"`, "the deck's senses carry no entry handle")
-	assert.Contains(t, string(body), "candidate_senses are the pinned LSJ senses of the lemma, each with a short evidence_id handle. Return")
-	assert.Equal(t, "translation-v16-evidence-assisted-greek", codec.EvidenceAssistedPassPromptContract())
-	assert.NotEqual(t, codec.EvidenceAssistedPassPromptContract(), codec.GreekEntryEvidenceAssistedPassPromptContract())
-	assert.Contains(t, codec.GreekEntryEvidenceAssistedPassProviderVersion(), codec.GreekEntryEvidenceAssistedPassPromptContract())
-}
-
 // TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly proves the
 // #2774 disposition, re-recorded on #2781 for the citation-form contract, is
-// recorded for Greek alone, and that the other records are unchanged.
+// recorded for Greek alone.
 func TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly(t *testing.T) {
 	assertRecordedAssessment(t, "#2781", GreekEntryEvidenceAssistedPassPayload, "grc",
 		(*TranslationCodec).GreekEntryEvidenceAssistedPassPromptContract, GreekEntryEvidenceAssistedPassPayloadFields)
@@ -138,25 +121,13 @@ func TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly(t *testi
 			require.ErrorIs(t, ProviderAssessments().MaySend(GreekEntryEvidenceAssistedPassPayload, language, passCodec(t)), ErrProviderAssessmentNotRecorded)
 		})
 	}
-	t.Run("the Greek deck and Latin records never answer for it", func(t *testing.T) {
-		set := ProviderAssessmentSet{evidenceAssistedPassAssessment, latinEvidenceAssistedPassAssessment}
+	t.Run("the Latin record never answers for it", func(t *testing.T) {
+		set := ProviderAssessmentSet{latinEvidenceAssistedPassAssessment}
 		require.ErrorIs(t, set.MaySend(GreekEntryEvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
 	})
-	t.Run("the new record never answers for the deck or Latin payload", func(t *testing.T) {
+	t.Run("the new record never answers for the Latin payload", func(t *testing.T) {
 		set := ProviderAssessmentSet{greekEntryEvidenceAssistedPassAssessment}
-		require.ErrorIs(t, set.MaySend(EvidenceAssistedPassPayload, "grc", passCodec(t)), ErrProviderAssessmentNotRecorded)
 		require.ErrorIs(t, set.MaySend(LatinEvidenceAssistedPassPayload, "la", passCodec(t)), ErrProviderAssessmentNotRecorded)
-	})
-	t.Run("the #2171 record is unchanged", func(t *testing.T) {
-		require.Equal(t, ProviderAssessment{
-			Kind: EvidenceAssistedPassPayload, Language: "grc", Provider: "openai-compatible",
-			PromptVersion: "translation-v16-evidence-assisted-greek",
-			Fields: []string{
-				"item_id", "language", "target_language", "canonical_lemma", "upos",
-				"target_word", "example_sentence", "passage_context", "candidate_senses",
-			},
-			Disposition: "approved for personal use of the locally produced deck", Ticket: "#2171", Recorded: true,
-		}, evidenceAssistedPassAssessment)
 	})
 	t.Run("a record that drifts from the contract refuses", func(t *testing.T) {
 		drifted := greekEntryEvidenceAssistedPassAssessment
@@ -168,7 +139,6 @@ func TestGreekEntryEvidenceAssistedPassAssessmentIsRecordedForGreekOnly(t *testi
 func TestStudyEvidenceAssistedPassKindFollowsThePolicy(t *testing.T) {
 	assert.Equal(t, GreekEntryEvidenceAssistedPassPayload, StudyEvidenceAssistedPassKind("grc"))
 	assert.Equal(t, LatinEvidenceAssistedPassPayload, StudyEvidenceAssistedPassKind("la"))
-	assert.Equal(t, EvidenceAssistedPassPayload, EvidenceAssistedPassKind("grc"), "the deck's kind is unchanged")
 }
 
 func TestGreekEntryPassProviderVersionNamesTheModelAndContract(t *testing.T) {
@@ -185,8 +155,10 @@ func passCodecVersion(t *testing.T) string {
 	return passCodec(t).GreekEntryEvidenceAssistedPassProviderVersion()
 }
 
-func TestStudyEvidenceAssistedPassKindOfAModernLanguageIsTheDeckPass(t *testing.T) {
-	assert.Equal(t, EvidenceAssistedPassPayload, StudyEvidenceAssistedPassKind("de"))
+func TestStudyEvidenceAssistedPassKindOfAModernLanguageIsRefused(t *testing.T) {
+	kind := StudyEvidenceAssistedPassKind("de")
+	assert.Empty(t, kind)
+	require.ErrorIs(t, ProviderAssessments().MaySend(kind, "de", passCodec(t)), ErrProviderAssessmentNotRecorded)
 }
 
 // TestGreekStudyPassRequestPayloadIsTheRecordedFieldSetInOrder proves from a
