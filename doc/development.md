@@ -364,7 +364,7 @@ stylesheet check.
 | Stylesheet classes and embedded assets (`internal/webapp/components.go`, `internal/webapp/static/**`) | Go and stylesheet | run | run |
 | Fixture server and packages it compiles (`cmd/fixtureserver/**`, `internal/**` non-test code) | Go | run | run |
 | Other Go code and Go test inputs (`cmd/**`, `*_test.go`, `testdata/**`, test helpers) | Go | run | skipped |
-| Embedded Go data (`internal/canonicalization/german_post1996.json`, `internal/cardexport/templates/**`) | Go | run | run |
+| Embedded Go data (`internal/canonicalization/german_post1996.json`) | Go | run | run |
 | Protobuf and sqlc inputs (`proto/**`, `sqlc/**`, `sqlc.yaml`) | Go and regeneration (Python for `proto/**`) | run | skipped |
 | Committed generated Go, sqlc, and templ (`gen/go/**`, `gen/sqlc/**`, `internal/webapp/*_templ.go`) | Go and regeneration | run | run |
 | Committed generated Python (`gen/python/**`) | Python and regeneration | skipped | skipped |

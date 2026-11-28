@@ -419,4 +419,4 @@ must be committed with template changes.
 - [OpenAI Batch API for prepared-deck translation](openai-batch-translation.md)
 - [Durable prepared-deck translation](durable-prepared-deck-translation.md)
 - [Prepared-deck translation performance](../archive/features/llm-translation-performance.md)
-- [Prepared-deck translation operations](../../internal/prepareddeck/README.md)
+- Prepared-deck translation operations (retired with `internal/prepareddeck`)
