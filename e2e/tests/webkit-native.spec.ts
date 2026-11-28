@@ -99,12 +99,12 @@ test.describe('native WebKit smoke journey', () => {
 
       await page.goto('/de/library');
       await chooseStudyLanguage(page, 'de', true);
-      await page.goto('/de/reading?page=1');
+      await page.goto('/books/fixture-book');
       const prefix = page.getByRole('searchbox', { name: 'Canonical lemma prefix' });
       await expect(prefix).toHaveClass(/\binput\b/);
       await prefix.fill('haus');
       await prefix.press('Enter');
-      await expect(page).toHaveURL(/\/reading\?.*q=haus/);
+      await expect(page).toHaveURL(/\/books\/fixture-book\?q=haus/);
       await expect(page.locator('#vocabulary-results-heading')).toBeFocused();
       await expectNoHorizontalOverflow(page);
     } finally {
@@ -169,7 +169,7 @@ test.describe('native WebKit smoke journey', () => {
       await expect(navigation.getByRole('link', { name: destination.name, exact: true })).toHaveAttribute('aria-current', 'page');
     }
 
-    await page.goto('/de/reading?page=1');
+    await page.goto('/de/library');
     await chooseStudyLanguage(page, 'it');
     await expect(page).toHaveURL(/\/it\/library$/);
     await expect(page.locator('.library-language-context')).toContainText(/italian/i);
@@ -510,7 +510,7 @@ test.describe('native WebKit smoke journey', () => {
       await expect(vocabularyLink).toHaveAttribute('href', '/de/vocabulary');
       await vocabularyLink.click();
       await expect(page).toHaveURL(/\/vocabulary$/);
-      await page.goto('/de/reading?page=1');
+      await page.goto('/de/library');
       await chooseStudyLanguage(page, 'it', true);
       await expect(page).toHaveURL(/\/it\/library$/);
       await expect(page.locator('.library-language-context')).toContainText(/italian/i);

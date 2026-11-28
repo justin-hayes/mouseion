@@ -124,7 +124,8 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('#library-page-title')).toHaveText('My Books');
     const item = page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
     const itemFocusStops = item.locator('a, button:not([disabled]), summary');
-    await expect(itemFocusStops.first()).toHaveText('More actions');
+    await expect(itemFocusStops.first()).toHaveText('Der lange Weg nach Hause');
+    await expect(itemFocusStops.first()).toHaveAttribute('href', '/books/fixture-book');
     await itemFocusStops.first().focus();
     await expect(itemFocusStops.first()).toBeFocused();
     await expect(page.locator('.library-books').getByText('Review failed analysis')).toHaveCount(0);
@@ -143,12 +144,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(goalLink).toBeFocused();
   });
 
-  test('unassessed books have no detail page or standalone analysis action', async ({ page }) => {
+  test('unassessed books offer no standalone analysis action on their detail page', async ({ page }) => {
     await signIn(page);
     const response = await page.goto('/books/fixture-empty');
-    expect(response?.status()).toBe(404);
-    await page.goto('/de/reading?page=1');
+    expect(response?.status()).toBe(200);
     await expect(page.getByRole('button', { name: 'Start analysis' })).toHaveCount(0);
+    expect((await page.goto('/books/no-such-book'))?.status()).toBe(404);
   });
 
   test('the focused Book deck task is gone whether or not the Book is Current reading', async ({ page }) => {

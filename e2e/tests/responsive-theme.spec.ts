@@ -23,7 +23,7 @@ async function openSupportingDetails(page: Page) {
 
 const representativePages: Array<[string, RegExp]> = [
   ['/de/library', /My Books/],
-  ['/de/reading?page=1', /Der lange Weg nach Hause/],
+  ['/books/fixture-book', /Der lange Weg nach Hause/],
   ['/jobs/42', /Analysis job #1/],
   ['/books/fixture-book/analyses/fixture-run', /Der lange Weg nach Hause/],
   ['/jobs', /Jobs/],
@@ -362,12 +362,12 @@ test.describe('responsive and theme regression coverage', () => {
       language.value = 'el-fixture';
       document.querySelector('.site-header__account-name')!.textContent = 'fixture-learner-with-a-long-account-name';
     });
-    await page.goto('/de/reading?page=1');
+    await page.goto('/books/fixture-book');
     await expect(page.locator('body')).toHaveClass('reading-shell');
     await expect(page.locator('link[rel="stylesheet"][href="/static/app.css"]')).toHaveCount(1);
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
     await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
-    await expect(page.getByRole('table', { name: 'Current effective vocabulary' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Words by Study state' })).toBeVisible();
     await expectNoPageOverflow(page);
     const firstResult = page.getByRole('row').nth(1);
     const firstResultSize = await firstResult.boundingBox();
@@ -389,8 +389,8 @@ test.describe('responsive and theme regression coverage', () => {
       expect(box.height, box.text).toBeGreaterThanOrEqual(44);
     }
 
-    await page.goto('/de/reading?q=paging');
-    const browsePageLinks = page.getByRole('navigation', { name: 'Browse pages' }).getByRole('link');
+    await page.goto('/books/fixture-book?q=paging');
+    const browsePageLinks = page.getByRole('navigation', { name: 'Word pages' }).getByRole('link');
     const pageLinkBoxes = await browsePageLinks.evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { width: box.width, height: box.height, text: node.textContent?.trim() };
@@ -750,7 +750,7 @@ test.describe('responsive and theme regression coverage', () => {
   test('Reading respects the reduced-motion preference', async ({ page }) => {
     await signIn(page);
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto('/de/reading?page=1');
+    await page.goto('/books/fixture-book');
     const motion = await page.evaluate(() => ({
       requested: matchMedia('(prefers-reduced-motion: reduce)').matches,
       animations: Array.from(document.querySelectorAll('main h1, main h2, button, a[role="button"]')).map((node) => getComputedStyle(node).animationName),
@@ -773,9 +773,7 @@ test.describe('responsive and theme regression coverage', () => {
       await expect(page).toHaveURL(/\/de\/library$/);
     }
     await expect(page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' })).toBeVisible();
-    await expect(page.locator('.library-books a[href="/books/fixture-failed"]')).toHaveCount(0);
-    await expect(page.locator('.library-books a[href="/books/fixture-edge-content"]')).toHaveCount(0);
-    await expect(page.locator('.library-books a[href="/books/fixture-empty"]')).toHaveCount(0);
+    await expect(page.locator('.library-books a[href="/books/fixture-failed"]')).toHaveCount(1);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expectNoPageOverflow(page);
     const libraryControls = page.locator('.library-books button:visible, .library-books a.library-book__journey-action:visible, .library-books > .library-book > details > summary:visible');
@@ -804,13 +802,13 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('dense analysis, deck provenance, and error surfaces expose realistic content', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading?page=1');
-    await expect(page.locator('#journey-book-fixture-book')).toBeVisible();
+    await page.goto('/books/fixture-book');
+    await expect(page.locator('#book-detail-summary')).toBeVisible();
     await expect(page.getByText('Vocabulary investment', { exact: true })).toHaveCount(0);
     await expect(page.getByText('Highest-impact unknown vocabulary', { exact: true })).toHaveCount(0);
     await page.goto('/jobs');
     await expect(page.getByRole('region', { name: 'Book preparations' }).locator('tbody tr')).toHaveCount(19);
-    await page.goto('/de/reading?page=1');
+    await page.goto('/books/fixture-book');
     await expect(page.getByRole('heading', { name: "This Book's vocabulary study" })).toHaveCount(0);
     await page.goto('/jobs/43');
     await expect(page.getByRole('alert')).toContainText(/Retry the analysis when you are ready/);
@@ -871,9 +869,8 @@ test.describe('responsive and theme regression coverage', () => {
       expect(control.left, control.text).toBeGreaterThanOrEqual(-1);
       expect(control.right, control.text).toBeLessThanOrEqual(await page.evaluate(() => window.innerWidth) + 1);
     }
-    await page.goto('/de/reading?page=1');
-    await openSupportingDetails(page);
-    await expect(page.locator('#journey-book-fixture-book a[href$="/deck/preparations/new"]')).toHaveCount(0);
+    await page.goto('/books/fixture-book');
+    await expect(page.locator('#book-detail-summary a[href$="/deck/preparations/new"]')).toHaveCount(0);
   });
 
   test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {
@@ -919,26 +916,24 @@ test.describe('responsive and theme regression coverage', () => {
   test('current Book and its evidence reflow without overflow at 200 percent text on a narrow viewport', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 320, height: 812 });
-    await page.goto('/de/reading?page=1');
+    await page.goto('/books/fixture-book');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
-    const card = page.locator('#primary-goal-section article.journey-book--goal');
-    await expect(card).toBeVisible();
-    await expect(card.locator('.journey-book__evidence')).toBeVisible();
-    await expect(card.locator('.journey-book__lifecycle')).toBeVisible();
+    await expect(page.locator('#book-detail-summary')).toBeVisible();
+    await expect(page.locator('#book-detail-analysis')).toBeVisible();
     await expect(page.locator('#vocabulary-prefix')).toBeVisible();
     await expectNoPageOverflow(page);
   });
 
   test('Journey thumbnails stay aligned, quiet, and outside the keyboard order', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading?page=1');
+    await page.goto('/books/fixture-book');
 
     const cards = page.locator('.journey-book');
     const thumbnails = cards.locator('.journey-book__cover');
     await expect(thumbnails).toHaveCount(await cards.count());
-    await expect(page.locator('.journey-book--goal .journey-book__cover img')).toHaveAttribute('alt', '');
-    await expect(page.locator('.journey-book--goal .journey-book__cover img')).toHaveAttribute('src', '/books/fixture-book/cover');
-    await expect(page.locator('.journey-book--goal .journey-book__cover img')).toBeVisible();
+    await expect(page.locator('#book-detail-summary .journey-book__cover img')).toHaveAttribute('alt', '');
+    await expect(page.locator('#book-detail-summary .journey-book__cover img')).toHaveAttribute('src', '/books/fixture-book/cover');
+    await expect(page.locator('#book-detail-summary .journey-book__cover img')).toBeVisible();
     await expect(page.locator('.journey-book__cover a, .journey-book__cover button, .journey-book__cover summary')).toHaveCount(0);
 
     const layout = await thumbnails.evaluateAll((nodes) => nodes.map((node) => {
@@ -956,11 +951,11 @@ test.describe('responsive and theme regression coverage', () => {
 
   test('Journey titles and actions remain reachable at 200 percent text size', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/reading?page=1');
+    await page.goto('/books/fixture-book');
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
     await expect(page.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
-    await expect(page.locator('.journey-book__lifecycle').first()).toBeVisible();
+    await expect(page.locator('#book-detail-analysis')).toBeVisible();
     await expectNoPageOverflow(page);
   });
 

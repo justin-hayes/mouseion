@@ -86,7 +86,7 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 		assert.Contains(t, html, want, "metadata-only My Books item missing %q: %s", want, html)
 	}
 	assert.NotContains(t, html, "Refresh metadata", "metadata-only My Books item still exposed the retired refresh action: %s", html)
-	assert.NotContains(t, html, `href="/books/metadata-book"`, "metadata-only My Books row linked to the retired Book detail page: %s", html)
+	assert.Contains(t, html, `href="/books/metadata-book"`, "metadata-only My Books row missing its Book detail link: %s", html)
 	row := html
 	if start := strings.Index(row, `aria-labelledby="book-title-metadata-book"`); start >= 0 {
 		row = row[start:]
@@ -249,7 +249,7 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, !strings.Contains(html, `href="/reading`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
+	assert.True(t, !strings.Contains(html, `href="/reading`) && strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
 	assert.NotContains(t, html, "Analysis evidence")
 }
 
@@ -266,7 +266,7 @@ func TestAnalyzedNonReadingMyBookKeepsEvidenceWithoutLink(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, "Analysis evidence") || strings.Contains(html, `href="/reading/analyzed-outside-journey"`) || strings.Contains(html, `href="/books/`) || strings.Contains(html, "View analysis result"), "analyzed non-member My Books item exposed an invalid link or state: %s", html)
+	assert.False(t, strings.Contains(html, "Analysis evidence") || strings.Contains(html, `href="/reading/analyzed-outside-journey"`) || strings.Contains(html, "View analysis result"), "analyzed non-member My Books item exposed an invalid link or state: %s", html)
 }
 
 func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
@@ -318,7 +318,6 @@ func TestMyBooksOmitsEvidenceAndAcquisitionState(t *testing.T) {
 	for _, label := range []string{"Unavailable", "Not acquired", "Ready to analyze", "Analysis not started", "Analyzed", "Stale analysis", "current reading", "Next action", "Analysis evidence"} {
 		assert.NotContains(t, html, label)
 	}
-	assert.NotContains(t, html, `href="/books/`, "learner My Books linked to the retired Book detail page: %s", html)
 	assert.False(t, strings.Contains(html, "Start analysis") || strings.Contains(html, `/analyze`), "My Books rows exposed an explicit analysis action: %s", html)
 }
 
@@ -446,17 +445,14 @@ func TestUpstreamBrowserRoutesAreRetired(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, response.Code)
 }
 
-func TestUnassessedBookDetailAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {
+func TestBookDetailServesAnyBookInMyBooksAndStandaloneAnalysisRoutesAreRetired(t *testing.T) {
 	h, cookies, csrf, _ := readingFixtureSession(t)
 	for _, path := range []string{"/books/fixture-empty", "/books/fixture-book", "/books/fixture-failed"} {
-		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
-		for _, cookie := range cookies {
-			request.AddCookie(cookie)
-		}
-		response := httptest.NewRecorder()
-		h.ServeHTTP(response, request)
-		assert.Equal(t, http.StatusNotFound, response.Code, path)
+		response := performReadingRequest(t, h, http.MethodGet, path, nil, cookies)
+		assert.Equal(t, http.StatusOK, response.Code, path)
+		assert.Contains(t, response.Body.String(), `id="book-detail-analysis"`, path)
 	}
+	assert.Equal(t, http.StatusNotFound, performReadingRequest(t, h, http.MethodGet, "/books/no-such-book", nil, cookies).Code)
 	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/books/fixture-empty/analyze", url.Values{"csrf_token": {csrf}}, cookies).Code)
 	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/books/fixture-metadata-only/refresh", url.Values{"csrf_token": {csrf}}, cookies).Code)
 	assert.Equal(t, http.StatusNotFound, readingTestRequest(t, h, "/books/fixture-book/deck/preparations", url.Values{"csrf_token": {csrf}}, cookies).Code)

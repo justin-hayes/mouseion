@@ -7,15 +7,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/a-h/templ"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// readingPageForTest renders the Current reading where it lives now: pinned at
+// the top of the merged My Books page.
+func readingPageForTest(user domain.User, csrf string, view readingPageView) templ.Component {
+	return MyBooksPage(user, csrf, nil, "", "", MyBooksBrowseState{Enabled: true, Language: "de", LanguageLabel: "German", CurrentReading: view.CurrentReading})
+}
+
 func renderReading(t *testing.T, view readingPageView) string {
 	t.Helper()
 	var output bytes.Buffer
-	require.NoError(t, ReadingPage(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view, "", "").Render(context.Background(), &output))
+	require.NoError(t, readingPageForTest(domain.User{ID: "owner-1", Username: "learner"}, "csrf-token", view).Render(context.Background(), &output))
 	return output.String()
 }
 
@@ -61,7 +68,6 @@ func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
 	assert.Contains(t, html, "Analysis</h2>")
 	assert.NotContains(t, html, "Book deck</h2>")
-	assert.Contains(t, html, `href="/library">Back to My Books</a>`)
 }
 
 func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
