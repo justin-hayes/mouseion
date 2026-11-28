@@ -1,5 +1,7 @@
 # Book analysis and deck workflow
 
+> **Study cutover.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired the Prepared deck. The deck, preparation and download steps below are historical; analysis, refresh and the ensure-once trigger still hold.
+
 Status: **Canonical support workflow, partially superseded.** Analysis and deck
 preparation serve a Book while current reading and Read history remain independent. The
 Reading workflow at [`../../features/reading-workflow.md`](../../features/reading-workflow.md)

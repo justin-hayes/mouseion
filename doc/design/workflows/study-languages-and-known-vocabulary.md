@@ -1,5 +1,7 @@
 # Study languages and known vocabulary workflow
 
+> **Study cutover.** [ADR 0136](../../adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md) retired Known vocabulary, the snapshot and Reserved vocabulary. Study languages are still derived from My Books; the Known vocabulary provenance below is historical, and knowledge is now a Mature word in [Study](../../features/study.md).
+
 Status: **Canonical supporting workflow.** Study languages are derived from My
 Books. Known vocabulary comes only from Reading completion: starting current
 reading freezes the active vocabulary snapshot, and finishing it adds eligible

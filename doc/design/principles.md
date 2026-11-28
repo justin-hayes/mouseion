@@ -31,25 +31,26 @@ not turn low preparation cost into a recommendation about what the learner ought
 to read, imply difficulty or predicted outcome, or impose an order on To Read
 books.
 
-The between-Books chooser presents eligible candidates without ranking. Every To
-Read Book is its own entry; its band is evidence, never an order or a next Book. The learner can choose a current Book, remain between Books, or return to
-My Books. Mouseion supports a reading life; it does not plan one.
+My Books presents To Read Books in title order. Every To Read Book is its own
+entry; its band is evidence, never an order or a next Book, and the optional
+most-readable sort is the learner's choice. The learner can read a Book next,
+remain between Books, or return to My Books. Mouseion supports a reading life; it does not plan one.
 
 ## Commitment and continuation
 
-Reading is one current Book or an unordered set of To Read candidates. Starting,
-switching, ending, and finishing are distinct and reversible
-where appropriate. Completion is a durable history fact, not a workflow bucket
+My Books pins one Current reading above the unordered To Read Books. Reading
+next, ending, and finishing are distinct and reversible where appropriate, and
+none needs a confirmation because none changes vocabulary. Completion is a durable history fact, not a workflow bucket
 or claim of vocabulary mastery. **Read again** preserves earlier completion
 history while returning the Book to To Read.
 
 ## Epistemic honesty
 
 Keep reading history, preparation activity, vocabulary knowledge, and analysis
-evidence distinct. Finishing current reading accepts eligible frozen snapshot
-identities into modeled Known vocabulary. This is a learner-state assertion,
-not proof of per-card mastery. Show the exact modeled change and identify
-current, stale, incomplete, or unavailable evidence plainly.
+evidence distinct. Finishing current reading changes no vocabulary: the one
+claim of knowledge is a **Mature** word in Study, which graded reviews earn and
+a lapse can end. Identify current, stale, incomplete, or unavailable evidence
+plainly.
 
 Never collapse lexical coverage, structural signals, evidence quality, and
 learner desire into one score. Always identify whether evidence is current,
