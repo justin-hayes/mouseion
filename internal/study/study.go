@@ -201,19 +201,19 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 	if err := ReconcileReports(ctx, s.store, owner, language, s.now()); err != nil {
 		return err
 	}
-	candidates, err := s.store.ListStudyCandidates(ctx, owner, language)
+	stream, err := s.store.GetStudyStream(ctx, owner, language)
 	if err != nil {
 		return err
 	}
+	var idiomCandidates []domain.StudyCandidate
 	if s.idioms.active(language) {
 		// An Idiom's count comes from the per-Book counts, which a job keeps;
 		// a Book whose counts are not ready adds its Idioms when they are, at
 		// the next plan.
-		idiomCandidates, _, err := s.store.ListStudyIdiomCandidates(ctx, owner, language, s.idioms.IndexVersion)
+		idiomCandidates, _, err = s.store.ListStudyIdiomCandidates(ctx, owner, language, s.idioms.IndexVersion)
 		if err != nil {
 			return err
 		}
-		candidates = append(candidates, idiomCandidates...)
 	}
 	progress, err := s.store.ListStudyProgress(ctx, owner, language)
 	if err != nil {
@@ -240,11 +240,7 @@ func (s *Service) PlanPreparation(ctx context.Context, owner, language string) e
 			states[item.StudyItem] = domain.StudyMaterialPending
 		}
 	}
-	coverage, err := s.store.GetStudyReadingCoverage(ctx, owner, language)
-	if err != nil {
-		return err
-	}
-	targets := domain.StudyPreparationTargets(domain.OrderStudyStream(domain.WithoutStudyProgress(candidates, progress, domain.StudyHeldIdentities(reports)), coverage.BoostsCurrentReading()), states)
+	targets := domain.StudyPreparationTargets(domain.WithoutStudyProgress(stream.Ordered(idiomCandidates), progress, domain.StudyHeldIdentities(reports)), states)
 	if err := s.prepareTargets(ctx, owner, targets, current, func(item domain.StudyItem) string { return s.pinOf(item, pin) }); err != nil {
 		return err
 	}

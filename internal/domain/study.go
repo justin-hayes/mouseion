@@ -157,6 +157,23 @@ func (c StudyCandidate) frequency() int64 {
 	return c.ToReadOccurrences
 }
 
+// StudyStream is what orders the Study stream: the candidates a store read and
+// the Current reading's coverage. Every reader of the stream (preparation
+// targets, New-word batches, the fixture server) orders it through Ordered, so
+// the ordering input changes in one place.
+type StudyStream struct {
+	Candidates []StudyCandidate
+	Coverage   StudyReadingCoverage
+}
+
+// Ordered returns the stream's candidates, with the given Idiom candidates
+// ranked among them, in stream order. The stream is not modified.
+func (s StudyStream) Ordered(idioms []StudyCandidate) []StudyCandidate {
+	all := make([]StudyCandidate, 0, len(s.Candidates)+len(idioms))
+	all = append(append(all, s.Candidates...), idioms...)
+	return OrderStudyStream(all, s.Coverage.BoostsCurrentReading())
+}
+
 // OrderStudyStream returns the candidates in stream order. While boost is set
 // (the Current reading is below Target coverage) its words come first, by their
 // occurrences within it; every other candidate follows by frequency across the

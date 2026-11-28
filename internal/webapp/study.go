@@ -535,7 +535,7 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 	// need their place in the stream: the rest of the library's candidates are
 	// never read.
 	lookup := domain.StudyBatchLookup(material, progress, held)
-	candidates, err := store.ListStudyCandidatesAmong(r.Context(), owner, language, lookup)
+	stream, err := store.GetStudyStreamAmong(r.Context(), owner, language, lookup)
 	if err != nil {
 		return nil, err
 	}
@@ -543,12 +543,7 @@ func (h *Handler) nextStudyBatch(r *http.Request, owner, language string, progre
 	if err != nil {
 		return nil, err
 	}
-	candidates = append(candidates, idioms...)
-	coverage, err := store.GetStudyReadingCoverage(r.Context(), owner, language)
-	if err != nil {
-		return nil, err
-	}
-	return domain.NextStudyBatch(domain.OrderStudyStream(candidates, coverage.BoostsCurrentReading()), material, progress, held, now), nil
+	return domain.NextStudyBatch(stream.Ordered(idioms), material, progress, held, now), nil
 }
 
 // idiomMaterialCounts splits the Idioms out of the counts, so the page can

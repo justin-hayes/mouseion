@@ -14,15 +14,13 @@ import (
 // (ADR 0088).
 type StudyStore interface { //nolint:interfacebloat // the Study page's store is one seam over progress, batches, grades, corrections, Fluency and reports
 	CountStudyMaterial(ctx context.Context, owner, language string) (domain.StudyMaterialCounts, error)
-	// ListStudyCandidates is the fact a batch is chosen from; the domain orders
+	// GetStudyStream is what orders the stream preparation and batches are chosen
+	// from: the candidates and the Current reading's coverage; the domain orders
 	// them. ListCurrentStudyMaterial, with it, is in StudyCorrectionsStore.
-	ListStudyCandidates(ctx context.Context, owner, language string) ([]domain.StudyCandidate, error)
-	// ListStudyCandidatesAmong is the same fact for the given identities only,
+	GetStudyStream(ctx context.Context, owner, language string) (domain.StudyStream, error)
+	// GetStudyStreamAmong is the same fact for the given identities only,
 	// without reading the library's other candidates.
-	ListStudyCandidatesAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) ([]domain.StudyCandidate, error)
-	// GetStudyReadingCoverage is the Current reading's coverage toward Target
-	// coverage, which decides whether its words come first in the stream.
-	GetStudyReadingCoverage(ctx context.Context, owner, language string) (domain.StudyReadingCoverage, error)
+	GetStudyStreamAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) (domain.StudyStream, error)
 	ListStudyProgress(ctx context.Context, owner, language string) ([]domain.StudyProgress, error)
 	// CountStudyReviewsDue is how many reviews are still due on the Study day
 	// containing now: the count Today's finish line holds, read as one count.
