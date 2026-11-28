@@ -107,19 +107,6 @@ func TestFormatCitationRangeHandlesSuffixesAndNamedSections(t *testing.T) {
 	assert.Equal(t, "1.pr, 1.ep", FormatCitationRange([]string{"1.ep", "1.pr"}))
 }
 
-func TestCTSTextgroupReadsThePerseusFileName(t *testing.T) {
-	for name, want := range map[string]string{
-		"phi0474.phi001.perseus-eng2.xml":               "phi0474",
-		"tlg0059.tlg002.perseus-grc2_oga020_src.conllu": "tlg0059",
-		"synthetic-latin-translation.xml":               "",
-		"":                                              "",
-	} {
-		if got := CTSTextgroup(name); got != want {
-			t.Errorf("CTSTextgroup(%q) = %q, want %q", name, got, want)
-		}
-	}
-}
-
 func TestCitationContains(t *testing.T) {
 	cases := map[string]struct {
 		outer, inner string

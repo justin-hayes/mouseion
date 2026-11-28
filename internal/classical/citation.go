@@ -2,7 +2,6 @@ package classical
 
 import (
 	"fmt"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -224,17 +223,4 @@ func CompareCitations(a, b string) (int, error) {
 		return 0, fmt.Errorf("classical: %q is not a dotted citation", b)
 	}
 	return left.Compare(right), nil
-}
-
-var ctsTextgroupFile = regexp.MustCompile(`^((?:phi|tlg|stoa)\d{4})\.`)
-
-// CTSTextgroup returns the CTS textgroup a Perseus-named file belongs to: the
-// leading component of "phi0474.phi001.perseus-eng2.xml" is "phi0474". It is
-// empty for a file name that does not follow the Perseus convention.
-func CTSTextgroup(fileName string) string {
-	match := ctsTextgroupFile.FindStringSubmatch(strings.ToLower(strings.TrimSpace(fileName)))
-	if match == nil {
-		return ""
-	}
-	return match[1]
 }

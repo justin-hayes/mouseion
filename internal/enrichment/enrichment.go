@@ -6,7 +6,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -180,16 +179,6 @@ type CacheEntry struct {
 	SentenceTranslationTargets                                                 []string
 	SenseSelection                                                             []int
 	CachedAt                                                                   time.Time
-}
-
-// HasRequiredTranslationFields reports whether a cached result satisfies the
-// frozen prepared-deck translation contract. The target phrase is optional:
-// the codec permits it to be empty when there is no reliable literal match.
-func HasRequiredTranslationFields(entry CacheEntry, sourceSentence string) bool {
-	if strings.TrimSpace(entry.Translation) == "" {
-		return false
-	}
-	return strings.TrimSpace(sourceSentence) == "" || strings.TrimSpace(entry.SentenceTranslation) != ""
 }
 
 type ExternalCache interface {
@@ -605,18 +594,6 @@ func SentenceHash(sentence string) string {
 		return ""
 	}
 	sum := sha256.Sum256([]byte(normalized))
-	return hex.EncodeToString(sum[:])
-}
-
-// MeaningEvidenceHash identifies the exact ordered public lexical candidates
-// supplied to the contextual-gloss model, so changed evidence cannot hit an
-// older result for the same word and sentence.
-func MeaningEvidenceHash(senses []LexicalSense) string {
-	encoded, err := json.Marshal(CloneLexicalSenses(senses))
-	if err != nil {
-		return ""
-	}
-	sum := sha256.Sum256(encoded)
 	return hex.EncodeToString(sum[:])
 }
 
