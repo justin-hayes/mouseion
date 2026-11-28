@@ -548,7 +548,7 @@ func myBooksPageOffset(page int) int {
 
 // myBooksBrowseBooks is the page's Books in the active language. Store-backed
 // browsing already supplies exactly the page; lightweight callers such as the
-// in-memory fixture store and legacy LibraryPage pass an unfiltered slice.
+// in-memory fixture store pass an unfiltered slice.
 func myBooksBrowseBooks(browse MyBooksBrowseState, books []domain.MyBook) []domain.MyBook {
 	visible := make([]domain.MyBook, 0, len(books))
 	for _, book := range books {
