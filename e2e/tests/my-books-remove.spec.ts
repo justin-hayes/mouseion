@@ -21,7 +21,7 @@ test.describe('Remove from Reading', () => {
     await page.goto('/catalogs?language=de');
 
     const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
-    await entry.getByRole('button', { name: 'Add', exact: true }).click();
+    await entry.getByRole('button', { name: 'Add to Reading', exact: true }).click();
     await expect(entry.getByRole('link', { name: 'In Reading', exact: true })).toBeVisible();
 
     await page.goto('/de/reading');
@@ -36,8 +36,8 @@ test.describe('Remove from Reading', () => {
     // The Catalog offers Add again, and Add restores the same Book.
     await page.goto('/catalogs?language=de');
     const addedAgain = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
-    await expect(addedAgain.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
-    await addedAgain.getByRole('button', { name: 'Add', exact: true }).click();
+    await expect(addedAgain.getByRole('button', { name: 'Add to Reading', exact: true })).toBeVisible();
+    await addedAgain.getByRole('button', { name: 'Add to Reading', exact: true }).click();
     await expect(addedAgain.getByRole('link', { name: 'In Reading', exact: true })).toBeVisible();
     await page.goto('/de/reading');
     await expect(page.locator('#book-row-fixture-catalogue-restore')).toBeVisible();
@@ -77,7 +77,7 @@ test.describe('Remove from Reading', () => {
     const contents = page.getByRole('region', { name: /Contents of Iliad/ }).getByRole('table');
     await expect(contents.getByRole('row')).toHaveCount(4);
     await expect(contents.getByRole('button')).toHaveCount(0);
-    const add = page.getByRole('button', { name: 'Add', exact: true });
+    const add = page.getByRole('button', { name: 'Add to Reading', exact: true });
     await expect(add).toHaveCount(1);
     await expect(page.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(1);
     await add.click();

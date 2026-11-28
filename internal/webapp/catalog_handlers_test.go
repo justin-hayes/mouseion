@@ -309,7 +309,7 @@ func TestClassicalSectionRendersOneOrdinaryCardPerReadingUnit(t *testing.T) {
 		`action="/catalogs/classical/units/plato-republic/previously-read"`,
 		`name="return" value="index"`,
 		`Adding prepares the text for reading.`,
-		`>Add</button>`,
+		`>Add to Reading</button>`,
 		`>I've read this</button>`,
 		`class="catalog-source__footer"`,
 		`Greek text source:`,
