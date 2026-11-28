@@ -1,11 +1,11 @@
 # ADR 0136: Study replaces Known vocabulary and the Prepared deck
 
-Status: **Accepted; implementation pending (the Study cutover, §8)** ·
+Status: **Accepted; implemented (the Study cutover, §8, PR #2803); retired tables dropped in a later release (#2746)** ·
 Date: 2026-11-26 · Author: Justin + OpenCode
 
 Accepted by merging this ADR's pull request. Justin decided it in a grilling
-session on future product direction. Until the cutover, the ADRs below keep
-describing the running system.
+session on future product direction. Until the cutover (PR #2803), the ADRs below
+described the running system.
 
 At the cutover, this ADR amends or retires parts of:
 
