@@ -24,7 +24,7 @@ func (s *PostgresStore) CreateDevice(ctx context.Context, ownerID, name, usernam
 	return domain.Device{ID: row.ID, Name: row.Name, Username: row.Username, CreatedAt: row.CreatedAt, LastSeenAt: pgTimePtr(row.LastSeenAt), RevokedAt: pgTimePtr(row.RevokedAt)}, nil
 }
 
-// ListDevices returns the owner's Devices that are not revoked, oldest first.
+// ListDevices returns the owner's Devices, revoked ones included, oldest first.
 func (s *PostgresStore) ListDevices(ctx context.Context, ownerID string) ([]domain.Device, error) {
 	rows, err := s.queries().ListDevices(ctx, ownerID)
 	if err != nil {

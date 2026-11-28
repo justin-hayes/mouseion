@@ -43,7 +43,7 @@ func (s *DeviceStore) ListDevices(_ context.Context, ownerID string) ([]domain.D
 	defer s.mu.Unlock()
 	var out []domain.Device
 	for _, d := range s.devices {
-		if d.owner == ownerID && d.device.RevokedAt == nil {
+		if d.owner == ownerID {
 			out = append(out, d.device)
 		}
 	}

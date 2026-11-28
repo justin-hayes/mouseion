@@ -29,9 +29,12 @@ accept instead (ADR 0143, spec #2868).
   recovered from Mouseion.
 - The server address is `http://<host>/kosync`, from the host the learner is
   using. Mouseion is meant for the tailnet over plain HTTP (ADR 0009).
+- A revoked Device stays listed and is marked Revoked.
+- The credential is shown with brief KOReader steps: Progress sync, Custom
+  sync server, Login.
 - The page and the add response are served with `Cache-Control: no-store`.
 
 ## Not in this feature yet
 
-Signing in from KOReader, the KOReader setup steps and revoking a Device are
+Signing in from KOReader and revoking a Device are
 later tickets of #2868.

@@ -32,6 +32,8 @@ templ DevicesPage(user domain.User, csrf string, view DevicesView) {
 					<dt>Password</dt><dd><code id="device-password">{ view.Issued.Password }</code></dd>
 					<dt>Server address</dt><dd><code id="device-address">{ view.KosyncAddress }</code></dd>
 				</dl>
+				<h3>Set up KOReader</h3>
+				<ol><li>Open Settings, then Progress sync.</li><li>Choose Custom sync server and enter the server address above.</li><li>Choose Login and enter the username and password above.</li></ol>
 			</article>
 		}
 		<article id="add-device"><h2>Add device</h2><form class="device-form" method="post" action="/devices"><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ view.Name } maxlength="60" required/></label></div><button class="button" type="submit">Add device</button></form></article>
@@ -41,7 +43,7 @@ templ DevicesPage(user domain.User, csrf string, view DevicesView) {
 			<h2>Your devices</h2>
 			<div class="catalog-list">
 				for _, device := range view.Devices {
-					<article class="catalog-record" id={ "device-" + device.ID } aria-labelledby={ "device-name-" + device.ID }><header><h3 id={ "device-name-" + device.ID }>{ device.Name }</h3></header><div class="catalog-record__details"><p>Username: <code>{ device.Username }</code></p><p>Added: { completedAtLabel(&device.CreatedAt) }</p><p>Last seen: { deviceLastSeen(device) }</p></div></article>
+					<article class="catalog-record" id={ "device-" + device.ID } aria-labelledby={ "device-name-" + device.ID }><header><h3 id={ "device-name-" + device.ID }>{ device.Name }</h3></header><div class="catalog-record__details"><p>Username: <code>{ device.Username }</code></p><p>Added: { completedAtLabel(&device.CreatedAt) }</p><p>Last seen: { deviceLastSeen(device) }</p>if device.RevokedAt != nil {<p>Revoked</p>}</div></article>
 				}
 			</div>
 		}

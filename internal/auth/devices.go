@@ -39,7 +39,7 @@ type DeviceStore interface {
 	// CreateDevice stores a Device and returns ErrDeviceUsernameTaken when the
 	// username already exists.
 	CreateDevice(ctx context.Context, ownerID, name, username, keyHash string) (domain.Device, error)
-	// ListDevices returns the owner's Devices that are not revoked, oldest first.
+	// ListDevices returns the owner's Devices, revoked ones included, oldest first.
 	ListDevices(ctx context.Context, ownerID string) ([]domain.Device, error)
 }
 

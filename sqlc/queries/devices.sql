@@ -8,8 +8,8 @@ VALUES (sqlc.arg('owner'), sqlc.arg('name'), sqlc.arg('username'), sqlc.arg('key
 RETURNING id::text AS id, name, username, created_at, last_seen_at, revoked_at;
 
 -- name: ListDevices :many
--- The owner's Devices that are not revoked, oldest first.
+-- The owner's Devices, revoked ones included, oldest first.
 SELECT id::text AS id, name, username, created_at, last_seen_at, revoked_at
   FROM devices
- WHERE owner_id = sqlc.arg('owner') AND revoked_at IS NULL
+ WHERE owner_id = sqlc.arg('owner')
  ORDER BY created_at, id;
