@@ -3483,7 +3483,7 @@
   }
   @media (max-width: 40rem) {
     body:is(.reading-shell, .reading-list-shell) .current-hero {
-      grid-template-columns: 6.5rem minmax(0, 1fr);
+      grid-template-columns: min(6.5rem, 28vw) minmax(0, 1fr);
       gap: var(--mouseion-space-2) var(--mouseion-space-4);
       padding: var(--mouseion-space-4);
     }

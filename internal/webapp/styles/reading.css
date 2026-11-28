@@ -978,7 +978,9 @@ body:is(.reading-shell, .reading-list-shell) .current-hero a:not(.button) {
 
 @media (max-width: 40rem) {
   body:is(.reading-shell, .reading-list-shell) .current-hero {
-    grid-template-columns: 6.5rem minmax(0, 1fr);
+    /* The cover yields at the narrowest widths, where enlarged text would
+       otherwise leave no room beside it. */
+    grid-template-columns: min(6.5rem, 28vw) minmax(0, 1fr);
     gap: var(--mouseion-space-2) var(--mouseion-space-4);
     padding: var(--mouseion-space-4);
   }
