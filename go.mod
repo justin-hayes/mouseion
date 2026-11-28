@@ -107,6 +107,7 @@ require (
 tool (
 	github.com/a-h/templ/cmd/templ
 	github.com/boumenot/gocover-cobertura
+	golang.org/x/tools/cmd/deadcode
 	golang.org/x/vuln/cmd/govulncheck
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc
 	google.golang.org/protobuf/cmd/protoc-gen-go

@@ -38,7 +38,7 @@ DICTIONARY_LS_PIN ?= $(DICTIONARY_LSJ_PIN)
 DICTIONARY_LS_ARGS := $(if $(strip $(DICTIONARY_LS_DIR)),--ls-dir "$(DICTIONARY_LS_DIR)" --ls-pin "$(DICTIONARY_LS_PIN)",)
 export GOTMPDIR := $(CURDIR)/.tmp/go
 
-.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources check-dockerfile-go python-test-preflight french-golden classical-manifest verify-classical-manifest construction-release-check
+.PHONY: setup build test test-go test-go-integration go-test-clean test-integration test-integration-shared coverage coverage-new lint lint-go vuln gen templ templ-if-installed dev clean go-tmp browser-smoke browser-smoke-webkit screenshot-my-books screenshot-my-books-clean sqlc dictionary-index frontend-css check-frontend-css check-frontend-css-sources check-dockerfile-go deadcode python-test-preflight french-golden classical-manifest verify-classical-manifest construction-release-check
 
 GOLANGCI_LINT ?= golangci-lint
 GOLANGCI_LINT_VERSION := 2.14.0
@@ -213,6 +213,16 @@ check-frontend-css:
 check-dockerfile-go:
 	tools/check-dockerfile-go_test.sh
 	tools/check-dockerfile-go.sh
+
+# Fails on any function that no main package reaches (tests do not count) unless
+# tools/deadcode-allowlist.txt names it with a reason. -generated includes templ
+# output, whose source is hand-written; the checker ignores gen/. deadcode runs
+# through `go tool`, pinned by go.mod.
+deadcode: go-tmp
+	tools/deadcode-check_test.sh
+	report=$$(mktemp) && trap 'rm -f "$$report"' EXIT && \
+	go tool deadcode -generated -test=false -f '{{range .Funcs}}{{$$.Path}}.{{.Name}} {{.Position.File}}{{"\n"}}{{end}}' $$(go list -f '{{if eq .Name "main"}}{{.ImportPath}}{{end}}' ./...) > "$$report" && \
+	tools/deadcode-check.sh tools/deadcode-allowlist.txt < "$$report"
 
 # Regenerate the committed sqlc query layer (gen/sqlc) from sqlc/queries and
 # the current-state baseline/successor migrations. sqlc is pinned; CI installs

@@ -92,6 +92,10 @@ jobs:
         if: needs.changes.outputs.go == 'true'
         run: go build ./...
 
+      - name: Dead code
+        if: needs.changes.outputs.go == 'true'
+        run: make deadcode
+
       # go.mod and Dockerfile changes both mark the go class.
       - name: Verify Dockerfile Go image satisfies go.mod
         if: needs.changes.outputs.go == 'true'

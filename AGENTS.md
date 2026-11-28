@@ -26,6 +26,7 @@ make test-integration # go test -count=1 -tags=integration ./internal/...
 make coverage-new     # make coverage, then preview Sonar's 80% new-code coverage gate
 make lint-go          # pinned golangci-lint over the complete Go module
 make lint             # make lint-go + ruff check/format + mypy over the NLP source
+make deadcode         # fail on functions no main package reaches (tests don't count), minus tools/deadcode-allowlist.txt
 make browser-smoke    # Playwright against cmd/fixtureserver
 make dev              # go run ./cmd/server (needs Postgres + NLP running)
 ```
@@ -37,6 +38,8 @@ Non-obvious setup:
 - Integration tests use Testcontainers (needs a working Docker daemon) or fall back to `MOUSEION_TEST_DATABASE_URL` (default `postgres://postgres@localhost:5432/mouseion_test`). Every supported integration command uses Go's `-count=1` flag, so repeated runs execute the packages again and never report `(cached)`; ordinary unit-test commands retain Go's normal result caching.
 - Integration tests use one named, reusable Testcontainers PostgreSQL instance. `testutil.Postgres` migrates a template database once per migration set and gives every test its own clone, so tests are isolated and packages run in parallel; a full `make test-integration` takes well under a minute once compiled. An external `MOUSEION_TEST_DATABASE_URL` role therefore needs `CREATEDB`. Remove the reusable container with `docker rm -fv mouseion-test-postgres` when it is no longer needed (this also discards stale template databases; `-v` removes its data volume, which `-f` alone leaves behind).
 - `make dev` requires a running Postgres (`MOUSEION_DATABASE_URL`) and NLP gRPC (`MOUSEION_NLP_ADDR`, default `localhost:50051`); `MOUSEION_SECRET` is validated at startup.
+
+`make deadcode` runs the pinned `deadcode` (a `go.mod` tool) with `-generated -test=false` over every `main` package; `gen/` reports are ignored. To keep a function nothing reaches, add `<package path>.<Func or Type.Method> <one-line reason>` to `tools/deadcode-allowlist.txt`; an entry that no longer matches a report also fails, so delete it when the function goes. Otherwise delete the dead code. CI runs it on Go changes.
 
 For Go-only iteration, run `make lint-go` followed by `go test ./...`. Before
 handoff, run `make lint` for the whole project, and `make coverage-new` when the

@@ -65,6 +65,7 @@ a justified `# noqa` rather than a raised limit.
 | `make coverage-new` | `make coverage`, then previews SonarQube Cloud's 80% new-code coverage gate for the lines changed since `origin/main` and lists the uncovered ones |
 | `make test-integration RACE=1` | PostgreSQL-backed Go integration tests under the race detector; the same command CI runs (see the Tests section for the database prerequisites) |
 | `make lint` | golangci-lint (including `gofmt` and `goimports` formatting) over the whole module, plus `ruff check`, `ruff format --check`, and `mypy` over the NLP source. Ruff enforces flake8-bandit security rules (`S`) and the `C90`/`PLR0911`/`PLR0912`/`PLR0913`/`PLR0915` complexity rules on `nlp/src`, `nlp/tests` and `nlp/scripts`, with the thresholds set explicitly in `nlp/pyproject.toml` |
+| `make deadcode` | Fails on any function that no `main` package reaches, with tests not counted (see "Dead code check"). CI runs it in "Build and test" on Go changes |
 | `make vuln` | govulncheck over the whole module: fails on call-reachable vulnerabilities in dependencies or in the Go standard library and toolchain. CI runs it on Go changes |
 | `make browser-smoke` | Playwright suite against the in-memory fixture server |
 | `make dev` | Run the web server (needs PostgreSQL and the NLP service) |
@@ -74,6 +75,23 @@ a justified `# noqa` rather than a raised limit.
 | `make classical-manifest` | Regenerate `internal/classical/manifest.jsonl` from `overrides.jsonl`, `layers.json` and the pinned upstream files named by `CLASSICAL_MANIFEST_UPSTREAM` |
 | `make verify-classical-manifest` | Reproduce the committed Classical manifest byte-for-byte; CI runs this gate |
 | `make frontend-css` | Rebuild the committed stylesheet |
+
+## Dead code check
+
+golangci-lint's `unused` only finds unexported code that nothing references,
+tests included. `make deadcode` closes the gap: it runs `deadcode` (pinned as a
+`tool` in `go.mod`, run through `go tool`, so there is nothing to install) with
+`-generated -test=false` over every `main` package, so exported functions and
+code only tests reach are reported. Generated templ output is checked, because
+its source is hand-written `.templ`; `gen/` (protobuf, gRPC, sqlc) is ignored.
+
+To keep a function that nothing reaches, add a line to
+`tools/deadcode-allowlist.txt`: the package import path and function
+(`Type.Method` for a method), whitespace, then a one-line reason. Names carry no
+line numbers. An allowlist entry that no longer matches a report fails the
+check, so the list cannot go stale; delete the entry when the function is
+removed or becomes reachable. `tools/deadcode-check_test.sh` tests the
+comparison.
 
 ## Generated code
 
