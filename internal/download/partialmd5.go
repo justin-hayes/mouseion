@@ -38,6 +38,11 @@ func partialMD5Offset(index int) int64 {
 
 // Write feeds the next bytes of the stream. It never fails.
 func (p *PartialMD5) Write(data []byte) (int, error) {
+	p.add(data)
+	return len(data), nil
+}
+
+func (p *PartialMD5) add(data []byte) {
 	start, end := p.position, p.position+int64(len(data))
 	for index := range partialMD5Samples {
 		from := partialMD5Offset(index)
@@ -52,13 +57,12 @@ func (p *PartialMD5) Write(data []byte) (int, error) {
 		_, _ = p.hash.Write(data[low-start : high-start])
 	}
 	p.position = end
-	return len(data), nil
 }
 
 // PartialMD5Of returns the Document digest of data held in memory.
 func PartialMD5Of(data []byte) string {
 	writer := NewPartialMD5()
-	_, _ = writer.Write(data)
+	writer.add(data)
 	return writer.Sum()
 }
 

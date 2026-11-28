@@ -45,7 +45,7 @@ func TestPartialMD5MatchesKOReaderVectors(t *testing.T) {
 		"leaves.epub": "59d481d168cca6267322f150c5f6a2a3",
 	} {
 		t.Run(name, func(t *testing.T) {
-			data, err := os.ReadFile(filepath.Join("testdata", name))
+			data, err := os.ReadFile(filepath.Join("testdata", name)) //nolint:gosec // fixed fixture names.
 			require.NoError(t, err)
 			for _, chunk := range []int{1, 7, 1024, 32 * 1024, len(data)} {
 				assert.Equal(t, want, partialMD5Of(t, data, chunk), "chunk %d", chunk)
@@ -83,7 +83,7 @@ func TestPartialMD5Boundaries(t *testing.T) {
 func TestPartialMD5SamplesFarOffsets(t *testing.T) {
 	data := make([]byte, 20<<20)
 	for i := range data {
-		data[i] = byte(i ^ i>>8 ^ i>>16)
+		data[i] = byte((i ^ i>>8 ^ i>>16) & 0xff)
 	}
 	assert.Equal(t, partialMD5Reference(data), partialMD5Of(t, data, 64*1024))
 }
