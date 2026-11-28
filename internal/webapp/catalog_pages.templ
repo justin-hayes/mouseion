@@ -18,13 +18,13 @@ templ CatalogPage(user domain.User, csrf string, connections []domain.OpdsConnec
 			if browse.FocusReadBook {
 				<div id="catalog-read-confirmation" tabindex="-1" autofocus>
 					@Feedback(FeedbackSuccess, "", message) {
-						<a href={ templ.SafeURL(catalogBookInMyBooksURL(browse.ReadBookID)) }>View in My Books</a>
+						<a href={ templ.SafeURL(catalogBookInMyBooksURL(browse.ReadBookID)) }>View in Reading</a>
 					}
 				</div>
 			} else if browse.FocusAddedBook {
 				<div id="catalog-add-confirmation" tabindex="-1" autofocus>
 					@Feedback(FeedbackSuccess, "", message) {
-						<a href={ templ.SafeURL(catalogBookInMyBooksURL(browse.AddedBookID)) }>View in My Books</a>
+						<a href={ templ.SafeURL(catalogBookInMyBooksURL(browse.AddedBookID)) }>View in Reading</a>
 					}
 				</div>
 			} else {
@@ -167,12 +167,12 @@ templ CatalogEntryCard(csrf string, card catalogCard) {
 			<p class="catalog-entry__detail">{ card.Detail }</p>
 		}
 		if card.OwnedURL != "" {
-			<p class="catalog-entry__ownership"><a href={ templ.SafeURL(card.OwnedURL) }>In My Books</a></p>
+			<p class="catalog-entry__ownership"><a href={ templ.SafeURL(card.OwnedURL) }>In Reading</a></p>
 		} else if card.AddURL != "" {
 			<form class="catalog-entry__add" method="post" action={ templ.SafeURL(card.AddURL) }>
 				@catalogCardFields(csrf, card)
 				<p class="catalog-entry__add-copy">{ catalogAddCopy }</p>
-				<button class="button button--outline" type="submit">Add</button>
+				<button class="button button--outline" type="submit">Add to Reading</button>
 			</form>
 			<form class="catalog-entry__read" method="post" action={ templ.SafeURL(card.ReadURL) }>
 				@catalogCardFields(csrf, card)
@@ -242,7 +242,7 @@ templ ManageSourcesPage(user domain.User, csrf string, connections []domain.Opds
 			@Feedback(FeedbackError, "", errorMessage)
 		}
 		if len(connections) == 0 {
-			@EmptyState("Add your first catalog connection", "A connection lets Mouseion sync ready-language bibliographic metadata into My Books. Your credentials stay private and are never shown again.") {
+			@EmptyState("Add your first catalog connection", "A connection lets Mouseion sync ready-language bibliographic metadata into Reading. Your credentials stay private and are never shown again.") {
 				<a href="#catalog-connection-form">Add catalog connection</a>
 			}
 		}
@@ -253,12 +253,12 @@ templ ManageSourcesPage(user domain.User, csrf string, connections []domain.Opds
 		<div class="form-grid"><label>Name<input class="input" name="name" required/></label><label>Catalog URL<input class="input" type="url" name="url" required placeholder="https://example.com/opds"/></label></div><div class="form-grid"><label>Username <small>(optional)</small><input class="input" name="username" autocomplete="username"/></label><label>Password <small>(optional, encrypted at rest)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button" type="submit">Add catalog</button></form></article>
 		if len(connections) > 0 {
 			<h2>Connected sources</h2>
-			<p>Edit a saved connection or remove future catalog access. Books already in My Books and their artifacts remain.</p>
+			<p>Edit a saved connection or remove future catalog access. Books already in Reading and their artifacts remain.</p>
 		}
 		<div class="catalog-list">
 			for _, connection := range connections {
 				{{ view := catalogueSyncConnectionViewFor(connection, statuses) }}
-				<article class="catalog-record" id={ "connection-" + connection.ID } aria-labelledby={ "connection-name-" + connection.ID }><header><h3 id={ "connection-name-" + connection.ID }>{ connection.Name }</h3></header><div class="catalog-record__status" id={ "connection-status-" + connection.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(view)</div>@CatalogueSyncConnectionActions(csrf, connection, view)<div class="catalog-record__details"><p class="break">{ safeConnectionURL(connection.URL) }</p><p>{ credentialSummary(connection) }</p><details id={ "edit-connection-" + connection.ID }><summary>Edit connection</summary><form class="catalog-connection-form" method="post" action={ templ.SafeURL("/catalogs/sources/" + connection.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ connection.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class="input" type="url" name="url" value={ connectionURLForEdit(connection) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input class="input" name="username" value={ connection.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button button--outline" type="submit">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in My Books and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/catalogs/sources/" + connection.ID + "/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Confirm deletion</button></form>}</div></article>
+				<article class="catalog-record" id={ "connection-" + connection.ID } aria-labelledby={ "connection-name-" + connection.ID }><header><h3 id={ "connection-name-" + connection.ID }>{ connection.Name }</h3></header><div class="catalog-record__status" id={ "connection-status-" + connection.ID } role="status" aria-live="polite" aria-atomic="true">@CatalogueSyncConnectionStatus(view)</div>@CatalogueSyncConnectionActions(csrf, connection, view)<div class="catalog-record__details"><p class="break">{ safeConnectionURL(connection.URL) }</p><p>{ credentialSummary(connection) }</p><details id={ "edit-connection-" + connection.ID }><summary>Edit connection</summary><form class="catalog-connection-form" method="post" action={ templ.SafeURL("/catalogs/sources/" + connection.ID) }><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ connection.Name } required/></label><label>Catalog URL <small>(leave blank to keep current URL)</small><input class="input" type="url" name="url" value={ connectionURLForEdit(connection) } placeholder="Leave blank to keep current URL"/></label></div><div class="form-grid"><label>Username<input class="input" name="username" value={ connection.Username } autocomplete="username"/></label><label>New password <small>(leave blank to keep current)</small><input class="input" type="password" name="password" autocomplete="new-password"/></label></div><button class="button button--outline" type="submit">Save changes</button></form></details>@Confirmation("Delete catalog connection", "This removes future access through this connection and its credentials. Books already in Reading and their artifacts remain available.", StatusDanger) {<form method="post" action={ templ.SafeURL("/catalogs/sources/" + connection.ID + "/delete") }><input type="hidden" name="csrf_token" value={ csrf }/><button class="button button--outline" type="submit">Confirm deletion</button></form>}</div></article>
 			}
 		</div>
 	}

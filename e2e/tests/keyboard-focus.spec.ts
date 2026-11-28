@@ -9,7 +9,7 @@ async function signIn(page: Page, disableEnhancement = false) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: 'Sign in' }).press('Enter');
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 async function switchCurrentReadingTo(page: Page, title: string) {
@@ -17,10 +17,10 @@ async function switchCurrentReadingTo(page: Page, title: string) {
 }
 
 async function openGermanReading(page: Page) {
-  await page.goto('/de/library');
+  await page.goto('/de/reading');
   const language = page.getByLabel('Study language');
   if (await language.inputValue() !== 'de') await language.selectOption('de');
-  await page.goto('/de/library');
+  await page.goto('/de/reading');
 }
 
 async function switchToRouteMatch(page: Page) {
@@ -64,14 +64,14 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
     const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
     await expect(navigation).toBeVisible();
-    const destinations = ['My Books', 'Vocabulary'];
+    const destinations = ['Reading', 'Study', 'Corpus'];
     for (const name of destinations) {
       const link = navigation.getByRole('link', { name });
       await link.focus();
       await expect(link).toBeFocused();
       await page.keyboard.press('Enter');
       await expect(page).toHaveURL(new RegExp({
-        'My Books': '\\/library', Vocabulary: '\\/vocabulary',
+        'Reading': '\\/reading', Study: '\\/study', Corpus: '\\/corpus',
       }[name]));
       await page.goBack();
       await expect(navigation).toBeVisible();
@@ -80,12 +80,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
 
   test('representative tab order and focus indicators remain visible', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/vocabulary');
+    await page.goto('/de/corpus');
     await page.keyboard.press('Tab');
     await expect(page.locator('a.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Mouseion' })).toBeFocused();
-    for (const name of ['My Books', 'Vocabulary', 'Catalog']) {
+    for (const name of ['Reading', 'Study', 'Corpus', 'Catalog']) {
       await page.keyboard.press('Tab');
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
     }
@@ -102,11 +102,11 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     expect(focusStyle.outline !== 'none' || focusStyle.width !== '0px' || focusStyle.boxShadow !== 'none').toBeTruthy();
 
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
     await page.keyboard.press('Tab');
-    for (const name of ['Mouseion', 'My Books', 'Vocabulary', 'Catalog']) {
+    for (const name of ['Mouseion', 'Reading', 'Study', 'Corpus', 'Catalog']) {
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused();
       if (name !== 'Catalog') await page.keyboard.press('Tab');
     }
@@ -116,12 +116,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('.site-header__account summary')).toBeFocused();
   });
 
-  test('My Books exposes keyboard-reachable identity links and failed-analysis recovery', async ({ page }) => {
+  test('Reading exposes keyboard-reachable identity links and failed-analysis recovery', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    await expect(page.locator('#library-page-title')).toHaveText('Reading');
     const item = page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' });
     const itemFocusStops = item.locator('a, button:not([disabled]), summary');
     await expect(itemFocusStops.first()).toHaveText('Der lange Weg nach Hause');
@@ -131,9 +131,9 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.locator('.library-books').getByText('Review failed analysis')).toHaveCount(0);
   });
 
-  test('My Books keeps the pinned Current reading first and announces feedback', async ({ page }) => {
+  test('Reading keeps the pinned Current reading first and announces feedback', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library?message=Journey%20updated');
+    await page.goto('/de/reading?message=Journey%20updated');
     const goalHeading = page.locator('.journey-book__title');
     await expect(goalHeading).toBeVisible();
     await expect(page.getByRole('status').first()).toContainText('Journey updated');
@@ -164,12 +164,12 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await restoreFixtureBookCurrent(page);
   });
 
-  test('My Books and table region are keyboard-scrollable', async ({ page }) => {
+  test('Reading and table region are keyboard-scrollable', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const switcher = page.getByLabel('Study language');
     if (await switcher.inputValue() !== 'de') await switcher.selectOption('de');
-    await expect(page.locator('#library-page-title')).toHaveText('My Books');
+    await expect(page.locator('#library-page-title')).toHaveText('Reading');
     await page.goto('/jobs');
     const region = page.getByRole('region', { name: 'Book preparations' });
     await expect(region).toHaveAttribute('tabindex', '0');

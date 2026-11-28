@@ -78,7 +78,7 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 				values.Set(key, value)
 			}
 		}
-		return "/grc/vocabulary/concordance?" + values.Encode()
+		return "/grc/corpus/concordance?" + values.Encode()
 	}
 	get := func(path string) *testingResponse {
 		response := perform(t, h, http.MethodGet, path, nil, cookies)
@@ -235,8 +235,8 @@ func TestConcordanceConstructionLemmaFilterAndUnsearchedBooksOverHTTP(t *testing
 		assert.Contains(t, empty.body, "Not searched for constructions: ")
 	})
 	t.Run("a lemma outside a construction lookup is not accepted", func(t *testing.T) {
-		assert.Equal(t, "/grc/vocabulary/concordance", safeConcordanceReturnURL("/grc/vocabulary/concordance?term=haus&as=form&page=1&lemma=haus", "grc"))
-		response := get("/grc/vocabulary/concordance?as=form&term=" + url.QueryEscape("ὅτι") + "&lemma=x&from_lemma=y")
+		assert.Equal(t, "/grc/corpus/concordance", safeConcordanceReturnURL("/grc/corpus/concordance?term=haus&as=form&page=1&lemma=haus", "grc"))
+		response := get("/grc/corpus/concordance?as=form&term=" + url.QueryEscape("ὅτι") + "&lemma=x&from_lemma=y")
 		assert.Equal(t, http.StatusOK, response.code)
 		assert.NotContains(t, response.body, "concordance-parallels")
 	})
@@ -301,7 +301,7 @@ func TestConcordanceConstructionLemmaParametersAreNormalisedAndTrustedOnlyFromTh
 		for key, value := range overrides {
 			values.Set(key, value)
 		}
-		return "/grc/vocabulary/concordance?" + values.Encode()
+		return "/grc/corpus/concordance?" + values.Encode()
 	}
 	get := func(path string) *testingResponse {
 		response := perform(t, h, http.MethodGet, path, nil, cookies)

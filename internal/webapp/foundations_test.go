@@ -20,7 +20,7 @@ import (
 
 func TestShellLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, ShellLayout("Foundations", nil, "", NavigationLibrary).Render(context.Background(), &output))
+	require.NoError(t, ShellLayout("Foundations", nil, "", NavigationReading).Render(context.Background(), &output))
 
 	html := output.String()
 	for _, want := range []string{
@@ -35,7 +35,7 @@ func TestShellLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	response := httptest.NewRecorder()
 	StaticHandler().ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
-	for _, want := range []string{"--mouseion-color-surface:", ".login-screen", ".library-search__controls", ".btn-primary", ".vocabulary-shell", "*::before"} {
+	for _, want := range []string{"--mouseion-color-surface:", ".login-screen", ".library-search__controls", ".btn-primary", ".corpus-shell", "*::before"} {
 		assert.Contains(t, response.Body.String(), want, "unified asset is missing %q", want)
 	}
 	picoRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/vendor/pico-2.1.1.min.css", nil)
@@ -53,8 +53,8 @@ func TestShellLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 
 func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	var login, library bytes.Buffer
-	require.NoError(t, LoginPage("csrf", "", "/de/library", false).Render(context.Background(), &login))
-	require.NoError(t, ShellLayout("My Books", &domain.User{Username: "learner"}, "csrf", NavigationLibrary).Render(context.Background(), &library))
+	require.NoError(t, LoginPage("csrf", "", "/de/reading", false).Render(context.Background(), &login))
+	require.NoError(t, ShellLayout("Reading", &domain.User{Username: "learner"}, "csrf", NavigationReading).Render(context.Background(), &library))
 
 	assert.Contains(t, login.String(), `href="/static/app.css"`)
 	assert.Contains(t, login.String(), `rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2"`)
@@ -73,7 +73,7 @@ func TestMyBooksAndReadingUseOwnedStylesWithoutPico(t *testing.T) {
 	assert.Contains(t, myBooks.String(), `class="site-nav__link site-nav__link--current"`)
 	assert.NotContains(t, myBooks.String(), `site-nav__link site-nav__link--current btn-primary`)
 	assert.NotContains(t, myBooks.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
-	assert.Contains(t, reading.String(), `class="my-books-shell"`)
+	assert.Contains(t, reading.String(), `class="reading-list-shell"`)
 	assert.NotContains(t, reading.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 }
 
@@ -104,7 +104,7 @@ func TestReadingPagesUseCompiledFoundationAndRetainMouseionStyles(t *testing.T) 
 			html := output.String()
 			assert.Contains(t, html, `href="/static/app.css"`)
 			assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
-			assert.Regexp(t, `class="(my-books|reading)-shell"`, html)
+			assert.Regexp(t, `class="(reading-list|reading)-shell"`, html)
 			assert.NotContains(t, html, `href="/static/vendor/pico-`)
 		})
 	}
@@ -155,17 +155,17 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 	assert.NotContains(t, html, `href="/static/catalog-ops.css"`)
 	assert.Contains(t, html, `class="reading-shell"`)
 	assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
-	for _, retired := range []string{"Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
+	for _, retired := range []string{"Browse selection", "Custom deck", "/corpus/selection", "/corpus/decks"} {
 		assert.NotContains(t, html, retired)
 	}
 
 	var concordance bytes.Buffer
 	require.NoError(t, VocabularyConcordancePageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, domain.ConcordanceResult{}, false, false, "", "", browseOrigin{}).Render(context.Background(), &concordance))
-	assert.Contains(t, concordance.String(), `class="vocabulary-shell"`)
+	assert.Contains(t, concordance.String(), `class="corpus-shell"`)
 	assert.NotContains(t, concordance.String(), `href="/static/vendor/pico-2.1.1.min.css"`)
 
 	var sentenceStudy, concordanceError, concordanceChanged bytes.Buffer
-	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/vocabulary/concordance", "").Render(context.Background(), &sentenceStudy))
+	require.NoError(t, VocabularySentenceStudyPageView(domain.User{Username: "learner"}, "csrf", domain.SentenceStudy{}, "/corpus/concordance", "").Render(context.Background(), &sentenceStudy))
 	require.NoError(t, VocabularyConcordanceErrorPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, false, browseOrigin{}).Render(context.Background(), &concordanceError))
 	require.NoError(t, VocabularyConcordanceChangedPageView(domain.User{Username: "learner"}, "csrf", "de", domain.ConcordanceLookup{}, browseOrigin{}).Render(context.Background(), &concordanceChanged))
 	for _, html := range []string{sentenceStudy.String(), concordanceError.String(), concordanceChanged.String()} {
@@ -173,7 +173,7 @@ func TestVocabularyBrowseUsesOwnedStylesAndHasNoRetiredWorkflow(t *testing.T) {
 		assert.NotContains(t, html, `href="/static/vocabulary.css"`)
 		assert.NotContains(t, html, `href="/static/vendor/pico-2.1.1.min.css"`)
 	}
-	assert.Contains(t, sentenceStudy.String(), `class="vocabulary-shell"`)
+	assert.Contains(t, sentenceStudy.String(), `class="corpus-shell"`)
 }
 
 func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testing.T) {
@@ -186,7 +186,7 @@ func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testi
 		{
 			name:    "invalid credentials",
 			message: "Invalid credentials",
-			want:    []string{`role="alert"`, `class="alert alert-error login-screen__error"`, `action="/login"`, `autocomplete="current-password"`, `name="next" value="/de/library"`},
+			want:    []string{`role="alert"`, `class="alert alert-error login-screen__error"`, `action="/login"`, `autocomplete="current-password"`, `name="next" value="/de/reading"`},
 		},
 		{
 			name:       "first account",
@@ -196,7 +196,7 @@ func TestLoginOnboardingAndRecoveryKeepNativeFormsAndAccessibleFeedback(t *testi
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var output bytes.Buffer
-			require.NoError(t, LoginPage("csrf", test.message, "/de/library", test.onboarding).Render(context.Background(), &output))
+			require.NoError(t, LoginPage("csrf", test.message, "/de/reading", test.onboarding).Render(context.Background(), &output))
 			for _, want := range test.want {
 				assert.Contains(t, output.String(), want)
 			}
@@ -311,7 +311,7 @@ func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 
 func TestShellLayoutExposesAccessibleApplicationShell(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, ShellLayout("Mouseion", nil, "csrf-token", NavigationLibrary).Render(context.Background(), &output))
+	require.NoError(t, ShellLayout("Mouseion", nil, "csrf-token", NavigationReading).Render(context.Background(), &output))
 	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`} {
 		assert.Contains(t, output.String(), pattern, "application shell missing %q: %s", pattern, output.String())
 	}
@@ -321,9 +321,9 @@ func TestVocabularyHeaderHasNoPeerViews(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, VocabularyPageHeader().Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, `<header class="vocabulary-page-header"><h1>Vocabulary</h1></header>`)
+	assert.Contains(t, html, `<header class="vocabulary-page-header"><h1>Corpus</h1></header>`)
 	assert.NotContains(t, html, "<nav", "Concordance is the only Vocabulary view, so no peer navigation is rendered")
-	assert.NotContains(t, html, "/vocabulary/import", "the retired import surface is not linked")
+	assert.NotContains(t, html, "/corpus/import", "the retired import surface is not linked")
 }
 
 type studyProgressContextStore struct {
@@ -362,9 +362,9 @@ func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
 	html := renderBookWords(t, "de", page, "ha")
 	assert.Contains(t, html, `id="vocabulary-workflow"`)
 	assert.Contains(t, html, `id="vocabulary-browse-results"`)
-	assert.Contains(t, html, `href="/de/vocabulary/concordance?`)
+	assert.Contains(t, html, `href="/de/corpus/concordance?`)
 	assert.Contains(t, html, `hx-select="#vocabulary-browse-results"`)
-	for _, retired := range []string{"Select</button>", "Remove</button>", "selected identities", "Browse selection", "Custom deck", "/vocabulary/selection", "/vocabulary/decks"} {
+	for _, retired := range []string{"Select</button>", "Remove</button>", "selected identities", "Browse selection", "Custom deck", "/corpus/selection", "/corpus/decks"} {
 		assert.NotContains(t, html, retired)
 	}
 }

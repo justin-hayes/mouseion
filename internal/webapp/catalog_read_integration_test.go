@@ -119,6 +119,6 @@ func TestClassicalPreviouslyReadRecordsAReadBookWithoutPreparing(t *testing.T) {
 	body := page.Body.String()
 	assert.Contains(t, body, "Recorded “Iliad” as previously read.")
 	assert.Contains(t, body, `id="catalog-read-confirmation"`)
-	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in My Books</a>`)
+	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in Reading</a>`)
 	assert.NotContains(t, body, `units/homer-iliad/previously-read`, "an owned unit offers no I've read this")
 }

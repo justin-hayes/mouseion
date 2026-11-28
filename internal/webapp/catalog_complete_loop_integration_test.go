@@ -39,7 +39,7 @@ import (
 // queues each Book's durable work (an EPUB acquisition and a classical
 // preparation), Remove and Add restore the same Book without duplicating the
 // live acquisition, "I've read this" moves the classical Book to the Read tab,
-// and My Books exposes exactly the To Read and Read tabs.
+// and Reading exposes exactly the To Read and Read tabs.
 func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	ctx, store, pool, h, _ := classicalAddHarness(t)
 	learner := createAccount(t, ctx, store, "catalog-loop-learner", "learner-password")
@@ -204,7 +204,7 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	}, cookies)
 	require.Equal(t, http.StatusSeeOther, opdsRead.Code, opdsRead.Body.String())
 	assert.Equal(t, 0, countRows(t, pool, `SELECT count(*) FROM river_job WHERE kind=$1 AND args->>'owner_id'=$2`, analysis.EPUBAcquisitionQueue, learner.ID)-1, "I've read this on an OPDS card queues no acquisition beyond the added Book")
-	assert.NotContains(t, perform(t, h, http.MethodGet, "/library", nil, cookies).Body.String(), catalogue.URL, "My Books never shows the upstream host")
+	assert.NotContains(t, perform(t, h, http.MethodGet, "/reading", nil, cookies).Body.String(), catalogue.URL, "Reading never shows the upstream host")
 
 	// 5. "I've read this" records Read without acquiring anything; each Book
 	// is then listed on its own language's tab.
@@ -215,37 +215,37 @@ func TestCatalogCompleteLoopFromBothSources(t *testing.T) {
 	assert.Equal(t, domain.MyBookBucketRead, readBook.WorkflowBucket())
 
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, classical.Language))
-	grcRead := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	grcRead := perform(t, h, http.MethodGet, "/reading?history=read", nil, cookies)
 	require.Equal(t, http.StatusOK, grcRead.Code, grcRead.Body.String())
 	assert.Contains(t, grcRead.Body.String(), "Iliad", "the classical Book is listed on the Read tab")
 	assert.Contains(t, grcRead.Body.String(), "Read before Mouseion", "the Read tab shows the Previously read completion")
 	assert.Contains(t, grcRead.Body.String(), "Read (1)")
-	grcToRead := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	grcToRead := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, grcToRead.Code, grcToRead.Body.String())
 	assert.NotContains(t, grcToRead.Body.String(), "Iliad", "the classical Book is absent from the To Read tab")
 
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "de"))
-	deToRead := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	deToRead := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, deToRead.Code, deToRead.Body.String())
 	assert.Contains(t, deToRead.Body.String(), "Homer Loop", "the OPDS Book is listed on the German To Read tab")
 
-	// 6. My Books exposes exactly the two tabs, and the retired scopes stay
+	// 6. Reading exposes exactly the two tabs, and the retired scopes stay
 	// unreachable.
-	library := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	library := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	body := library.Body.String()
 	tabs := catalogLoopTabLinks(t, body)
-	require.Len(t, tabs, 2, "My Books has exactly the To Read and Read tabs")
-	assert.Equal(t, "/de/library?disposition=to_read", tabs[0][0])
+	require.Len(t, tabs, 2, "Reading has exactly the To Read and Read tabs")
+	assert.Equal(t, "/de/reading?disposition=to_read", tabs[0][0])
 	assert.True(t, strings.HasPrefix(tabs[0][1], "To Read ("), "first tab label is %q", tabs[0][1])
-	assert.Equal(t, "/de/library?history=read", tabs[1][0])
+	assert.Equal(t, "/de/reading?history=read", tabs[1][0])
 	assert.True(t, strings.HasPrefix(tabs[1][1], "Read ("), "second tab label is %q", tabs[1][1])
 	assert.NotContains(t, body, "disposition=inbox", "no Inbox filter survives")
 	assert.NotContains(t, body, "needs-language", "no needs-language strip survives")
 	assert.Contains(t, body, "Homer Loop", "the German To Read row stays listed")
-	retired := perform(t, h, http.MethodGet, "/library?needs-language", nil, cookies)
+	retired := perform(t, h, http.MethodGet, "/reading?needs-language", nil, cookies)
 	assert.Equal(t, http.StatusNotFound, retired.Code)
-	inbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
+	inbox := perform(t, h, http.MethodGet, "/reading?disposition=inbox", nil, cookies)
 	assert.Equal(t, http.StatusNotFound, inbox.Code)
 }
 
@@ -263,7 +263,7 @@ func catalogLoopPNG(t *testing.T) []byte {
 	return buf.Bytes()
 }
 
-// catalogLoopTabNavPattern isolates the My Books tabs nav, whose two <a> links
+// catalogLoopTabNavPattern isolates the Reading tabs nav, whose two <a> links
 // are the tab surface the two-tab model must keep exact.
 var (
 	catalogLoopTabNavPattern  = regexp.MustCompile(`(?s)<nav class="library-filters"[^>]*>(.*?)</nav>`)
@@ -275,7 +275,7 @@ func catalogLoopTabLinks(t *testing.T, body string) [][2]string {
 	t.Helper()
 	nav := catalogLoopTabNavPattern.FindStringSubmatch(body)
 	if nav == nil {
-		t.Fatalf("no My Books tabs nav in body:\n%s", body)
+		t.Fatalf("no Reading tabs nav in body:\n%s", body)
 	}
 	matches := catalogLoopTabLinkPattern.FindAllStringSubmatch(nav[1], -1)
 	tabs := make([][2]string, 0, len(matches))

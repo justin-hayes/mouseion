@@ -7,20 +7,20 @@ The Reading page, the Current-reading vocabulary snapshot, Reserved vocabulary a
 ## Goal
 
 Support an explicit, reversible path from catalog discovery to reading without
-turning a set of intended books into an ordered plan. My Books records each
+turning a set of intended books into an ordered plan. Reading records each
 Book's workflow disposition, pins the Current reading (at most one per study
 language) and shows the others in neutral title order.
 
 ## Shipped workflow
 
 1. Catalog sync maintains each connection's **Catalog index**; it never creates
-   a Book or My Books membership. A fresh learner's My Books stays empty until
+   a Book or Reading membership. A fresh learner's Reading stays empty until
    they choose an entry.
 2. Add on the Catalog, including the Classical catalog, creates or restores the
    Book as **To Read** and starts the same download and preparation as moving a
    Book to To Read. Analysis may be queued, running, ready, stale, failed, or
    unavailable; evidence status does not create a recommendation or order.
-3. My Books, one page per study language, shows the **Current reading** pinned
+3. Reading, one page per study language, shows the **Current reading** pinned
    at the top with its progress toward Target coverage (Mature coverage,
    in-study coverage and roughly how many words are left to introduce), then
    **To Read**, then **Read**. The Current reading is also listed under To Read,
@@ -37,7 +37,7 @@ language) and shows the others in neutral title order.
    Reading completion, clears the current role and the To Read disposition, and
    changes no vocabulary. None of the three takes a confirmation token. Reading
    never ends from inactivity.
-5. My Books shows each Book in exactly one visible workflow bucket. In
+5. Reading shows each Book in exactly one visible workflow bucket. In
    precedence order, that is **Currently reading**, **To Read**, then **Read**
    when completion history exists. A Book with reading history appears in Read
    without changing its persisted disposition or completion provenance. A
@@ -45,7 +45,7 @@ language) and shows the others in neutral title order.
    history. **Read again** moves a Read Book to To Read without starting it or
    erasing history. A **Previously read** assertion is an idempotent
    assertion-time fact. From the Catalog, **I've read this** creates or
-   restores the Book as Read; My Books offers **Mark as previously read** only
+   restores the Book as Read; Reading offers **Mark as previously read** only
    on an unstarted To Read Book and moves that Book to Read. Finishing claims
    no mastery and has no vocabulary effect.
 6. A Book that needs action shows a **status line** on its entry: a failed
@@ -53,13 +53,13 @@ language) and shows the others in neutral title order.
    update or a main-text selection update available, or a missing Book
    language. A **needs action** filter (`?needs=…`) lists only those Books; a
    Book with nothing to do has no status line.
-7. Every Book in My Books has a **Book detail page** at `/books/{id}`. It hosts
+7. Every Book in Reading has a **Book detail page** at `/books/{id}`. It hosts
    the Book's analysis actions (retry, Analysis update and Source structure
    update), shows its Book language, and lists the Book's words in a read-only list of the Book's words by Study state
    ([Vocabulary Browse and Concordance](vocabulary-browse-and-concordance.md)).
-   The retired Reading addresses redirect: `/reading` goes to My Books, and
-   `/reading?reading={bookID}` goes to that Book's detail page.
-8. **Remove from My Books** is the opposite of Add: it ends membership without
+   `/reading?reading={bookID}`, an address of the retired working desk, goes to
+   that Book's detail page, and the former `/library` address redirects to Reading.
+8. **Remove from Reading** is the opposite of Add: it ends membership without
    erasing the Book, its evidence or history, and the Current reading is
    refused with a reason. It never costs Study progress. Read history is
    append-only.
@@ -72,14 +72,14 @@ context.
 
 ## Interaction and recovery contract
 
-- My Books has no learner-authored sequence, ranking, forecast, or suggested
+- Reading has no learner-authored sequence, ranking, forecast, or suggested
   next Book. The most readable sort is optional, and coverage describes current
   evidence only.
 - Server-rendered links, forms, labels, and status text remain usable without
   enhancement. Mutation outcomes preserve a useful route and announce feedback;
   focus and keyboard order follow document order.
 - Empty To Read, failed or stale analysis, unsupported-language, and recovery
-  states retain a clear path back to My Books, Catalog, or the relevant retry.
+  states retain a clear path back to Reading, Catalog, or the relevant retry.
 - The Book detail word list keeps its dependency states distinct and never
   turns one into a successful zero: a Book with no completed analysis lists no
   words and points to its analysis actions; **Updating vocabulary counts** and

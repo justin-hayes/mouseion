@@ -138,7 +138,7 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	require.NoError(t, store.MarkBookPreviouslyRead(ctx, learner.ID, byUnit["homer-iliad-6"]))
 
 	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
-	page := perform(t, h, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
+	page := perform(t, h, http.MethodGet, "/grc/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	body := page.Body.String()
 	for _, want := range []string{
@@ -156,7 +156,7 @@ func TestReadingChooserListsEachRealBookAsAnOrdinaryEntry(t *testing.T) {
 	started := perform(t, h, http.MethodPost, "/reading/books/"+byUnit["homer-iliad-1"]+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, started.Code, started.Body.String())
 	assert.NotContains(t, started.Header().Get("Location"), "error=")
-	reading := perform(t, h, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
+	reading := perform(t, h, http.MethodGet, "/grc/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, reading.Code)
 	assert.Contains(t, reading.Body.String(), `action="/reading/finish"`, "the Current reading is pinned with Finish and End")
 

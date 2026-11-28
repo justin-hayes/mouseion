@@ -11,7 +11,7 @@ import (
 // analysis actions, the only writes on the page, and a read-only list of the
 // Book's words by Study state.
 templ BookDetailPage(user domain.User, csrf string, view bookDetailView, message string, pageError string) {
-	@ShellLayout(myBookDisplayTitle(view.Book), &user, csrf, NavigationLibrary, shellStyleReading) {
+	@ShellLayout(myBookDisplayTitle(view.Book), &user, csrf, NavigationReading, shellStyleReading) {
 		<h1 class="sr-only">{ myBookDisplayTitle(view.Book) }</h1>
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
@@ -19,7 +19,7 @@ templ BookDetailPage(user domain.User, csrf string, view bookDetailView, message
 		if pageError != "" {
 			@Feedback(FeedbackError, "Action needed", pageError)
 		}
-		<p class="reading-add-books"><a href={ templ.SafeURL(myBookSearchURL(view.Book)) }>Back to My Books</a></p>
+		<p class="reading-add-books"><a href={ templ.SafeURL(myBookSearchURL(view.Book)) }>Back to Reading</a></p>
 		@BookDetailSummary(view.Book, csrf)
 		@BookDetailActions(view.Book, csrf)
 		if view.Words != nil {
@@ -53,7 +53,7 @@ templ BookDetailSummary(book domain.MyBook, csrf string) {
 }
 
 // BookDetailActions hosts the Book's analysis actions. They are the same
-// actions My Books offers, unchanged: retry, Analysis update and the checked
+// actions Reading offers, unchanged: retry, Analysis update and the checked
 // source-structure update.
 templ BookDetailActions(book domain.MyBook, csrf string) {
 	<section id="book-detail-analysis" class="reading-note" aria-labelledby="book-detail-analysis-heading">

@@ -47,17 +47,17 @@ func TestAuthenticatedMyBooksTabsAndTransitions(t *testing.T) {
 	}
 
 	cookies, csrf := loginCookies(t, h, "alice", "alice-password")
-	retiredInbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
+	retiredInbox := perform(t, h, http.MethodGet, "/reading?disposition=inbox", nil, cookies)
 	assert.Equal(t, http.StatusNotFound, retiredInbox.Code, "the retired Inbox filter is unsupported")
 
-	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	toReadPage := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	assert.Equal(t, http.StatusOK, toReadPage.Code)
 	assert.Contains(t, toReadPage.Body.String(), "To Read book")
 	assert.NotContains(t, toReadPage.Body.String(), "Finished book")
 	assert.NotContains(t, toReadPage.Body.String(), "Set Aside", "the retired Set Aside filter is not rendered")
 	assert.NotContains(t, toReadPage.Body.String(), "Confirm set aside", "the retired Set Aside confirmation is not rendered")
 
-	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	readPage := perform(t, h, http.MethodGet, "/reading?history=read", nil, cookies)
 	assert.Equal(t, http.StatusOK, readPage.Code)
 	assert.Contains(t, readPage.Body.String(), "Finished book")
 	assert.NotContains(t, readPage.Body.String(), "To Read book")
@@ -80,13 +80,13 @@ func TestAuthenticatedMyBooksTabsAndTransitions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, actualDisposition)
 
-	removedBook := create("Removed from My Books")
+	removedBook := create("Removed from Reading")
 	removedRevision := expectedRevision(removedBook.ID)
 	require.NoError(t, store.RemoveBookFromMyBooks(ctx, alice.ID, removedBook.ID))
 	staleMove := perform(t, h, http.MethodPost, "/library/books/"+removedBook.ID+"/to-read", url.Values{
 		"csrf_token": {csrf}, "expected_revision": {removedRevision},
 	}, cookies)
-	assert.Equal(t, http.StatusNotFound, staleMove.Code, "a stale form must not restore removed My Books membership")
+	assert.Equal(t, http.StatusNotFound, staleMove.Code, "a stale form must not restore removed Reading membership")
 	actualDisposition, err = store.GetBookDisposition(ctx, alice.ID, removedBook.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, actualDisposition, "removing membership leaves the disposition unchanged")
@@ -124,7 +124,7 @@ func TestAuthenticatedMyBooksStaleDispositionFormsConflictAcrossTabs(t *testing.
 	require.NoError(t, err)
 	require.Equal(t, initial.DispositionRevision+1, afterFirst.DispositionRevision)
 
-	// My Books has no Inbox control, so the competing decision comes from the store.
+	// Reading has no Inbox control, so the competing decision comes from the store.
 	applied, err := store.TransitionBookDisposition(ctx, alice.ID, book.ID, afterFirst.DispositionRevision, domain.BookDispositionInbox)
 	require.NoError(t, err)
 	require.True(t, applied)
@@ -181,9 +181,9 @@ func TestRemoveEndsMembershipAndPreservesBookEvidence(t *testing.T) {
 
 	response := perform(t, h, http.MethodPost, "/library/books/"+book.ID+"/remove", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, response.Code, response.Body.String())
-	assert.Contains(t, response.Header().Get("Location"), url.QueryEscape("Removed from My Books."))
+	assert.Contains(t, response.Header().Get("Location"), url.QueryEscape("Removed from Reading."))
 	_, err = store.GetBookDetail(ctx, alice.ID, book.ID)
-	require.ErrorIs(t, err, domain.ErrNotFound, "Remove ends My Books membership")
+	require.ErrorIs(t, err, domain.ErrNotFound, "Remove ends Reading membership")
 
 	retained, err := store.GetBook(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
@@ -200,8 +200,8 @@ func TestRemoveEndsMembershipAndPreservesBookEvidence(t *testing.T) {
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM reading_history WHERE owner_id=$1 AND book_id=$2`, alice.ID, book.ID).Scan(&histories))
 	assert.Equal(t, 1, analyses)
 	assert.Equal(t, 1, histories)
-	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
-	assert.NotContains(t, readPage.Body.String(), "Retained book", "the removed Book leaves My Books")
+	readPage := perform(t, h, http.MethodGet, "/reading?history=read", nil, cookies)
+	assert.NotContains(t, readPage.Body.String(), "Retained book", "the removed Book leaves Reading")
 }
 
 func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
@@ -218,10 +218,10 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	require.NoError(t, err)
 	testutil.SeedLegacyInboxDisposition(t, ctx, store.Pool(), alice.ID, book.ID)
 	cookies, csrf := loginCookies(t, h, "previously-read-alice", "alice-password")
-	unchosenPage := perform(t, h, http.MethodGet, "/library", nil, cookies)
-	assert.NotContains(t, unchosenPage.Body.String(), "Previously read book", "an unchosen Book is not in My Books")
+	unchosenPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
+	assert.NotContains(t, unchosenPage.Body.String(), "Previously read book", "an unchosen Book is not in Reading")
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionToRead))
-	initialPage := perform(t, h, http.MethodGet, "/library", nil, cookies)
+	initialPage := perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	assert.Contains(t, initialPage.Body.String(), "Mark as previously read")
 
 	mark := url.Values{"csrf_token": {csrf}}
@@ -240,9 +240,9 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, retry.Code)
 	assert.Contains(t, retry.Header().Get("Location"), "history=read")
 
-	retiredInbox := perform(t, h, http.MethodGet, "/library?disposition=inbox", nil, cookies)
+	retiredInbox := perform(t, h, http.MethodGet, "/reading?disposition=inbox", nil, cookies)
 	assert.Equal(t, http.StatusNotFound, retiredInbox.Code)
-	readPage := perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	readPage := perform(t, h, http.MethodGet, "/reading?history=read", nil, cookies)
 	assert.Contains(t, readPage.Body.String(), "Previously read book")
 	assert.NotContains(t, readPage.Body.String(), "Mark as previously read", "a Read Book does not offer the assertion")
 	assert.Contains(t, readPage.Body.String(), "Read before Mouseion")
@@ -271,7 +271,7 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 	readDisposition, err := store.GetBookDisposition(ctx, alice.ID, book.ID)
 	require.NoError(t, err)
 	assert.Equal(t, domain.BookDispositionToRead, readDisposition)
-	readPage = perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	readPage = perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	assert.Contains(t, readPage.Body.String(), "Previously read book")
 	assert.Contains(t, readPage.Body.String(), "To Read</span></p>")
 	assert.Contains(t, readPage.Body.String(), "To Read (1)")
@@ -302,13 +302,13 @@ func TestAuthenticatedPreviouslyReadHistoryAndRereading(t *testing.T) {
 		"csrf_token": {csrf}, "expected_revision": {strconv.FormatInt(detail.DispositionRevision, 10)},
 	}, cookies)
 	assert.Equal(t, http.StatusSeeOther, reconsider.Code)
-	toReadPage := perform(t, h, http.MethodGet, "/library?disposition=to_read", nil, cookies)
+	toReadPage := perform(t, h, http.MethodGet, "/reading?disposition=to_read", nil, cookies)
 	assert.Contains(t, toReadPage.Body.String(), "To Read</span></p>")
 	assert.Contains(t, toReadPage.Body.String(), "To Read (1)")
 	assert.Contains(t, toReadPage.Body.String(), "Read (0)")
 
 	require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionInbox))
-	readPage = perform(t, h, http.MethodGet, "/library?history=read", nil, cookies)
+	readPage = perform(t, h, http.MethodGet, "/reading?history=read", nil, cookies)
 	assert.Contains(t, readPage.Body.String(), `status-badge__shape--ring" aria-hidden="true"></span>Read</span>`)
 	assert.NotContains(t, readPage.Body.String(), "Disposition</strong>")
 	assert.Contains(t, readPage.Body.String(), "Read (1)")

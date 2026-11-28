@@ -20,7 +20,7 @@ import (
 )
 
 // TestClassicalWholeWorkBookLoop follows a multi-book Work, added whole from
-// the Catalog, through My Books, the Reading chooser and Concordance (spec
+// the Catalog, through Reading, the Reading chooser and Concordance (spec
 // #2634, ADR 0128). The Work is one Book, one ordinary row, one chooser entry,
 // one preparation and one Concordance group whose every occurrence carries a
 // Citation. A learner who kept per-book Books from before the change can still
@@ -68,7 +68,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	// Add creates one Book and queues exactly one preparation.
 	added := perform(t, h.handler, http.MethodPost, addAction, url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, added.Code, added.Body.String())
-	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books."))
+	assert.Contains(t, added.Header().Get("Location"), url.QueryEscape("Added 1 Book to Reading."))
 	owned := h.booksByUnit(t, learner.ID)
 	require.Len(t, owned, 1)
 	book := owned[loopTreatiseKey]
@@ -77,9 +77,9 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	require.Equal(t, []string{analysis.ClassicalPreparationQueue}, queues)
 	require.Equal(t, []string{book}, bookIDs, "exactly one preparation, for the whole-work Book")
 
-	// My Books shows one ordinary row with no position.
+	// Reading shows one ordinary row with no position.
 	require.NoError(t, h.store.SetActiveStudyLanguage(h.ctx, learner.ID, classical.Language))
-	library := perform(t, h.handler, http.MethodGet, "/library", nil, cookies)
+	library := perform(t, h.handler, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, library.Code, library.Body.String())
 	assert.Equal(t, 1, strings.Count(library.Body.String(), `id="book-row-`+book+`"`))
 	assert.Equal(t, 1, strings.Count(library.Body.String(), `<h2 id="book-title-`+book+`" class="bibliographic-title"><a class="library-book__details" href="/books/`+book+`">Synthetic Treatise</a></h2>`), "one title for the whole Work; its Title plate repeats it as decoration")
@@ -94,8 +94,8 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	assert.Equal(t, 1, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue))
 	assert.NotEmpty(t, h.waitForPreparedDefinition(t, learner.ID, book))
 
-	// My Books lists the Work as one ordinary entry.
-	chooser := perform(t, h.handler, http.MethodGet, "/grc/library?disposition=to_read", nil, cookies)
+	// Reading lists the Work as one ordinary entry.
+	chooser := perform(t, h.handler, http.MethodGet, "/grc/reading?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code, chooser.Body.String())
 	assert.Equal(t, 1, strings.Count(chooser.Body.String(), `id="book-row-`+book+`"`))
 	assert.Contains(t, chooser.Body.String(), `action="/reading/books/`+book+`/start"`)
@@ -103,7 +103,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 
 	// Concordance shows one group, one count and a Citation on every occurrence.
 	query := url.Values{"term": {"λόγος"}, "as": {domain.ConcordanceMatchLemma}}
-	concordance := perform(t, h.handler, http.MethodGet, "/grc/vocabulary/concordance?"+query.Encode(), nil, cookies)
+	concordance := perform(t, h.handler, http.MethodGet, "/grc/corpus/concordance?"+query.Encode(), nil, cookies)
 	require.Equal(t, http.StatusOK, concordance.Code, concordance.Body.String())
 	body := concordance.Body.String()
 	occurrences := countRows(t, h.pool, `SELECT count(*) FROM corpus_tokens WHERE owner_id=$1 AND canonical_lemma=$2`,
@@ -121,14 +121,14 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 	before := countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue)
 	legacyAdd := perform(t, h.handler, http.MethodPost, addAction, url.Values{"csrf_token": {legacyCSRF}}, legacyCookies)
 	require.Equal(t, http.StatusSeeOther, legacyAdd.Code, legacyAdd.Body.String())
-	assert.Contains(t, legacyAdd.Header().Get("Location"), url.QueryEscape("Added 1 Book to My Books."))
+	assert.Contains(t, legacyAdd.Header().Get("Location"), url.QueryEscape("Added 1 Book to Reading."))
 	legacyOwned := h.booksByUnit(t, legacy.ID)
 	require.Len(t, legacyOwned, 3)
 	wholeBook := legacyOwned[loopTreatiseKey]
 	require.NotEmpty(t, wholeBook)
 	assert.NotContains(t, legacyBooks, wholeBook)
 	assert.Equal(t, before+1, countRows(t, h.pool, `SELECT count(*) FROM river_job WHERE kind=$1`, analysis.ClassicalPreparationQueue))
-	page := perform(t, h.handler, http.MethodGet, "/library", nil, legacyCookies)
+	page := perform(t, h.handler, http.MethodGet, "/reading", nil, legacyCookies)
 	require.Equal(t, http.StatusOK, page.Code, page.Body.String())
 	for _, id := range append([]string{wholeBook}, legacyBooks...) {
 		row := myBookRowHTML(t, page.Body.String(), id)
@@ -136,7 +136,7 @@ func TestClassicalWholeWorkBookLoop(t *testing.T) {
 		_, err := h.store.GetBookDetail(h.ctx, legacy.ID, id)
 		require.NoError(t, err, "the Book stays openable")
 	}
-	chooserPage := perform(t, h.handler, http.MethodGet, "/grc/library?disposition=to_read", nil, legacyCookies)
+	chooserPage := perform(t, h.handler, http.MethodGet, "/grc/reading?disposition=to_read", nil, legacyCookies)
 	require.Equal(t, http.StatusOK, chooserPage.Code, chooserPage.Body.String())
 	for _, id := range legacyBooks {
 		assert.Contains(t, chooserPage.Body.String(), `action="/reading/books/`+id+`/start"`, "a legacy Book stays readable from the chooser")

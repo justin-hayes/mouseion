@@ -4,30 +4,35 @@
 
 Mouseion is a self-hosted web application that builds the polyglot reading ability classical philology requires: Ancient Greek and Latin, and German, French, Italian and Modern Greek. It treats each language's literature as worth reading for its own sake. It is neither a reader nor a tool for constructing scholarly editions; its learner surfaces are Study, Concordance and Sentence study ([ADR 0110](adr/0110-philological-reading-competence-boundary.md)). Latin is direction, not yet supported.
 
-It synchronizes a learner's ready-language catalog into My Books, acquires content lazily when the learner moves a Book to To Read, analyzes declared main text when EPUB structure identifies it (otherwise the complete snapshot), explains current evidence, and teaches the vocabulary of the Books in My Books in [Study](features/study.md), its only vocabulary workflow. It is multi-user: books, Study progress, reading history, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
+It synchronizes a learner's ready-language catalog into Reading, acquires content lazily when the learner moves a Book to To Read, analyzes declared main text when EPUB structure identifies it (otherwise the complete snapshot), explains current evidence, and teaches the vocabulary of the Books in Reading in [Study](features/study.md), its only vocabulary workflow. It is multi-user: books, Study progress, reading history, and OPDS catalog connections belong to each learner. There is no active in-application administrator role. A fresh installation allows first-account onboarding; once an account exists, users enter through normal login.
 
 ## Current learner-facing organization
 
-The authenticated shell has three primary destinations: **My Books** at
-`/{language}/library`, **Vocabulary** at `/{language}/vocabulary` (which opens
-Concordance) and **Catalog** at `/catalogs`; **Study** is at `/{language}/study`.
+The authenticated shell has four primary destinations, in this order:
+**Reading** at `/{language}/reading`, **Study** at `/{language}/study`, whose
+tab shows the number of reviews still due on the current Study day in the
+active study language, **Corpus** at `/{language}/corpus` (which opens
+Concordance at `/{language}/corpus/concordance`) and **Catalog** at `/catalogs`.
+The old `/{language}/library` and `/vocabulary/...` addresses redirect to their
+Reading and Corpus counterparts with their query intact.
 Catalog browses the Classical catalog and each connection's local Catalog index
 through one search and language filter; source setup, credentials and sync
 maintenance live on Manage sources at `/catalogs/sources`.
 The legacy `GET /connections` route permanently redirects there while preserving
-`book_id`, `message`, and `error`. My Books is the sole browse surface for Books,
+`book_id`, `message`, and `error`. Reading is the sole browse surface for Books,
 and EPUB content is acquired when a Book is moved to To Read. The upstream catalog
-browser is retired. `/` redirects to My Books.
+browser is retired. `/` redirects to Reading.
 
-My Books is one page per study language ([ADR 0136](adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)):
+Reading (formerly My Books) is one page per study language ([ADR 0136](adr/0136-study-replaces-known-vocabulary-and-prepared-deck.md)):
 the Current reading pinned at the top with its progress toward Target coverage,
 then To Read, then Read. **Read next**, **Finish** and **End** are single actions
 with no confirmation, and finishing records an independent Read-history record
 and changes no vocabulary. A status line and a needs-action filter show
 Book-level problems, and To Read can optionally be sorted by Mature coverage.
 Every Book has a detail page at `/books/{id}` that hosts its analysis actions
-and a read-only list of its words by Study state. The old `/reading` addresses
-redirect to My Books or to a Book's detail page; there is no Reading page. The
+and a read-only list of its words by Study state. The retired Reading page's
+addresses (`?reading={bookID}`, `reading/switch`) redirect to Reading or to the
+Book's detail page. The
 learner can later move a previously read Book back to To Read to read it again.
 See the [Reading workflow specification](features/reading-workflow.md) and
 [ADR 0078](adr/0078-book-dispositions-and-current-reading.md), as amended by ADR
@@ -40,12 +45,12 @@ at `/catalogs`, with detailed work under `/jobs`.
 Study languages are derived from the distinct normalized language tags of the
 learner's active chosen-language Books; there is no study-language preference or
 Settings destination. The learner's **active study language** is a stored context
-pointing into that derived set: it scopes My Books browse and search, Study,
-and Vocabulary through a shell-level switcher; current reading is one Book per
+pointing into that derived set: it scopes Reading browse and search, Study,
+and Corpus through a shell-level switcher; current reading is one Book per
 study language (ADR 0050/0051). Study progress is owner-scoped and
 language-scoped; there is no Known vocabulary and no known-vocabulary import
 (ADR 0092, ADR 0136). The retired `/known-vocab` and
-`/vocabulary/import` routes return 404, and `/settings` redirects to My Books.
+`/vocabulary/import` routes return 404, and `/settings` redirects to Reading.
 When NLP capability discovery is degraded, the shell keeps derived languages
 legible from stored display names.
 
@@ -63,10 +68,10 @@ general comprehension of a language. At one cutover it made
   Already-known Study progress at the cutover.
 - A Book's coverage counts Mature words, with in-study coverage as a second
   figure.
-- The Corpus is the analysed Books in My Books. Its To Read Books set the
+- The Corpus is the analysed Books in Reading. Its To Read Books set the
   priority of new words, and the Current reading comes first until it reaches
   Target coverage (98%).
-- Reading merged into My Books, and finishing a Book records history only.
+- The separate Reading page merged into My Books (since renamed Reading), and finishing a Book records history only.
 - Fixes to analysis start only from a Wrong-word Study report, on its
   remediation screen. Lemma review flags, suggestions and the Book-scoped queue
   are retired.
@@ -78,11 +83,11 @@ general comprehension of a language. At one cutover it made
 - [Main text selection](features/main-text-selection.md) — derives the analyzed main-text run from declared EPUB structure with a whole-snapshot fallback.
 - [Language Support](features/language-support.md) — capability-driven German, Italian, French, and Modern Greek analysis, deployment, and end-to-end validation.
 - [Catalog Sync](features/catalog-sync.md) — metadata-first, ready-language reconciliation from learner-owned catalogs with lazy content acquisition.
-- [My Books Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
-- [Book Covers](features/book-covers.md) — implemented cover-led My Books grid, retained catalog-supplied images, and supporting thumbnails.
+- [Reading Collection Browsing](features/collection-browsing.md) — paging and text search scoped to the active study language.
+- [Book Covers](features/book-covers.md) — implemented cover-led Reading grid, retained catalog-supplied images, and supporting thumbnails.
 - [Study](features/study.md) — the only vocabulary workflow: Today's graded reviews, New-word batches with an Already known answer, Fluency, Study reports and their remediation screen, and the Corpus and Target coverage that order new words.
-- [Language Mode](features/language-mode.md) — the active study language scopes the shell, My Books, Study, and Vocabulary.
-- [Reading workflow](features/reading-workflow.md) — My Books with the pinned Current reading, Read next, Finish and End, To Read selection, completion history, rereading, status lines and the Book detail page.
+- [Language Mode](features/language-mode.md) — the active study language scopes the shell, Reading, Study, and Corpus.
+- [Reading workflow](features/reading-workflow.md) — Reading with the pinned Current reading, Read next, Finish and End, To Read selection, completion history, rereading, status lines and the Book detail page.
 - [Recognition-card sentence presentation](archive/features/recognition-card-sentence-presentation.md) — **retired at the Study cutover (ADR 0136)**: the Anki card presentation of a complete bolded source sentence.
 - [Durable prepared-deck translation](archive/features/durable-prepared-deck-translation.md) — **retired at the Study cutover (ADR 0136)**: resumable manifests and atomic finalization for prepared decks.
 - [Prepared-deck rendering and presentation versioning](archive/features/prepared-deck-rendering.md) — **retired at the Study cutover (ADR 0136)**: the frozen deck specification and presentation versions.
@@ -104,12 +109,12 @@ Retired feature records are preserved under [`doc/archive/features/`](archive/fe
 
 ## Current pipeline
 
-1. **Catalog discovery and My Books** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, keeping a local Catalog index instead of creating Books, and browse the Books the learner adds. Add creates a To Read Book; sync never downloads content, starts analysis, or invalidates existing evidence. The resulting chosen-language Books derive the learner's study-language set.
+1. **Catalog discovery and Reading** — sync metadata from an owner-scoped OPDS catalog whose credentials are encrypted at rest, keeping a local Catalog index instead of creating Books, and browse the Books the learner adds. Add creates a To Read Book; sync never downloads content, starts analysis, or invalidates existing evidence. The resulting chosen-language Books derive the learner's study-language set.
 2. **Reading intent** — add a Book as To Read when it is a candidate to read. This is the learner-initiated action that records the disposition, acquires the current EPUB when needed, and ensures one analysis for the current content revision, selecting declared main text when safe and otherwise using the complete snapshot.
-3. **Analysis and evidence** — observe asynchronous analysis producing an immutable completed corpus, then inspect current evidence from My Books and the Book's detail page. Read next, End and Finish change current-reading state explicitly and freeze nothing. Prior runs remain operational history.
+3. **Analysis and evidence** — observe asynchronous analysis producing an immutable completed corpus, then inspect current evidence from Reading and the Book's detail page. Read next, End and Finish change current-reading state explicitly and freeze nothing. Prior runs remain operational history.
 4. **Candidate persistence** — aggregate every eligible content-word lemma in the analyzed EPUB, including lemmas occurring once, while excluding proper names, punctuation, and function words.
-5. **Coverage** — a Book's coverage is the share of its analyzable tokens whose effective vocabulary identity is Mature in Study, with in-study coverage as a lighter second figure. Confirmed Lemma corrections apply and excluded occurrences stay in the total. The Vocabulary coverage band, Analysis Insights and My Books all read it.
-6. **Study** — new words are drawn from the Corpus, the analysed Books in My Books in the study language: the Current reading's words first until it reaches Target coverage, then frequency across the To Read Books. Study material is prepared one word at a time by River jobs, from current evidence with the learner's corrections applied, and is reviewed in [Study](features/study.md): Today's graded reviews, New-word batches (each word can be answered **Already known**) and ungraded Fluency. A wrong word is reported there and fixed on the report's remediation screen.
+5. **Coverage** — a Book's coverage is the share of its analyzable tokens whose effective vocabulary identity is Mature in Study, with in-study coverage as a lighter second figure. Confirmed Lemma corrections apply and excluded occurrences stay in the total. The Vocabulary coverage band, Analysis Insights and Reading all read it.
+6. **Study** — new words are drawn from the Corpus, the analysed Books in Reading in the study language: the Current reading's words first until it reaches Target coverage, then frequency across the To Read Books. Study material is prepared one word at a time by River jobs, from current evidence with the learner's corrections applied, and is reviewed in [Study](features/study.md): Today's graded reviews, New-word batches (each word can be answered **Already known**) and ungraded Fluency. A wrong word is reported there and fixed on the report's remediation screen.
 
 There is no frozen snapshot, no Reserved vocabulary, no Prepared deck and no Anki export. Retired Known, snapshot, reservation and deck data is to be dropped by a separate, later migration, after the Known-to-Study backfill has run and been checked.
 

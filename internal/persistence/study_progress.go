@@ -36,6 +36,19 @@ func (s *PostgresStore) ListStudyProgress(ctx context.Context, owner, language s
 	return progress, nil
 }
 
+// CountStudyReviewsDue counts the reviews still due on the Study day containing
+// now, by the rule Today counts them (domain.StudyCountsToday).
+func (s *PostgresStore) CountStudyReviewsDue(ctx context.Context, owner, language string, now time.Time) (int, error) {
+	count, err := sqlcgen.New(s.pool).CountStudyReviewsDue(ctx, sqlcgen.CountStudyReviewsDueParams{
+		Owner: owner, Language: canonicalization.NormalizeLanguage(language),
+		DayStart: domain.StudyDayStart(now), NextDayStart: domain.NextStudyDayStart(now),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("count study reviews due: %w", err)
+	}
+	return int(count), nil
+}
+
 // StudyBatchLedger reports the New-word batches taken and declined on a Study
 // day. A day with none is the zero ledger.
 func (s *PostgresStore) StudyBatchLedger(ctx context.Context, owner, language, studyDay string) (domain.StudyBatchLedger, error) {

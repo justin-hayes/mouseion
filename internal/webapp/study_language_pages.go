@@ -9,14 +9,14 @@ import (
 )
 
 // studyLanguagePageKind names a surface whose study language is carried by the
-// URL (ADR 0131), such as My Books at /de/library.
+// URL (ADR 0131), such as Reading at /de/reading.
 type studyLanguagePageKind string
 
 const (
-	pageKindMyBooks       studyLanguagePageKind = "my-books"
 	pageKindReading       studyLanguagePageKind = "reading"
+	pageKindLegacyLibrary studyLanguagePageKind = "legacy-library"
 	pageKindReadingSwitch studyLanguagePageKind = "reading-switch"
-	pageKindVocabulary    studyLanguagePageKind = "vocabulary"
+	pageKindCorpus        studyLanguagePageKind = "corpus"
 	pageKindConcordance   studyLanguagePageKind = "concordance"
 	pageKindSentenceStudy studyLanguagePageKind = "sentence-study"
 	pageKindStudy         studyLanguagePageKind = "study"
@@ -26,24 +26,60 @@ const (
 // studyLanguagePage describes one per-language surface. Path is the route
 // beneath the language prefix. Landing is the kind a deep page falls back to
 // when the language changes (a lemma or sentence does not survive the change);
-// a surface's own landing page names itself.
+// a surface's own landing page names itself. Successor is set on a retired
+// address (the former Reading page at /library): it redirects to the
+// successor page in one hop, keeping the query.
 type studyLanguagePage struct {
-	Path    string
-	Landing studyLanguagePageKind
+	Path      string
+	Landing   studyLanguagePageKind
+	Successor studyLanguagePageKind
 }
 
 // studyLanguagePages is the page-kind registry every link builder, the
 // resolver and the picker target read. A surface registers its route with
 // Handler.perLanguage.
 var studyLanguagePages = map[studyLanguagePageKind]studyLanguagePage{
-	pageKindMyBooks:       {Path: "library", Landing: pageKindMyBooks},
 	pageKindReading:       {Path: "reading", Landing: pageKindReading},
+	pageKindLegacyLibrary: {Path: "library", Landing: pageKindLegacyLibrary, Successor: pageKindReading},
 	pageKindReadingSwitch: {Path: "reading/switch", Landing: pageKindReadingSwitch},
-	pageKindVocabulary:    {Path: "vocabulary", Landing: pageKindConcordance},
-	pageKindConcordance:   {Path: "vocabulary/concordance", Landing: pageKindConcordance},
-	pageKindSentenceStudy: {Path: "vocabulary/concordance/sentence", Landing: pageKindConcordance},
+	pageKindCorpus:        {Path: "corpus", Landing: pageKindConcordance},
+	pageKindConcordance:   {Path: "corpus/concordance", Landing: pageKindConcordance},
+	pageKindSentenceStudy: {Path: "corpus/concordance/sentence", Landing: pageKindConcordance},
 	pageKindStudy:         {Path: "study", Landing: pageKindStudy},
 	pageKindStudyReports:  {Path: "study/reports", Landing: pageKindStudy},
+}
+
+// legacyLanguagePages are retired addresses and the page kind that replaced
+// each. The Vocabulary destination became Corpus; its addresses never return,
+// so each one redirects straight to its successor in a single hop.
+var legacyLanguagePages = map[string]studyLanguagePageKind{
+	"vocabulary":                      pageKindCorpus,
+	"vocabulary/concordance":          pageKindConcordance,
+	"vocabulary/concordance/sentence": pageKindSentenceStudy,
+}
+
+// legacyLanguage registers the unprefixed route of a retired address. It
+// resolves the study language as an unprefixed page does and redirects to the
+// successor with the query intact.
+func (h *Handler) legacyLanguage(path string, successor studyLanguagePageKind) {
+	h.mux.Handle("GET /"+path, h.user(h.unprefixedLanguagePage(successor, nil)))
+}
+
+// legacyPrefixedPage redirects /{language}/<retired path> to the successor. A
+// language the learner has nothing in recovers as the successor's own prefixed
+// page would.
+func (h *Handler) legacyPrefixedPage(successor studyLanguagePageKind) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		view := shellViewFromContext(r.Context())
+		language := canonicalization.NormalizeLanguage(r.PathValue("lang"))
+		rest := "/" + studyLanguagePages[successor].Path
+		if view == nil || !view.hasLanguage(language) {
+			path, rawQuery := languageFallback(view, successor, rest, r.URL.RawQuery)
+			redirectLocal(w, r, path, rawQuery)
+			return
+		}
+		redirectLocal(w, r, studyLanguagePath(successor, language), r.URL.RawQuery)
+	})
 }
 
 // studyLanguagePath is the address of a page kind: prefixed with the language
@@ -62,11 +98,11 @@ func studyLanguagePath(kind studyLanguagePageKind, language string) string {
 
 // studyLanguagePickerTarget is where the shell picker opens kind in language:
 // the kind's landing page, with every language-specific detail dropped. An
-// unknown kind falls back to My Books.
+// unknown kind falls back to Reading.
 func studyLanguagePickerTarget(kind studyLanguagePageKind, language string) string {
 	landing, ok := studyLanguagePages[kind]
 	if !ok {
-		return studyLanguagePath(pageKindMyBooks, language)
+		return studyLanguagePath(pageKindReading, language)
 	}
 	return studyLanguagePath(landing.Landing, language)
 }
@@ -77,15 +113,37 @@ type languagePrefixed struct {
 	handler http.Handler
 }
 
+// perLanguageRetired registers a retired address that redirects to its
+// successor page in one hop, keeping the query. A prefixed request keeps its
+// language; an unprefixed one takes the Last study language, as the successor's
+// own unprefixed address does.
+func (h *Handler) perLanguageRetired(kind studyLanguagePageKind) {
+	successor := studyLanguagePages[kind].Successor
+	prefixed := func(w http.ResponseWriter, r *http.Request) {
+		language := canonicalization.NormalizeLanguage(r.PathValue("lang"))
+		redirectLocal(w, r, studyLanguagePath(successor, language), r.URL.RawQuery)
+	}
+	unprefixed := func(w http.ResponseWriter, r *http.Request) {
+		redirectLocal(w, r, studyLanguagePath(successor, ""), r.URL.RawQuery)
+	}
+	h.perLanguageWith(kind, successor, prefixed, unprefixed)
+}
+
 // perLanguage registers a GET surface. It is served under /{language}/<path>,
 // and its unprefixed route redirects to the prefixed form.
 func (h *Handler) perLanguage(kind studyLanguagePageKind, handler http.HandlerFunc) {
+	h.perLanguageWith(kind, kind, handler, handler)
+}
+
+// perLanguageWith serves the prefixed route with prefixed and the unprefixed
+// route as the page kind target, with unprefixed.
+func (h *Handler) perLanguageWith(kind, target studyLanguagePageKind, prefixed, unprefixed http.HandlerFunc) {
 	page := studyLanguagePages[kind]
 	if h.languagePages == nil {
 		h.languagePages = map[string]languagePrefixed{}
 	}
-	h.languagePages[page.Path] = languagePrefixed{kind: kind, handler: handler}
-	h.mux.Handle("GET /"+page.Path, h.user(h.unprefixedLanguagePage(kind, handler)))
+	h.languagePages[page.Path] = languagePrefixed{kind: kind, handler: prefixed}
+	h.mux.Handle("GET /"+page.Path, h.user(h.unprefixedLanguagePage(target, unprefixed)))
 }
 
 // isLanguageSegment reports whether a path segment has the shape of a language
@@ -117,6 +175,10 @@ func (h *Handler) matchLanguagePage(r *http.Request) (http.Handler, bool) {
 	prefix, rest, ok := strings.Cut(strings.TrimPrefix(r.URL.Path, "/"), "/")
 	if !ok || !isLanguageSegment(prefix) {
 		return nil, false
+	}
+	if successor, retired := legacyLanguagePages[rest]; retired {
+		r.SetPathValue("lang", prefix)
+		return h.user(h.legacyPrefixedPage(successor)), true
 	}
 	page, ok := h.languagePages[rest]
 	if !ok {
@@ -200,6 +262,9 @@ func languageFallback(view *shellView, kind studyLanguagePageKind, rest, rawQuer
 	if view == nil || view.LastLanguage == "" {
 		return rest, rawQuery
 	}
+	if successor := studyLanguagePages[kind].Successor; successor != "" {
+		return studyLanguagePath(successor, view.LastLanguage), rawQuery
+	}
 	if landing := studyLanguagePages[kind].Landing; landing != kind {
 		return studyLanguagePath(landing, view.LastLanguage), ""
 	}
@@ -208,7 +273,7 @@ func languageFallback(view *shellView, kind studyLanguagePageKind, rest, rawQuer
 
 // unprefixedLanguagePage redirects an unprefixed address to the prefixed form.
 // The Last study language is used. A learner with no study language is served
-// the unprefixed My Books empty state; every other surface redirects there.
+// the unprefixed Reading empty state; every other surface redirects there.
 func (h *Handler) unprefixedLanguagePage(kind studyLanguagePageKind, handler http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		view := shellViewFromContext(r.Context())
@@ -220,10 +285,10 @@ func (h *Handler) unprefixedLanguagePage(kind studyLanguagePageKind, handler htt
 			language = queried
 		}
 		query.Del("language")
-		if language == "" && kind != pageKindMyBooks {
+		if language == "" && kind != pageKindReading {
 			// Without a study language every other surface has nothing to show;
-			// the unprefixed My Books empty state says how to begin.
-			redirectLocal(w, r, "/"+studyLanguagePages[pageKindMyBooks].Path, "")
+			// the unprefixed Reading empty state says how to begin.
+			redirectLocal(w, r, "/"+studyLanguagePages[pageKindReading].Path, "")
 			return
 		}
 		if language == "" {
@@ -238,7 +303,7 @@ func (h *Handler) unprefixedLanguagePage(kind studyLanguagePageKind, handler htt
 }
 
 // redirectLocal redirects to a local path with an already encoded query. HTMX
-// partial requests navigate the whole page, as My Books redirects do.
+// partial requests navigate the whole page, as Reading redirects do.
 func redirectLocal(w http.ResponseWriter, r *http.Request, path, rawQuery string) {
 	if rawQuery != "" {
 		path += "?" + rawQuery
@@ -252,7 +317,7 @@ func (h *Handler) studyLanguageSwitch(w http.ResponseWriter, r *http.Request) {
 	view := shellViewFromContext(r.Context())
 	language := canonicalization.NormalizeLanguage(strings.TrimSpace(r.URL.Query().Get("lang")))
 	if language == "" {
-		redirect(w, r, studyLanguagePath(pageKindMyBooks, view.lastLanguage()))
+		redirect(w, r, studyLanguagePath(pageKindReading, view.lastLanguage()))
 		return
 	}
 	if view == nil || !view.hasLanguage(language) {

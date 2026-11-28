@@ -218,19 +218,19 @@ func TestConcordanceReturnFocusIsServerRendered(t *testing.T) {
 }
 
 func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.T) {
-	valid := "/de/vocabulary/concordance?term=Haus&as=form&page=2&focus=occurrence-book-25-1#occurrence-book-25-1"
+	valid := "/de/corpus/concordance?term=Haus&as=form&page=2&focus=occurrence-book-25-1#occurrence-book-25-1"
 	if got := safeConcordanceReturnURL(valid, "de"); got != valid {
 		t.Fatalf("safe return URL = %q, want %q", got, valid)
 	}
 	for _, invalid := range []string{
-		"https://example.com/", "//example.com/de/vocabulary/concordance?focus=x#x",
-		"/unrelated?focus=x#x", "/de/vocabulary/concordance?term=Haus&page=2&focus=x#y",
-		"/de/vocabulary/concordance?term=Haus&page=not-a-page&focus=x#x",
-		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&next=https://example.com#x",
-		"/de/vocabulary/concordance?term=Haus&mode=surface&book=x&page=2&focus=x#x",
-		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b&from_page=0#x",
+		"https://example.com/", "//example.com/de/corpus/concordance?focus=x#x",
+		"/unrelated?focus=x#x", "/de/corpus/concordance?term=Haus&page=2&focus=x#y",
+		"/de/corpus/concordance?term=Haus&page=not-a-page&focus=x#x",
+		"/de/corpus/concordance?term=Haus&page=2&focus=x&next=https://example.com#x",
+		"/de/corpus/concordance?term=Haus&mode=surface&book=x&page=2&focus=x#x",
+		"/de/corpus/concordance?term=Haus&page=2&focus=x&from_book=b&from_page=0#x",
 	} {
-		if got := safeConcordanceReturnURL(invalid, "de"); got != "/de/vocabulary/concordance" {
+		if got := safeConcordanceReturnURL(invalid, "de"); got != "/de/corpus/concordance" {
 			t.Errorf("unsafe return URL %q accepted as %q", invalid, got)
 		}
 	}
@@ -238,7 +238,7 @@ func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.
 
 func TestSafeConcordanceReturnURLKeepsAValidBrowseOrigin(t *testing.T) {
 	origin := browseOrigin{BookID: "book-1", Prefix: "ha", Page: 2, Row: "NOUN:haus", Revision: "rev-1"}
-	valid := origin.Apply("/de/vocabulary/concordance?page=1&term=haus&focus=occurrence-book-1-0-0") + "#occurrence-book-1-0-0"
+	valid := origin.Apply("/de/corpus/concordance?page=1&term=haus&focus=occurrence-book-1-0-0") + "#occurrence-book-1-0-0"
 	if got := safeConcordanceReturnURL(valid, "de"); got != valid {
 		t.Fatalf("return URL with origin = %q, want %q", got, valid)
 	}
@@ -403,7 +403,7 @@ func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) 
 		},
 	}
 	var rendered bytes.Buffer
-	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance", "").Render(t.Context(), &rendered); err != nil {
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/corpus/concordance", "").Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
 	}
 	body := rendered.String()
@@ -450,11 +450,11 @@ func TestSentenceStudyTextAlternativeIsClosedByDefaultAndComplete(t *testing.T) 
 
 	noEvidence := domain.SentenceStudy{BookTitle: "Buch", SentenceText: "Nur Text.", TargetSurface: "Wort"}
 	rendered.Reset()
-	if err := VocabularySentenceStudyPageView(domain.User{}, "", noEvidence, "/vocabulary/concordance", "").Render(t.Context(), &rendered); err != nil {
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", noEvidence, "/corpus/concordance", "").Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
 	}
 	body = rendered.String()
-	if !strings.Contains(body, `<a href="/vocabulary/concordance">Return to Concordance results</a>`) {
+	if !strings.Contains(body, `<a href="/corpus/concordance">Return to Concordance results</a>`) {
 		t.Fatal("the no-evidence state dropped the return link")
 	}
 	if !strings.Contains(body, "Syntax evidence is unavailable for this sentence; the complete sentence remains available to study.") {
@@ -487,7 +487,7 @@ func TestSentenceStudyTextAlternativeShowsUnresolvedDecisionsSeparately(t *testi
 		},
 	}
 	var rendered bytes.Buffer
-	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance", "").Render(t.Context(), &rendered); err != nil {
+	if err := VocabularySentenceStudyPageView(domain.User{}, "", study, "/corpus/concordance", "").Render(t.Context(), &rendered); err != nil {
 		t.Fatal(err)
 	}
 	body := rendered.String()
@@ -560,7 +560,7 @@ func TestConcordanceHandlerReportsReadFailures(t *testing.T) {
 			h, cookies, _, store := readingFixtureSession(t)
 			requireHandler(t, h).services.Store = storeDependencies(tc.store(store))
 
-			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/vocabulary/concordance?term=gehen", nil)
+			request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/corpus/concordance?term=gehen", nil)
 			for _, cookie := range cookies {
 				request.AddCookie(cookie)
 			}

@@ -175,7 +175,7 @@ func TestCatalogShowsSearchFilterSourceStatusLinesAndOpdsSections(t *testing.T) 
 		`id="catalog-source-title-fixture-connection"`,
 		"Der lange Weg nach Hause",
 		`class="catalog-cover-grid"`,
-		`href="/catalogs/books/fixture-book/in-my-books">In My Books</a>`,
+		`href="/catalogs/books/fixture-book/in-my-books">In Reading</a>`,
 		`class="catalog-entry__add"`,
 		`action="/catalogs/sources/fixture-connection/add"`,
 		`name="entry_identifier" value="fixture-sommer"`,
@@ -309,7 +309,7 @@ func TestClassicalSectionRendersOneOrdinaryCardPerReadingUnit(t *testing.T) {
 		`action="/catalogs/classical/units/plato-republic/previously-read"`,
 		`name="return" value="index"`,
 		`Adding prepares the text for reading.`,
-		`>Add</button>`,
+		`>Add to Reading</button>`,
 		`>I've read this</button>`,
 		`class="catalog-source__footer"`,
 		`Greek text source:`,
@@ -437,7 +437,7 @@ func TestClassicalCardsOwnershipAndAddInPlaceOnTheCatalog(t *testing.T) {
 	body := index.Body.String()
 	assert.Contains(t, body, `action="/catalogs/classical/units/fixture-odyssey/add"`)
 	assert.Contains(t, body, `action="/catalogs/classical/units/fixture-odyssey/previously-read"`)
-	assert.NotContains(t, body, "In My Books")
+	assert.NotContains(t, body, "In Reading")
 
 	added := readingTestRequest(t, h, "/catalogs/classical/units/fixture-odyssey/add", url.Values{
 		"csrf_token":       {csrf},
@@ -447,14 +447,14 @@ func TestClassicalCardsOwnershipAndAddInPlaceOnTheCatalog(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, added.Code)
 	location := added.Header().Get("Location")
 	assert.Contains(t, location, "/catalogs?language=grc&")
-	assert.Contains(t, location, url.QueryEscape("Added 1 Book to My Books"))
+	assert.Contains(t, location, url.QueryEscape("Added 1 Book to Reading"))
 
 	owned := catalogPage(t, h, cookies, location)
 	require.Equal(t, http.StatusOK, owned.Code)
 	ownedBody := owned.Body.String()
-	assert.Contains(t, ownedBody, "Added 1 Book to My Books")
+	assert.Contains(t, ownedBody, "Added 1 Book to Reading")
 	assert.Contains(t, ownedBody, `id="catalog-add-confirmation"`, "the Add confirms exactly as an OPDS Add does")
-	assert.Contains(t, ownedBody, `>View in My Books</a>`)
+	assert.Contains(t, ownedBody, `>View in Reading</a>`)
 	assert.Contains(t, ownedBody, `class="catalog-entry__ownership"`)
 	assert.NotContains(t, ownedBody, `action="/catalogs/classical/units/fixture-odyssey/add"`, "an owned unit offers no Add")
 	assert.Contains(t, ownedBody, `action="/catalogs/classical/units/fixture-hellenica/add"`, "an unowned unit still offers Add")
@@ -615,7 +615,7 @@ func TestCataloguePreviouslyReadCreatesAReadBookOnTheCatalog(t *testing.T) {
 	assert.Contains(t, body, `id="catalog-read-confirmation"`)
 	assert.Contains(t, body, `autofocus`)
 	assert.Contains(t, body, "Recorded “Über die Berge” as previously read.")
-	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in My Books</a>`)
+	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in Reading</a>`)
 }
 
 func TestCataloguePreviouslyReadRouteRejectsMissingCSRFAndUnknownEntries(t *testing.T) {
@@ -668,7 +668,7 @@ func TestClassicalUnitPreviouslyReadRecordsAReadBookWithoutPreparation(t *testin
 	body := page.Body.String()
 	assert.Contains(t, body, "Recorded “Iliad” as previously read.")
 	assert.Contains(t, body, `id="catalog-read-confirmation"`)
-	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in My Books</a>`)
+	assert.Contains(t, body, `href="/catalogs/books/`+bookID+`/in-my-books">View in Reading</a>`)
 }
 
 func TestCatalogueAddPreparationMessagesStateWhatFollowsTheAdd(t *testing.T) {
@@ -697,10 +697,10 @@ func TestCatalogueAddPreparationWithoutAReadingIntentModuleKeepsTheAdd(t *testin
 
 func TestCatalogueAddMessageNamesTheBookAndMembershipChange(t *testing.T) {
 	book := domain.Book{Title: "Add Entry"}
-	assert.Equal(t, "Added “Add Entry” to My Books.", catalogueAddMessage(domain.CatalogueAddResult{Book: book, Created: true, Changed: true}))
-	assert.Equal(t, "Restored “Add Entry” to My Books.", catalogueAddMessage(domain.CatalogueAddResult{Book: book, Changed: true}))
-	assert.Equal(t, "“Add Entry” is already in My Books.", catalogueAddMessage(domain.CatalogueAddResult{Book: book}))
-	assert.Equal(t, "Added “the text” to My Books.", catalogueAddMessage(domain.CatalogueAddResult{Created: true}))
+	assert.Equal(t, "Added “Add Entry” to Reading.", catalogueAddMessage(domain.CatalogueAddResult{Book: book, Created: true, Changed: true}))
+	assert.Equal(t, "Restored “Add Entry” to Reading.", catalogueAddMessage(domain.CatalogueAddResult{Book: book, Changed: true}))
+	assert.Equal(t, "“Add Entry” is already in Reading.", catalogueAddMessage(domain.CatalogueAddResult{Book: book}))
+	assert.Equal(t, "Added “the text” to Reading.", catalogueAddMessage(domain.CatalogueAddResult{Created: true}))
 }
 
 func TestCatalogueAddConfirmationLinksOnlyTheEntryTheAddNamed(t *testing.T) {
@@ -712,14 +712,14 @@ func TestCatalogueAddConfirmationLinksOnlyTheEntryTheAddNamed(t *testing.T) {
 	body := matching.Body.String()
 	assert.Contains(t, body, `id="catalog-add-confirmation"`)
 	assert.Contains(t, body, `autofocus`)
-	assert.Contains(t, body, `href="/catalogs/books/fixture-book/in-my-books">View in My Books</a>`)
+	assert.Contains(t, body, `href="/catalogs/books/fixture-book/in-my-books">View in Reading</a>`)
 
 	// A Book and entry that do not share an alias render the message without a
 	// link or focus target.
 	mismatched := catalogPage(t, h, cookies, "/catalogs?language=de&message=Added&added_book=fixture-book&added_connection=fixture-browser-sync-connection&added_entry=fixture-other")
 	require.Equal(t, http.StatusOK, mismatched.Code)
 	assert.NotContains(t, mismatched.Body.String(), `id="catalog-add-confirmation"`)
-	assert.NotContains(t, mismatched.Body.String(), `>View in My Books</a>`)
+	assert.NotContains(t, mismatched.Body.String(), `>View in Reading</a>`)
 }
 
 func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {
@@ -731,8 +731,8 @@ func TestClassicalAddMessageNamesOnlyMembershipChanges(t *testing.T) {
 	}{
 		{name: "one reopened", opened: 1, expected: "Opened the existing Book."},
 		{name: "several reopened", opened: 2, expected: "Opened 2 existing Books."},
-		{name: "one created", created: 1, expected: "Added 1 Book to My Books."},
-		{name: "several created", created: 2, expected: "Added 2 Books to My Books."},
+		{name: "one created", created: 1, expected: "Added 1 Book to Reading."},
+		{name: "several created", created: 2, expected: "Added 2 Books to Reading."},
 		{name: "one created and one reopened", created: 1, opened: 1, expected: "Added 1 Book and opened 1 existing Book."},
 		{name: "one created and several reopened", created: 1, opened: 2, expected: "Added 1 Book and opened 2 existing Books."},
 		{name: "several created and one reopened", created: 2, opened: 1, expected: "Added 2 Books and opened 1 existing Book."},
@@ -764,10 +764,10 @@ func TestClassicalAddOutcomeNamesTheLanguageOnlyWhenAnotherIsActive(t *testing.T
 		activeLanguage string
 		expected       classicalAddConfirmation
 	}{
-		{name: "created with Ancient Greek active", report: created, activeLanguage: classical.Language, expected: classicalAddConfirmation{Message: "Added 1 Book to My Books."}},
-		{name: "created with no study language", report: created, expected: classicalAddConfirmation{Message: "Added 1 Book to My Books."}},
+		{name: "created with Ancient Greek active", report: created, activeLanguage: classical.Language, expected: classicalAddConfirmation{Message: "Added 1 Book to Reading."}},
+		{name: "created with no study language", report: created, expected: classicalAddConfirmation{Message: "Added 1 Book to Reading."}},
 		{name: "reopened with Ancient Greek active", report: opened, activeLanguage: classical.Language, expected: classicalAddConfirmation{Message: "Opened the existing Book."}},
-		{name: "created with another language active", report: created, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Added 1 Book to My Books."), BookID: "added-book"}},
+		{name: "created with another language active", report: created, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Added 1 Book to Reading."), BookID: "added-book"}},
 		{name: "reopened with another language active", report: opened, activeLanguage: "de", expected: classicalAddConfirmation{Message: languageMessage("Opened the existing Book."), BookID: "added-book"}},
 	}
 	for _, test := range cases {
@@ -785,7 +785,7 @@ func TestClassicalAddPreparationMessageStatesDownloadAndPreparation(t *testing.T
 	}{
 		{name: "queued", preparation: classicalAddPreparation{Queued: 2}, expected: " Downloading and preparing the text."},
 		{name: "already prepared", preparation: classicalAddPreparation{AlreadyPrepared: 1}, expected: " The text is already prepared."},
-		{name: "could not start", preparation: classicalAddPreparation{CouldNotStart: 1}, expected: " The text could not be prepared. Retry preparation from My Books when ready."},
+		{name: "could not start", preparation: classicalAddPreparation{CouldNotStart: 1}, expected: " The text could not be prepared. Retry preparation from Reading when ready."},
 		{name: "withdrawn", preparation: classicalAddPreparation{CouldNotStart: 1, Refusal: classicalWithdrawnRefusal}, expected: " " + classicalWithdrawnRefusal},
 		{name: "nothing to submit", preparation: classicalAddPreparation{}, expected: ""},
 	}
@@ -851,7 +851,7 @@ func TestCatalogLanguageFilterDefaultsToTheLastStudyLanguage(t *testing.T) {
 	require.NotNil(t, fixtureStore)
 
 	for _, language := range []string{"it", "de"} {
-		require.Equal(t, http.StatusOK, catalogPage(t, h, cookies, "/"+language+"/library").Code)
+		require.Equal(t, http.StatusOK, catalogPage(t, h, cookies, "/"+language+"/reading").Code)
 		body := catalogPage(t, h, cookies, "/catalogs").Body.String()
 		assert.Contains(t, body, `<option value="`+language+`" selected`, "the filter follows the last per-language page viewed")
 
@@ -1105,7 +1105,7 @@ func TestCatalogOwnedEntryOpensTheBookInMyBooks(t *testing.T) {
 	opened := catalogPage(t, h, cookies, "/catalogs/books/"+fixtures.BookID+"/in-my-books")
 	require.Equal(t, http.StatusSeeOther, opened.Code)
 	location := opened.Header().Get("Location")
-	assert.Contains(t, location, "/library?")
+	assert.Contains(t, location, "/reading?")
 	assert.Contains(t, location, "disposition=to_read")
 	assert.Contains(t, location, "#book-row-"+fixtures.BookID)
 
@@ -1141,7 +1141,7 @@ func TestCatalogAndManageSourcesOmitTheShellStudyLanguagePicker(t *testing.T) {
 	catalog := catalogPage(t, h, cookies, "/catalogs").Body.String()
 	assert.Contains(t, catalog, `<select id="catalog-language-filter" name="language">`, "the Language filter is the Catalog's language control")
 
-	reading := catalogPage(t, h, cookies, "/de/library").Body.String()
+	reading := catalogPage(t, h, cookies, "/de/reading").Body.String()
 	assert.Contains(t, reading, `id="active-study-language"`, "per-language pages keep the picker")
 }
 

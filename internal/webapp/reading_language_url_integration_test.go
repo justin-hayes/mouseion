@@ -12,16 +12,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestReadingAddressesResolveTheLanguageThenRedirectToMyBooks(t *testing.T) {
+func TestReadingAddressesResolveTheLanguageThenServeOrRedirectToReading(t *testing.T) {
 	h, cookies, _, store, owner, _ := languageContextHandler(t)
 	ctx := context.Background()
 
-	german := getAs(t, h, "/de/library", cookies)
+	german := getAs(t, h, "/de/reading", cookies)
 	require.Equal(t, http.StatusOK, german.Code)
 	assert.Contains(t, german.Body.String(), `<option value="de" selected>`)
-	assert.NotContains(t, german.Body.String(), `href="/de/reading"`, "Reading left the shell navigation")
+	assert.Contains(t, german.Body.String(), `href="/de/reading"`, "Reading is the first shell destination")
 
-	italian := getAs(t, h, "/it/library", cookies)
+	italian := getAs(t, h, "/it/reading", cookies)
 	require.Equal(t, http.StatusOK, italian.Code)
 	assert.Contains(t, italian.Body.String(), `<option value="it" selected>`)
 	stored, err := store.GetStoredActiveStudyLanguage(ctx, owner.ID)
@@ -29,8 +29,8 @@ func TestReadingAddressesResolveTheLanguageThenRedirectToMyBooks(t *testing.T) {
 	assert.Equal(t, "it", stored, "a prefixed view records the Last study language")
 
 	// Unprefixed addresses redirect to the prefixed form; a valid legacy
-	// ?language= names the language and is stripped. The prefixed Reading
-	// address then redirects to My Books in the same language (ADR 0131).
+	// ?language= names the language and is stripped. The retired Switch and
+	// library addresses redirect to Reading in the same language (ADR 0131).
 	redirects := []struct{ name, path, want string }{
 		{"reading", "/reading", "/it/reading"},
 		{"reading with a valid language", "/reading?language=de", "/de/reading"},
@@ -38,10 +38,12 @@ func TestReadingAddressesResolveTheLanguageThenRedirectToMyBooks(t *testing.T) {
 		{"switch", "/reading/switch", "/it/reading/switch"},
 		{"switch with a valid language", "/reading/switch?language=de", "/de/reading/switch"},
 		{"upper-case prefix", "/DE/reading", "/de/reading"},
-		{"German reading", "/de/reading", "/de/library"},
-		{"Italian reading", "/it/reading", "/it/library"},
-		{"German switch", "/de/reading/switch", "/de/library"},
-		{"Italian switch", "/it/reading/switch", "/it/library"},
+		{"library", "/library", "/it/reading"},
+		{"library with a query", "/library?q=haus&language=de", "/de/reading?q=haus"},
+		{"German library", "/de/library", "/de/reading"},
+		{"Italian library with a query", "/it/library?needs=action&sort=readable", "/it/reading?needs=action&sort=readable"},
+		{"German switch", "/de/reading/switch", "/de/reading"},
+		{"Italian switch", "/it/reading/switch", "/it/reading"},
 	}
 	for _, tc := range redirects {
 		t.Run(tc.name, func(t *testing.T) {
@@ -51,11 +53,11 @@ func TestReadingAddressesResolveTheLanguageThenRedirectToMyBooks(t *testing.T) {
 		})
 	}
 
-	// The picker still resolves the retired kinds, and they land on My Books.
+	// The picker still resolves the retired kinds, and they land on Reading.
 	reading := getAs(t, h, "/study-language?to=reading&lang=de&q=haus", cookies)
 	assert.Equal(t, "/de/reading", reading.Header().Get("Location"))
 	followed := getAs(t, h, reading.Header().Get("Location"), cookies)
-	assert.Equal(t, "/de/library", followed.Header().Get("Location"))
+	assert.Equal(t, http.StatusOK, followed.Code)
 }
 
 func TestReadingActionsReturnToTheBooksLanguage(t *testing.T) {
@@ -66,23 +68,23 @@ func TestReadingActionsReturnToTheBooksLanguage(t *testing.T) {
 
 	start := readingTestRequest(t, h, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, start.Code)
-	assert.Contains(t, start.Header().Get("Location"), "/de/library?message=")
+	assert.Contains(t, start.Header().Get("Location"), "/de/reading?message=")
 	current, err := store.GetCurrentReading(ctx, owner.ID, "de")
 	require.NoError(t, err)
 	require.Equal(t, book.ID, current.BookID, "the Book's language, not the Last study language, is started")
 
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, "it"))
 	stale := readingTestRequest(t, h, "/reading/books/"+book.ID+"/start", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Contains(t, stale.Header().Get("Location"), "/de/library?message=")
+	assert.Contains(t, stale.Header().Get("Location"), "/de/reading?message=")
 
 	// End and Finish act on the active study language.
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, "de"))
 	end := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, end.Code)
-	assert.Contains(t, end.Header().Get("Location"), "/de/library?message=")
+	assert.Contains(t, end.Header().Get("Location"), "/de/reading?message=")
 
 	reanalyze := readingTestRequest(t, h, "/reading/books/"+book.ID+"/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
-	assert.Contains(t, reanalyze.Header().Get("Location"), "/de/library?")
+	assert.Contains(t, reanalyze.Header().Get("Location"), "/de/reading?")
 }
 
 func TestReadingAddressNamingABookMovesToItsDetailPageInEveryLanguage(t *testing.T) {

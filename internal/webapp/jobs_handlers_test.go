@@ -101,7 +101,7 @@ func TestCatalogueSyncStatusRunningUsesLifecycle(t *testing.T) {
 }
 
 // TestBookPreparationFailureReasonReusesMyBooksReasons pins the learner
-// reason a failed row adds under its stable code to the wording My Books
+// reason a failed row adds under its stable code to the wording Reading
 // already explains for the same failure, for every kind and stage.
 func TestBookPreparationFailureReasonReusesMyBooksReasons(t *testing.T) {
 	tests := []struct {

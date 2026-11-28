@@ -109,7 +109,7 @@ func TestMyBooksCompletionReceiptNeverPointsToTheNextBook(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, CurrentReadingFinish(currentReadingFinishView{BookTitle: "Finished Book"}).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, `href="/library">Choose a To Read book in My Books</a>`)
+	assert.Contains(t, html, `href="/reading">Choose a To Read book in Reading</a>`)
 	for _, unwanted := range []string{"next Book", "Book 2", "Continue", "Start reading"} {
 		assert.NotContains(t, html, unwanted)
 	}
@@ -130,7 +130,7 @@ func chooserWorkBody(t *testing.T, books []domain.MyBook, insights chooserWorkIn
 		handler.services.AnalysisUpdates = &fakeAnalysisUpdates{offers: offers}
 	}
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/library?disposition=to_read", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/reading?disposition=to_read", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -155,7 +155,7 @@ func TestMyBooksRendersEachBookAsAnOrdinaryEntry(t *testing.T) {
 		assert.NotContains(t, body, `action="/reading/books/`+notReady+`/start"`, "%s has no current analysis, so it offers no Read next", notReady)
 	}
 	for _, gone := range []string{"reading-chooser", "To Read Books, ", "Known coverage 9", "Book 1 of", "24 books"} {
-		assert.NotContains(t, body, gone, "My Books has no grouped Work entry")
+		assert.NotContains(t, body, gone, "Reading has no grouped Work entry")
 	}
 }
 
@@ -194,7 +194,7 @@ func TestMyBooksOffersTheOrdinaryAnalysisUpdateOnEachBook(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(body, "Confirm analysis update"))
 	assert.Contains(t, body, `action="/reading/books/iliad-1/analysis-update"`)
 	assert.Contains(t, body, `action="/reading/books/iliad-2/analysis-update"`)
-	assert.NotContains(t, body, "/library/works/", "there is no Work-level update action")
+	assert.NotContains(t, body, "/reading/works/", "there is no Work-level update action")
 }
 
 func TestMyBooksOffersAWholeWorkBookTheOrdinaryAnalysisUpdate(t *testing.T) {
@@ -205,5 +205,5 @@ func TestMyBooksOffersAWholeWorkBookTheOrdinaryAnalysisUpdate(t *testing.T) {
 
 	assert.Equal(t, 1, strings.Count(body, "A newer analysis is available."))
 	assert.Contains(t, body, `action="/reading/books/hellenica/analysis-update"`)
-	assert.NotContains(t, body, "/library/works/")
+	assert.NotContains(t, body, "/reading/works/")
 }

@@ -548,6 +548,20 @@ textarea {
   background: var(--mouseion-color-surface-quiet);
 }
 
+.site-nav__count {
+  box-sizing: border-box;
+  min-width: 1.5em;
+  margin-inline-start: var(--mouseion-space-1);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding-inline: var(--mouseion-space-1);
+  color: var(--mouseion-color-text-muted);
+  font-size: var(--mouseion-font-size-metadata);
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .site-header a:focus-visible,
 .site-header button:focus-visible,
 .site-header select:focus-visible,
@@ -1253,7 +1267,7 @@ progress {
   background: var(--mouseion-color-surface-quiet);
 }
 
-body.my-books-shell .library-filters a[aria-current="page"] {
+body.reading-list-shell .library-filters a[aria-current="page"] {
   color: var(--mouseion-color-surface);
   background: var(--mouseion-color-text);
 }

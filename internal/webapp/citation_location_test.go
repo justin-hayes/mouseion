@@ -46,7 +46,7 @@ func TestSentenceStudyShowsAClassicalSentencesCitation(t *testing.T) {
 			SentenceEndOffset: 6, SentenceOrdinal: 4, Citations: citations,
 		}
 		var rendered bytes.Buffer
-		require.NoError(t, VocabularySentenceStudyPageView(domain.User{}, "", study, "/vocabulary/concordance", "").Render(t.Context(), &rendered))
+		require.NoError(t, VocabularySentenceStudyPageView(domain.User{}, "", study, "/corpus/concordance", "").Render(t.Context(), &rendered))
 		return rendered.String()
 	}
 	t.Run("classical citation replaces position", func(t *testing.T) {

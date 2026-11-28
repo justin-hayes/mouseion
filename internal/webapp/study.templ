@@ -7,13 +7,13 @@ import (
 )
 
 templ StudyPage(user domain.User, csrf string, view studyPageView) {
-	@ShellLayout("Study", &user, csrf, NavigationLearning) {
+	@ShellLayout("Study", &user, csrf, NavigationStudy) {
 		@PageHeader("Study", studyPageDescription(view), nil)
 		if !view.Available {
 			<section class="study-unavailable" aria-labelledby="study-unavailable-heading">
 				<h2 id="study-unavailable-heading">Study isn't available for this language yet</h2>
 				<p>Study needs a meaning that fits each sentence, and this language does not provide one yet.</p>
-				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a>
+				<a class="button button--outline" href={ templ.SafeURL(readingPagePath(ctx)) }>Open Reading</a>
 			</section>
 		} else {
 			if view.Finished {
@@ -490,7 +490,7 @@ func studyKindsText(words, idioms int, wordAdjective, idiomAdjective, singular, 
 // StudyReportInvalidPage says why a report could not be sent and where to go
 // next: the form was incomplete, so nothing was reported.
 templ StudyReportInvalidPage(user domain.User, csrf, language string) {
-	@ShellLayout("Report not sent", &user, csrf, NavigationLearning) {
+	@ShellLayout("Report not sent", &user, csrf, NavigationStudy) {
 		@PageHeader("Report not sent", "Your report was not saved because it was incomplete or its note was longer than "+fmt.Sprint(domain.StudyReportNoteMax)+" characters.", nil)
 		<p id="study-report-invalid">Nothing was changed. Go back to Study, open the card's Report control again and send a shorter note.</p>
 		<p><a class="button" href={ templ.SafeURL(studyLanguagePath(pageKindStudy, language)) }>Back to Study</a></p>
@@ -500,7 +500,7 @@ templ StudyReportInvalidPage(user domain.User, csrf, language string) {
 // StudyReportsPage lists the learner's open Wrong-word reports in one study
 // language (ADR 0135 §2).
 templ StudyReportsPage(user domain.User, csrf string, view studyReportsView) {
-	@ShellLayout("Reported words", &user, csrf, NavigationLearning) {
+	@ShellLayout("Reported words", &user, csrf, NavigationStudy) {
 		@PageHeader("Reported words", "Words held because you reported their Study material as a wrong word. They get no reviews until you repair the occurrence.", nil)
 		<p><a href={ templ.SafeURL(studyLanguagePath(pageKindStudy, view.Language)) }>Back to Study</a></p>
 		if len(view.Reports) == 0 {
@@ -547,7 +547,7 @@ templ StudyReportsPage(user domain.User, csrf string, view studyReportsView) {
 // consequence (ADR 0136 §6). The preview and its confirmation are Lemma review's
 // own step.
 templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationView) {
-	@ShellLayout("Repair a reported word", &user, csrf, NavigationLearning) {
+	@ShellLayout("Repair a reported word", &user, csrf, NavigationStudy) {
 		@PageHeader("Repair a reported word", "You reported this word as a wrong word. Correct the word's Lemma or exclude this occurrence; the word returns to Study on the next Study day.", nil)
 		<p><a href={ templ.SafeURL(studyLanguagePath(pageKindStudyReports, view.Language)) }>Back to Reported words</a></p>
 		<section class="data-width study-remediation" aria-label="Reported occurrence">

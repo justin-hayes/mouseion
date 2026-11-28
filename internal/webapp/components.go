@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -17,9 +18,9 @@ type shellStyle uint8
 const (
 	shellStyleDefault shellStyle = iota
 	shellStyleLogin
-	shellStyleMyBooks
+	shellStyleReadingList
 	shellStyleReading
-	shellStyleVocabulary
+	shellStyleCorpus
 	shellStyleCatalogs
 	shellStyleJobs
 )
@@ -33,12 +34,12 @@ func selectedShellStyle(styles []shellStyle) shellStyle {
 
 func shellBodyClass(styles []shellStyle) string {
 	switch selectedShellStyle(styles) {
-	case shellStyleMyBooks:
-		return "my-books-shell"
+	case shellStyleReadingList:
+		return "reading-list-shell"
 	case shellStyleReading:
 		return "reading-shell"
-	case shellStyleVocabulary:
-		return "vocabulary-shell"
+	case shellStyleCorpus:
+		return "corpus-shell"
 	case shellStyleCatalogs:
 		return "catalogs-shell"
 	case shellStyleJobs:
@@ -194,22 +195,21 @@ func (view catalogueSyncConnectionView) Tone() StatusTone {
 type NavigationContext string
 
 const (
-	NavigationNone       NavigationContext = ""
-	NavigationLibrary    NavigationContext = "library"
-	NavigationReading    NavigationContext = "reading"
-	NavigationLearning   NavigationContext = NavigationReading
-	NavigationVocabulary NavigationContext = "vocabulary"
-	NavigationCatalogs   NavigationContext = "catalogs"
+	NavigationNone     NavigationContext = ""
+	NavigationReading  NavigationContext = "reading"
+	NavigationStudy    NavigationContext = "study"
+	NavigationCorpus   NavigationContext = "corpus"
+	NavigationCatalogs NavigationContext = "catalogs"
 )
 
 func navigationContextForTitle(title string) NavigationContext {
 	switch title {
-	case "My Books", "My Library":
-		return NavigationLibrary
-	case "Reading", "Learning":
+	case "Reading", "My Books", "My Library", "Learning":
 		return NavigationReading
-	case "Vocabulary":
-		return NavigationVocabulary
+	case "Study":
+		return NavigationStudy
+	case "Corpus":
+		return NavigationCorpus
 	case "Catalog", "Catalogs":
 		return NavigationCatalogs
 	default:
@@ -222,6 +222,20 @@ func destinationAttributes(context, destination NavigationContext) templ.Attribu
 	if context == destination {
 		attributes["aria-current"] = "page"
 		attributes["class"] = "site-nav__link site-nav__link--current"
+	}
+	return attributes
+}
+
+// studyDestinationAttributes is the Study tab's link: the destination, plus an
+// accessible name that carries the due count while reviews are due.
+func studyDestinationAttributes(ctx context.Context, current NavigationContext, view *shellView) templ.Attributes {
+	attributes := destinationAttributes(current, NavigationStudy)
+	if due := view.studyDue(ctx); due > 0 {
+		noun := " reviews due"
+		if due == 1 {
+			noun = " review due"
+		}
+		attributes["aria-label"] = "Study, " + strconv.Itoa(due) + noun
 	}
 	return attributes
 }
@@ -313,7 +327,7 @@ func bookLifecycleActionFor(book domain.SourceMaterialSummary) bookLifecycleActi
 		return bookLifecycleAction{"Analysis cancelled", "The analysis was cancelled before producing a result.", "Review cancelled analysis", jobURL, StatusDanger, false}
 	case "completed":
 		if runID != "" && book.CorpusID != "" {
-			return bookLifecycleAction{"Analysis result ready", "Find this book in My Books.", "View in My Books", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
+			return bookLifecycleAction{"Analysis result ready", "Find this book in Reading.", "View in Reading", readingBookURL(book.Source.Language, bookID), StatusSuccess, false}
 		}
 	}
 

@@ -45,7 +45,7 @@ type ShellStore interface {
 	GetActiveBookCoverResource(context.Context, string, string) (domain.BookCoverResource, error)
 }
 
-// MyBooksStore provides the My Books (/library/**) browse, intent,
+// MyBooksStore provides the Reading (/library/**) browse, intent,
 // membership-removal, reading-history, and metadata-refresh reads and writes.
 type MyBooksStore interface {
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
@@ -77,7 +77,7 @@ type ReadingStore interface { //nolint:interfacebloat // the Reading surface own
 	lemmareview.Store
 }
 
-// VocabularyStore provides the Vocabulary (/vocabulary/**) concordance and
+// VocabularyStore provides the Corpus (/corpus/**) concordance and
 // sentence study reads.
 type VocabularyStore interface {
 	GetBookDetail(context.Context, string, string) (domain.MyBook, error)
@@ -100,7 +100,7 @@ type CatalogsStore interface {
 	// it never contacts the OPDS server.
 	BrowseCatalogueEntries(context.Context, string, string, domain.CatalogueQuery) (domain.CataloguePage, error)
 	// The built-in Classical catalog is read from the release and writes only
-	// My Books membership: Add creates or restores one To Read Book per Reading
+	// Reading membership: Add creates or restores one To Read Book per Reading
 	// unit. Legacy rows are checked installation-wide before any write.
 	ListLegacyLanguageRows(context.Context, string) ([]domain.LegacyLanguageRows, error)
 	ListOwnedClassicalReadingUnits(context.Context, string) ([]classical.OwnedReadingUnit, error)
@@ -305,8 +305,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.HandleFunc("POST /onboarding", h.onboard)
 	h.mux.Handle("POST /logout-all", h.user(http.HandlerFunc(h.logoutAll)))
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
-	h.perLanguage(pageKindMyBooks, h.library)
-	h.perLanguage(pageKindReading, h.reading)
+	h.perLanguage(pageKindReading, h.library)
+	h.perLanguageRetired(pageKindLegacyLibrary)
 	h.perLanguage(pageKindReadingSwitch, h.switchReadingPage)
 	h.perLanguage(pageKindStudy, h.study)
 	h.perLanguage(pageKindStudyReports, h.studyReports)
@@ -337,7 +337,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /books/{id}/analyses/{runID}", h.user(http.HandlerFunc(h.analysisResult)))
 	h.mux.Handle("POST /logout", h.user(http.HandlerFunc(h.logout)))
 	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		redirect(w, r, "/library")
+		redirect(w, r, "/reading")
 	})))
 	h.mux.Handle("GET /catalogs", h.user(http.HandlerFunc(h.connections)))
 	h.mux.Handle("GET /catalogs/sources", h.user(http.HandlerFunc(h.manageSources)))
@@ -365,9 +365,12 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /jobs/{id}/status", h.user(http.HandlerFunc(h.jobStatus)))
 	h.mux.Handle("POST /jobs/{id}/retry", h.user(http.HandlerFunc(h.retryJob)))
 	h.mux.Handle("POST /jobs/{id}/cancel", h.user(http.HandlerFunc(h.cancelJob)))
-	h.perLanguage(pageKindVocabulary, h.vocabularyConcordancePage)
-	h.perLanguage(pageKindConcordance, h.vocabularyConcordancePage)
-	h.perLanguage(pageKindSentenceStudy, h.vocabularySentenceStudyPage)
+	h.perLanguage(pageKindCorpus, h.corpusConcordancePage)
+	h.perLanguage(pageKindConcordance, h.corpusConcordancePage)
+	h.perLanguage(pageKindSentenceStudy, h.corpusSentenceStudyPage)
+	for path, successor := range legacyLanguagePages {
+		h.legacyLanguage(path, successor)
+	}
 	h.mux.Handle("GET /study-language", h.user(http.HandlerFunc(h.studyLanguageSwitch)))
 	return h, nil
 }
@@ -388,6 +391,7 @@ func (h *Handler) user(next http.Handler) http.Handler {
 			return
 		}
 		if view != nil {
+			view.dueLoader = h.studyDueLoader(view, u.ID)
 			r = r.WithContext(context.WithValue(r.Context(), shellViewContextKey{}, view))
 		}
 		next.ServeHTTP(w, r)

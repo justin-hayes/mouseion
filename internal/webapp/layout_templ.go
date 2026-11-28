@@ -46,7 +46,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · Mouseion</title><link rel=\"preload\" href=\"/static/vendor/fonts/commissioner-latin-wght-normal.woff2\" as=\"font\" type=\"font/woff2\" crossorigin><link rel=\"stylesheet\" href=\"/static/app.css\"><script src=\"/static/vendor/htmx-4.0.0.min.js\" defer></script><script src=\"/static/my-books.js\" defer></script><script>\nwindow.escapeHtml = function (s) {\n  return String(s).replace(/[&<>\"']/g, function (c) {\n    return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];\n  });\n};\ndocument.addEventListener('submit', function (evt) {\n  var form = evt.target.closest && evt.target.closest('form[data-acquire]');\n  if (!form) return;\n  var button = form.querySelector('button[type=\"submit\"]');\n  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to My Books…'; }\n});\nwindow.showConcordanceNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#concordance-workflow') || ctx.response) return;\n  var recovery = document.getElementById('concordance-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.action; retry.className = 'button button--outline';\n  retry.textContent = 'Retry Concordance lookup';\n  recovery.append(message, retry);\n};\nwindow.showVocabularyNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#vocabulary-workflow') || ctx.response) return;\n  var recovery = document.getElementById('vocabulary-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.action;\n  retry.textContent = 'Retry Browse';\n  recovery.append(message, retry);\n};\nfunction isConcordancePath() {\n  return /^\\/[A-Za-z]{2,3}\\/vocabulary(\\/concordance(\\/|$)|$)/.test(window.location.pathname);\n}\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) {\n    summary.focus();\n    var clicked = ctx.sourceEvent && ctx.sourceEvent.target;\n    if (clicked && clicked.closest && clicked.closest('nav[aria-label=\"Word pages\"]')) {\n      summary.scrollIntoView({block: 'start'});\n    }\n  }\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (!/^\\/books\\/[^/]+$/.test(window.location.pathname)) return;\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || (ctx.target.id !== 'concordance-workflow' && ctx.target.id !== 'concordance-results')) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (!isConcordancePath()) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\nfunction focusConcordanceSummaryForMissingReturnTarget() {\n  if (!isConcordancePath()) return;\n  var target = new URLSearchParams(window.location.search).get('focus');\n  if (!target || document.getElementById(target)) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n}\ndocument.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingReturnTarget);\nwindow.addEventListener('pageshow', focusConcordanceSummaryForMissingReturnTarget);\ndocument.addEventListener('htmx:after:swap', function (evt) {\n\t\t\t['primary-goal-section', 'library-results'].forEach(function (id) {\n\t\t\tvar region = document.getElementById(id);\n\t\t\tif (!region) return;\n\t\t\tvar focusID = region.getAttribute('data-focus-id');\n\t\t\tif (!focusID) return;\n\t\t\tvar ctx = evt.detail && evt.detail.ctx;\n\t\t\tvar swappedTarget = ctx && ctx.target;\n\t\t\tvar source = ctx && ctx.sourceElement;\n\t\t\tvar targetSelector = source && source.getAttribute('hx-target');\n\t\t\tvar target = targetSelector ? document.querySelector(targetSelector) : null;\n\t\t\tvar targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id || (target && region.contains(target)) || (swappedTarget && region.contains(swappedTarget)));\n\t\t\tif (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {\n\t\t\t  region.removeAttribute('data-focus-id');\n\t\t\t  return;\n    }\n    var focusTarget = document.getElementById(focusID);\n    if (focusTarget) focusTarget.focus();\n    region.removeAttribute('data-focus-id');\n  });\n});\n\t</script></head>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " · Mouseion</title><link rel=\"preload\" href=\"/static/vendor/fonts/commissioner-latin-wght-normal.woff2\" as=\"font\" type=\"font/woff2\" crossorigin><link rel=\"stylesheet\" href=\"/static/app.css\"><script src=\"/static/vendor/htmx-4.0.0.min.js\" defer></script><script src=\"/static/my-books.js\" defer></script><script>\nwindow.escapeHtml = function (s) {\n  return String(s).replace(/[&<>\"']/g, function (c) {\n    return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c];\n  });\n};\ndocument.addEventListener('submit', function (evt) {\n  var form = evt.target.closest && evt.target.closest('form[data-acquire]');\n  if (!form) return;\n  var button = form.querySelector('button[type=\"submit\"]');\n  if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); button.textContent = 'Adding to Reading…'; }\n});\nwindow.showConcordanceNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#concordance-workflow') || ctx.response) return;\n  var recovery = document.getElementById('concordance-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = 'Concordance received no response because the connection failed or the browser-side request timed out. Your current results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.action; retry.className = 'button button--outline';\n  retry.textContent = 'Retry Concordance lookup';\n  recovery.append(message, retry);\n};\nwindow.showVocabularyNetworkRecovery = function (ctx) {\n  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('#vocabulary-workflow') || ctx.response) return;\n  var recovery = document.getElementById('vocabulary-recovery');\n  if (!recovery) return;\n  recovery.replaceChildren();\n  var message = document.createElement('p');\n  message.setAttribute('role', 'alert');\n  message.textContent = 'Browse received no response. The previous results and URL are unchanged. Retry the attempted search.';\n  var retry = document.createElement('a');\n  retry.href = ctx.request.action;\n  retry.textContent = 'Retry Browse';\n  recovery.append(message, retry);\n};\nfunction isConcordancePath() {\n  return /^\\/[A-Za-z]{2,3}\\/corpus(\\/concordance(\\/|$)|$)/.test(window.location.pathname);\n}\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || ctx.target.id !== 'vocabulary-browse-results') return;\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) {\n    summary.focus();\n    var clicked = ctx.sourceEvent && ctx.sourceEvent.target;\n    if (clicked && clicked.closest && clicked.closest('nav[aria-label=\"Word pages\"]')) {\n      summary.scrollIntoView({block: 'start'});\n    }\n  }\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (!/^\\/books\\/[^/]+$/.test(window.location.pathname)) return;\n  var summary = document.getElementById('vocabulary-results-heading');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:swap', function (evt) {\n  var ctx = evt.detail && evt.detail.ctx;\n  if (!ctx || !ctx.target || (ctx.target.id !== 'concordance-workflow' && ctx.target.id !== 'concordance-results')) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\ndocument.addEventListener('htmx:after:history:restore', function () {\n  if (!isConcordancePath()) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n});\nfunction focusConcordanceSummaryForMissingReturnTarget() {\n  if (!isConcordancePath()) return;\n  var target = new URLSearchParams(window.location.search).get('focus');\n  if (!target || document.getElementById(target)) return;\n  var summary = document.getElementById('concordance-summary');\n  if (summary) summary.focus();\n}\ndocument.addEventListener('DOMContentLoaded', focusConcordanceSummaryForMissingReturnTarget);\nwindow.addEventListener('pageshow', focusConcordanceSummaryForMissingReturnTarget);\ndocument.addEventListener('htmx:after:swap', function (evt) {\n\t\t\t['primary-goal-section', 'library-results'].forEach(function (id) {\n\t\t\tvar region = document.getElementById(id);\n\t\t\tif (!region) return;\n\t\t\tvar focusID = region.getAttribute('data-focus-id');\n\t\t\tif (!focusID) return;\n\t\t\tvar ctx = evt.detail && evt.detail.ctx;\n\t\t\tvar swappedTarget = ctx && ctx.target;\n\t\t\tvar source = ctx && ctx.sourceElement;\n\t\t\tvar targetSelector = source && source.getAttribute('hx-target');\n\t\t\tvar target = targetSelector ? document.querySelector(targetSelector) : null;\n\t\t\tvar targetsRegion = source && (source === region || source.id === id || source.getAttribute('hx-target') === '#' + id || (target && region.contains(target)) || (swappedTarget && region.contains(swappedTarget)));\n\t\t\tif (source && !targetsRegion && !region.contains(source) && source.getAttribute('data-focus-results') !== 'true') {\n\t\t\t  region.removeAttribute('data-focus-id');\n\t\t\t  return;\n    }\n    var focusTarget = document.getElementById(focusID);\n    if (focusTarget) focusTarget.focus();\n    region.removeAttribute('data-focus-id');\n  });\n});\n\t</script></head>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -91,7 +91,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var6 templ.SafeURL
-			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(shellNavigationPath(ctx, pageKindMyBooks)))
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(shellNavigationPath(ctx, pageKindReading)))
 			if templ_7745c5c3_Err != nil {
 				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 112, Col: 72}
 			}
@@ -103,18 +103,18 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, destinationAttributes(context, NavigationLibrary))
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, destinationAttributes(context, NavigationReading))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, ">My Books</a></li><li><a href=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, ">Reading</a></li><li><a href=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var7 templ.SafeURL
-			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(shellNavigationPath(ctx, pageKindVocabulary)))
+			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(shellNavigationPath(ctx, pageKindStudy)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 112, Col: 222}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 112, Col: 216}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -124,11 +124,40 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, destinationAttributes(context, NavigationVocabulary))
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, studyDestinationAttributes(ctx, context, shellViewFromContext(ctx)))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, ">Vocabulary</a></li><li><a href=\"/catalogs\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, ">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = studyTabLabel(shellViewFromContext(ctx)).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</a></li><li><a href=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var8 templ.SafeURL
+			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(shellNavigationPath(ctx, pageKindCorpus)))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 112, Col: 413}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, destinationAttributes(context, NavigationCorpus))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, ">Corpus</a></li><li><a href=\"/catalogs\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -136,7 +165,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, ">Catalog</a></li></ul><div class=\"site-header__tools\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, ">Catalog</a></li></ul><div class=\"site-header__tools\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -144,51 +173,51 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<details class=\"site-header__account\"><summary><span class=\"site-header__account-name\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var8 string
-			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(user.Username)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 114, Col: 104}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</span><span class=\"site-header__account-compact\">Account</span></summary><div class=\"site-header__account-panel\"><p>Signed in as <strong>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<details class=\"site-header__account\"><summary><span class=\"site-header__account-name\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(user.Username)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 114, Col: 259}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 114, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</strong></p><form method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</span><span class=\"site-header__account-compact\">Account</span></summary><div class=\"site-header__account-panel\"><p>Signed in as <strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var10 string
-			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrf)
+			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(user.Username)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 114, Col: 362}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 114, Col: 259}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "\"><button class=\"button button--outline button--quiet\" type=\"submit\">Log out</button></form></div></details></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</strong></p><form method=\"post\" action=\"/logout\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var11 string
+			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrf)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 114, Col: 362}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "\"><button class=\"button button--outline button--quiet\" type=\"submit\">Log out</button></form></div></details></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</nav></header><main id=\"main-content\" class=\"page-container\" tabindex=\"-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "</nav></header><main id=\"main-content\" class=\"page-container\" tabindex=\"-1\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -196,7 +225,7 @@ func ShellLayout(title string, user *domain.User, csrf string, context Navigatio
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</main></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</main></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -220,12 +249,12 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var11 == nil {
-			templ_7745c5c3_Var11 = templ.NopComponent
+		templ_7745c5c3_Var12 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var12 == nil {
+			templ_7745c5c3_Var12 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Var12 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_Var13 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
 			if !templ_7745c5c3_IsBuffer {
@@ -237,97 +266,97 @@ func LoginPage(csrf, message, next string, onboarding bool) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<article class=\"narrow login-screen\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<article class=\"narrow login-screen\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			if onboarding {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<h1>Create your account</h1><p class=\"login-screen__intro\">Set up the first learner account for this Mouseion installation.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "<h1>Create your account</h1><p class=\"login-screen__intro\">Set up the first learner account for this Mouseion installation.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<h1>Sign in</h1><p class=\"login-screen__intro\">Return to your reading desk.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<h1>Sign in</h1><p class=\"login-screen__intro\">Return to your reading desk.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if message != "" {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<p class=\"alert alert-error login-screen__error\" role=\"alert\">")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "<p class=\"alert alert-error login-screen__error\" role=\"alert\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				var templ_7745c5c3_Var13 string
-				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(message)
+				var templ_7745c5c3_Var14 string
+				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(message)
 				if templ_7745c5c3_Err != nil {
 					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 127, Col: 73}
 				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 			if onboarding {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<form class=\"login-form\" method=\"post\" action=\"/onboarding\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				var templ_7745c5c3_Var14 string
-				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrf)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 130, Col: 113}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" minlength=\"8\" required autocomplete=\"new-password\"><small>Use at least 8 characters.</small></label><button class=\"btn btn-primary\" type=\"submit\">Create account</button></form>")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "<form class=\"login-form\" method=\"post\" action=\"/login\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "<form class=\"login-form\" method=\"post\" action=\"/onboarding\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 132, Col: 108}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 130, Col: 113}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "\"><input type=\"hidden\" name=\"next\" value=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" minlength=\"8\" required autocomplete=\"new-password\"><small>Use at least 8 characters.</small></label><button class=\"btn btn-primary\" type=\"submit\">Create account</button></form>")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			} else {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<form class=\"login-form\" method=\"post\" action=\"/login\"><input type=\"hidden\" name=\"csrf_token\" value=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var16 string
-				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(next)
+				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(csrf)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 132, Col: 157}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 132, Col: 108}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" required autocomplete=\"current-password\"></label><button class=\"btn btn-primary\" type=\"submit\">Sign in</button></form>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "\"><input type=\"hidden\" name=\"next\" value=\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var17 string
+				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(next)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/webapp/layout.templ`, Line: 132, Col: 157}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\"><label class=\"login-field\">Username<input name=\"username\" required autocomplete=\"username\"></label><label class=\"login-field\">Password<input type=\"password\" name=\"password\" required autocomplete=\"current-password\"></label><button class=\"btn btn-primary\" type=\"submit\">Sign in</button></form>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "</article>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</article>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Sign in", nil, csrf, navigationContextForTitle("Sign in"), shellStyleLogin).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Sign in", nil, csrf, navigationContextForTitle("Sign in"), shellStyleLogin).Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

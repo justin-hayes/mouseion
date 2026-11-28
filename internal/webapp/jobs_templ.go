@@ -19,7 +19,7 @@ import (
 // JobsPage is the operational history surface: one Book preparations list
 // covering Classical preparation, EPUB acquisition and analysis, and one
 // Catalog sync list. A Book preparation row links to its Book only while the
-// Book is still a current My Books member; an analysis row also keeps its
+// Book is still a current Reading member; an analysis row also keeps its
 // link to the analysis detail page, and a Catalog sync row to its own detail
 // page.
 func JobsPage(user domain.User, csrf string, preparations []domain.BookPreparationJob, syncJobs []cataloguesync.Status, catalogCode, message string) templ.Component {
@@ -82,7 +82,7 @@ func JobsPage(user domain.User, csrf string, preparations []domain.BookPreparati
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<a href=\"/library\">Go to My Books</a>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<a href=\"/reading\">Go to Reading</a>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -525,7 +525,7 @@ func JobsPage(user domain.User, csrf string, preparations []domain.BookPreparati
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout("Jobs", &user, csrf, NavigationReading, shellStyleJobs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -576,7 +576,7 @@ func JobPage(user domain.User, csrf string, status analysis.Status, readingBookU
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary, shellStyleJobs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var26), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationReading, shellStyleJobs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var26), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -717,7 +717,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 			if status.CorpusID != "" {
 				if status.Lifecycle == domain.JobLifecycleCompleted {
 					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<p>Analysis complete. Continue with this book in My Books.</p><a role=\"button\" class=\"button button--outline\" href=\"")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<p>Analysis complete. Continue with this book in Reading.</p><a role=\"button\" class=\"button button--outline\" href=\"")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -730,7 +730,7 @@ func JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle st
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\">View in My Books</a>")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "\">View in Reading</a>")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
@@ -807,7 +807,7 @@ func CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.St
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationLibrary, shellStyleJobs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationReading, shellStyleJobs).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

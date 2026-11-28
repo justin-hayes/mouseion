@@ -14,13 +14,13 @@ func TestClassicalAddConfirmationNamesTheAddedLanguage(t *testing.T) {
 	t.Run("another study language names Latin", func(t *testing.T) {
 		other := classicalAddConfirmationIn(report, classicalAddPreparation{}, "de", classical.LanguageLatin)
 
-		require.Equal(t, "Added 1 Book to My Books in Latin. Your study language is unchanged.", other.Message)
+		require.Equal(t, "Added 1 Book to Reading in Latin. Your study language is unchanged.", other.Message)
 		assert.Equal(t, "book-1", other.BookID)
 	})
 	t.Run("Latin active names no other language", func(t *testing.T) {
 		same := classicalAddConfirmationIn(report, classicalAddPreparation{}, "la", classical.LanguageLatin)
 
-		assert.Equal(t, "Added 1 Book to My Books.", same.Message)
+		assert.Equal(t, "Added 1 Book to Reading.", same.Message)
 	})
 	t.Run("a Latin Add never claims Ancient Greek", func(t *testing.T) {
 		greekActive := classicalAddConfirmationIn(report, classicalAddPreparation{}, "grc", classical.LanguageLatin)

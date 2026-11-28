@@ -18,9 +18,9 @@ func pageLanguagePath(ctx context.Context, kind studyLanguagePageKind) string {
 	return studyLanguagePath(kind, view.pageLanguage())
 }
 
-// myBooksPagePath is My Books in the request's page language.
-func myBooksPagePath(ctx context.Context) string {
-	return pageLanguagePath(ctx, pageKindMyBooks)
+// readingPagePath is Reading in the request's page language.
+func readingPagePath(ctx context.Context) string {
+	return pageLanguagePath(ctx, pageKindReading)
 }
 
 // adoptBookLanguage makes a Book's study language the page language of a

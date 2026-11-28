@@ -81,7 +81,7 @@ together and learner controls within easy reach while preserving the stable
 keyboard sequence. It remains one navigation landmark; long labels and enlarged
 text reflow without clipping. Current context uses a textual link and annotation
 rule; do not add icon-only destinations, counters, or a second navigation
-system. All four authenticated destinations share the same native-link treatment. The
+system. The one exception is the Study due chip (see Application shell). All four authenticated destinations share the same native-link treatment. The
 current destination is identified by `aria-current="page"` and restrained
 annotation-blue underline emphasis, never a filled button treatment or button
 role. The study-language picker keeps its label, native GET navigation, and
@@ -613,18 +613,31 @@ overflow; the page must not scroll horizontally.
 how can I reach the main task quickly?
 
 Use native `header`, `nav`, and `main` landmarks. The navigation label is
-`Primary navigation`. The canonical authenticated destinations are exactly My Books,
-Reading, Vocabulary, and Catalog. Catalog owns the Classical catalog section, every OPDS source section and source status at `/catalogs`;
+`Primary navigation`. The canonical authenticated destinations are exactly Reading,
+Study, Corpus, and Catalog. Catalog owns the Classical catalog section, every OPDS source section and source status at `/catalogs`;
 Manage sources owns catalogue setup and sync maintenance at `/catalogs/sources`.
-My Books is the sole browse surface and its rows own per-book acquisition.
-Reading owns current reading or the between-Books chooser. The shipped shell
+Reading is the page of the learner's chosen Books, with the Current reading
+pinned at the top; the Catalog owns per-book acquisition. The shipped shell
 marks the current context while compatibility routes redirect without exposing
 Learning as a peer destination.
+
+**Study due chip.** The Study tab alone carries a count: the reviews still due
+today in the Last study language, the same value Today shows as remaining
+reviews. It is a small outlined number after the label.
+
+- Zero: the chip is absent, not a “0”.
+- Unavailable: when the count cannot be read, or Study does not serve the
+  language, the chip is absent and the page keeps serving (a degraded
+  capability, see `Feedback`); the failure is logged, never shown as a zero.
+- Accessible name: the link's name is “Study, N reviews due” (“1 review due”
+  for one); the visible number is `aria-hidden` so it is not read twice. The
+  chip is never the only carrier of the count and is not announced as a
+  live region.
 
 The established shell provides landmarks, skip navigation, and explicit route
 context for the active destination or workflow action.
 
-Per-language pages (My Books, Reading, Vocabulary and their deep pages) carry
+Per-language pages (Reading, Study, Corpus and their deep pages) carry
 the study-language picker; job status, the Catalog, and Book-addressed pages
 (lemma review, deck preparation) do not. It is a native `select` backed by an
 ordinary GET form that navigates to the same kind of page under the chosen

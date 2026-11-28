@@ -24,13 +24,13 @@ func TestMyBooksOffersPreviouslyReadOnlyOnUnstartedToReadBooks(t *testing.T) {
 	require.NoError(t, err)
 	currentRefusal := readingTestRequest(t, h, "/library/books/"+current.BookID+"/previously-read", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, currentRefusal.Code)
-	assert.Contains(t, currentRefusal.Header().Get("Location"), "/de/library?error=")
+	assert.Contains(t, currentRefusal.Header().Get("Location"), "/de/reading?error=")
 	assert.Contains(t, currentRefusal.Header().Get("Location"), url.QueryEscape(catalogueReadCurrentReadingRefusal))
 	require.NoError(t, store.EndCurrentReading(ctx, fixtures.OwnerID, "de"))
 	_, err = store.StartCurrentReading(ctx, fixtures.OwnerID, "de", "fixture-route-match")
 	require.NoError(t, err)
 
-	page := catalogPage(t, h, cookies, "/de/library")
+	page := catalogPage(t, h, cookies, "/de/reading")
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	started := myBookRowHTML(t, body, "fixture-route-match")
@@ -65,10 +65,10 @@ func TestMyBooksPreviouslyReadWriteFailureIsAServerError(t *testing.T) {
 func myBookRowHTML(t *testing.T, body, bookID string) string {
 	t.Helper()
 	start := strings.Index(body, `id="book-row-`+bookID+`"`)
-	require.NotEqual(t, -1, start, "My Books row for %s is missing", bookID)
+	require.NotEqual(t, -1, start, "Reading row for %s is missing", bookID)
 	row := body[start:]
 	end := strings.Index(row, "</li>")
-	require.NotEqual(t, -1, end, "My Books row for %s is unterminated", bookID)
+	require.NotEqual(t, -1, end, "Reading row for %s is unterminated", bookID)
 	return row[:end]
 }
 
@@ -82,11 +82,11 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 	if main := strings.Index(html, "<main"); main >= 0 {
 		html = html[main:]
 	}
-	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Remove from My Books", `action="/library/books/metadata-book/remove"`} {
-		assert.Contains(t, html, want, "metadata-only My Books item missing %q: %s", want, html)
+	for _, want := range []string{"A book without an EPUB", "No cover available", `aria-hidden="true"`, "More actions", "Remove from Reading", `action="/library/books/metadata-book/remove"`} {
+		assert.Contains(t, html, want, "metadata-only Reading item missing %q: %s", want, html)
 	}
-	assert.NotContains(t, html, "Refresh metadata", "metadata-only My Books item still exposed the retired refresh action: %s", html)
-	assert.Contains(t, html, `href="/books/metadata-book"`, "metadata-only My Books row missing its Book detail link: %s", html)
+	assert.NotContains(t, html, "Refresh metadata", "metadata-only Reading item still exposed the retired refresh action: %s", html)
+	assert.Contains(t, html, `href="/books/metadata-book"`, "metadata-only Reading row missing its Book detail link: %s", html)
 	row := html
 	if start := strings.Index(row, `aria-labelledby="book-title-metadata-book"`); start >= 0 {
 		row = row[start:]
@@ -95,7 +95,7 @@ func TestMyBooksMetadataOnlyGridItemExposesOnlySupportedActions(t *testing.T) {
 		}
 	}
 	for _, forbidden := range []string{"Not acquired / metadata only", "Review scope", "Prepare deck", "View analysis result", "Start analysis", `action="/books/metadata-book/analyze"`, "coverage", "current reading", "Analysis evidence"} {
-		assert.NotContains(t, row, forbidden, "metadata-only My Books item exposed unsupported state or action %q: %s", forbidden, row)
+		assert.NotContains(t, row, forbidden, "metadata-only Reading item exposed unsupported state or action %q: %s", forbidden, row)
 	}
 }
 
@@ -198,7 +198,7 @@ func TestMyBooksRemoveActionIsRefusedOnTheCurrentReading(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{current, other}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, "Remove from My Books")
+	assert.Contains(t, html, "Remove from Reading")
 	assert.Contains(t, html, "Your current reading cannot be removed. Finish or end the reading first.")
 	assert.Contains(t, html, `action="/library/books/other-book/remove"`)
 	assert.NotContains(t, html, `action="/library/books/current-book/remove"`, "the current Book exposes no Remove form")
@@ -217,7 +217,8 @@ func TestMyBooksReadingActionHidesAddForExistingMember(t *testing.T) {
 	assert.Contains(t, html, `<span class="status-badge status-badge--neutral"><span class="status-badge__shape status-badge__shape--ring" aria-hidden="true"></span>To Read</span>`)
 	assert.NotContains(t, html, `<span aria-hidden="true">●</span>`)
 	assert.NotContains(t, html, "View in Reading", "Reading is not a page")
-	assert.NotContains(t, html, `href="/reading`)
+	assert.NotContains(t, html, `href="/reading?`)
+	assert.NotContains(t, html, `href="/reading/`)
 }
 
 func TestMyBooksReadingActionHidesAddForCurrentReading(t *testing.T) {
@@ -231,7 +232,8 @@ func TestMyBooksReadingActionHidesAddForCurrentReading(t *testing.T) {
 	assert.False(t, strings.Contains(html, `action="/reading/books/goal-book/to-read"`) || strings.Contains(html, "Move to To Read"), "current reading still exposed add action: %s", html)
 	assert.Contains(t, html, "Currently reading")
 	assert.Contains(t, html, `<span class="status-badge status-badge--info"><span class="status-badge__shape status-badge__shape--dot" aria-hidden="true"></span>Currently reading</span>`)
-	assert.NotContains(t, html, `href="/reading`)
+	assert.NotContains(t, html, `href="/reading?`)
+	assert.NotContains(t, html, `href="/reading/`)
 	assert.NotContains(t, html, "To Read")
 }
 
@@ -249,7 +251,7 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, !strings.Contains(html, `href="/reading`) && strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
+	assert.True(t, !strings.Contains(html, `href="/reading?`) && !strings.Contains(html, `href="/reading/`) && strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid Reading action or link: %s", html)
 	assert.NotContains(t, html, "Analysis evidence")
 }
 
@@ -266,7 +268,7 @@ func TestAnalyzedNonReadingMyBookKeepsEvidenceWithoutLink(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.False(t, strings.Contains(html, "Analysis evidence") || strings.Contains(html, `href="/reading/analyzed-outside-journey"`) || strings.Contains(html, "View analysis result"), "analyzed non-member My Books item exposed an invalid link or state: %s", html)
+	assert.False(t, strings.Contains(html, "Analysis evidence") || strings.Contains(html, `href="/reading/analyzed-outside-journey"`) || strings.Contains(html, "View analysis result"), "analyzed non-member Reading item exposed an invalid link or state: %s", html)
 }
 
 func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
@@ -279,9 +281,9 @@ func TestMyBooksRowRendersCanonicalBookTitle(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.Contains(t, html, "Refreshed catalogue title", "My Books omitted canonical Book title: %s", html)
+	assert.Contains(t, html, "Refreshed catalogue title", "Reading omitted canonical Book title: %s", html)
 	assert.Contains(t, html, "By Catalogue author")
-	assert.NotContains(t, html, "Acquisition-internal title", "My Books rendered acquisition-internal title: %s", html)
+	assert.NotContains(t, html, "Acquisition-internal title", "Reading rendered acquisition-internal title: %s", html)
 }
 
 func TestMyBooksOmitsEvidenceAndAcquisitionState(t *testing.T) {
@@ -318,7 +320,7 @@ func TestMyBooksOmitsEvidenceAndAcquisitionState(t *testing.T) {
 	for _, label := range []string{"Unavailable", "Not acquired", "Ready to analyze", "Analysis not started", "Analyzed", "Stale analysis", "current reading", "Next action", "Analysis evidence"} {
 		assert.NotContains(t, html, label)
 	}
-	assert.False(t, strings.Contains(html, "Start analysis") || strings.Contains(html, `/analyze`), "My Books rows exposed an explicit analysis action: %s", html)
+	assert.False(t, strings.Contains(html, "Start analysis") || strings.Contains(html, `/analyze`), "Reading rows exposed an explicit analysis action: %s", html)
 }
 
 func TestMyBooksListUsesNativeListAndStablePresentationStates(t *testing.T) {
@@ -376,7 +378,7 @@ func TestMyBooksBrowseResultsOmitUnfilteredCountAndRedundantHeading(t *testing.T
 	results := html[resultsStart:]
 	assert.NotContains(t, results, "books found", "unfiltered browsing does not need a redundant result count")
 	assert.NotContains(t, results, `<h2 id="library-books-heading"`)
-	assert.Contains(t, results, `aria-label="My Books results"`)
+	assert.Contains(t, results, `aria-label="Reading results"`)
 
 	state.Query = "missing"
 	state.Total = 0
@@ -409,10 +411,10 @@ func TestMyBooksEmptyOnboardingGuidesConnectionLanguageAndSync(t *testing.T) {
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	for _, want := range []string{"Find your first Book", "My Books holds the Books you choose", `href="/catalogs">Browse the Catalog</a>`} {
-		assert.Contains(t, html, want, "empty My Books onboarding missing %q: %s", want, html)
+	for _, want := range []string{"Find your first Book", "Reading holds the Books you choose", `href="/catalogs">Browse the Catalog</a>`} {
+		assert.Contains(t, html, want, "empty Reading onboarding missing %q: %s", want, html)
 	}
-	assert.False(t, strings.Contains(html, "Add books") || strings.Contains(html, "Add a book"), "empty My Books onboarding exposed retired acquisition wording: %s", html)
+	assert.False(t, strings.Contains(html, "Add books") || strings.Contains(html, "Add a book"), "empty Reading onboarding exposed retired acquisition wording: %s", html)
 }
 
 func TestMyBooksEmptyAncientGreekStateLinksToTheCatalog(t *testing.T) {
@@ -421,7 +423,7 @@ func TestMyBooksEmptyAncientGreekStateLinksToTheCatalog(t *testing.T) {
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", nil, "", "", browse).Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{"Find your first Book", `href="/catalogs">Browse the Catalog</a>`} {
-		assert.Contains(t, html, want, "empty Ancient Greek My Books state missing %q: %s", want, html)
+		assert.Contains(t, html, want, "empty Ancient Greek Reading state missing %q: %s", want, html)
 	}
 }
 
@@ -467,7 +469,7 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToReadingEntry(t *testing.T
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/library#book-row-fixture-book", response.Header().Get("Location"))
+	assert.Equal(t, "/de/reading#book-row-fixture-book", response.Header().Get("Location"))
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
@@ -513,7 +515,7 @@ func TestMyBookRowRendersRegisteredEditionAndPreparation(t *testing.T) {
 	require.NoError(t, MyBookRow("csrf", book, "").Render(context.Background(), &output))
 	html := output.String()
 	for _, want := range []string{"Anabasis", "By Xenophon", "Marchant 1904", notPreparedYetNote} {
-		assert.Contains(t, html, want, "registered My Books row missing %q: %s", want, html)
+		assert.Contains(t, html, want, "registered Reading row missing %q: %s", want, html)
 	}
 }
 
@@ -553,16 +555,16 @@ func TestMyBooksTellsTwoEditionsOfOneWorkApartAsOrdinaryRows(t *testing.T) {
 func TestMyBooksNeedsActionFilterListsOnlyBooksWithAStatusLine(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 
-	all := catalogPage(t, h, cookies, "/de/library")
+	all := catalogPage(t, h, cookies, "/de/reading")
 	require.Equal(t, http.StatusOK, all.Code)
 	allBody := all.Body.String()
 	failed := myBookRowHTML(t, allBody, "fixture-failed")
 	assert.Contains(t, failed, "Analysis failed.")
 	assert.Contains(t, failed, "data-needs-action")
 	assert.NotContains(t, myBookRowHTML(t, allBody, "fixture-book"), "data-needs-action", "a healthy Book has no status line")
-	assert.Contains(t, allBody, "/de/library?disposition=to_read&amp;needs=action", "the filter link is an address")
+	assert.Contains(t, allBody, "/de/reading?disposition=to_read&amp;needs=action", "the filter link is an address")
 
-	filtered := catalogPage(t, h, cookies, "/de/library?needs=action")
+	filtered := catalogPage(t, h, cookies, "/de/reading?needs=action")
 	require.Equal(t, http.StatusOK, filtered.Code, filtered.Body.String())
 	body := filtered.Body.String()
 	assert.Contains(t, body, `id="book-row-fixture-failed"`)
@@ -572,6 +574,6 @@ func TestMyBooksNeedsActionFilterListsOnlyBooksWithAStatusLine(t *testing.T) {
 	assert.Contains(t, body, `name="needs" value="action"`, "search keeps the filter")
 	assert.Contains(t, body, "Show all Books")
 
-	refused := catalogPage(t, h, cookies, "/de/library?needs=other")
+	refused := catalogPage(t, h, cookies, "/de/reading?needs=other")
 	assert.Equal(t, http.StatusNotFound, refused.Code)
 }

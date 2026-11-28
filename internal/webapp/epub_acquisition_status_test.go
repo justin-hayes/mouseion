@@ -81,7 +81,7 @@ func TestEPUBAcquisitionFailurePresentation(t *testing.T) {
 
 // TestEPUBAcquisitionInProgressReadsAsClassicalPreparation states the one
 // in-progress vocabulary: an EPUB Book and a classical Book in the same
-// lifecycle state read identically on My Books, and neither offers a
+// lifecycle state read identically on Reading, and neither offers a
 // recovery while its preparation is under way.
 func TestEPUBAcquisitionInProgressReadsAsClassicalPreparation(t *testing.T) {
 	t.Parallel()

@@ -2,7 +2,7 @@ package webapp
 
 import "github.com/justin-hayes/mouseion/internal/domain"
 
-// EPUB acquisition failure labels name the reason My Books shows. They never
+// EPUB acquisition failure labels name the reason Reading shows. They never
 // carry a stable code or a raw error.
 const (
 	epubAcquisitionInProgressLabel     = classicalAnalysisIncompleteLabel

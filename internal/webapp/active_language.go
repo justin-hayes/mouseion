@@ -3,9 +3,11 @@ package webapp
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/justin-hayes/mouseion/internal/canonicalization"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/study"
 )
 
 type activeStudyLanguageOption struct {
@@ -25,6 +27,37 @@ type shellView struct {
 	PageLanguage string
 	PageKind     studyLanguagePageKind
 	Options      []activeStudyLanguageOption
+	// StudyDue is the reviews still due today in the Last study language: the
+	// Study tab's due chip. Zero hides the chip. Read it with studyDue.
+	StudyDue int
+	// dueLoader reads the count on first use, so it is read once per render and
+	// for the language the page renders. dueLoaded is true once StudyDue is set.
+	dueLoader func(ctx context.Context) (int, error)
+	dueLoaded bool
+}
+
+// studyDue is the Study tab's due count, read once on first use. A failed read
+// is logged and hides the chip: the shell degrades, the page keeps serving.
+func (v *shellView) studyDue(ctx context.Context) int {
+	if v == nil {
+		return 0
+	}
+	if !v.dueLoaded && v.dueLoader != nil {
+		due, err := v.dueLoader(ctx)
+		if err != nil {
+			log.Printf("mouseion: count study reviews due: %v", err)
+			due = 0
+		}
+		v.StudyDue = due
+	}
+	v.dueLoaded = true
+	return v.StudyDue
+}
+
+// setStudyDue records a count a page has already read, so the chip shows the
+// page's own value and reads nothing more.
+func (v *shellView) setStudyDue(due int) {
+	v.StudyDue, v.dueLoaded = due, true
 }
 
 // hasLanguage reports whether language is one of the learner's study or known
@@ -166,4 +199,16 @@ func (h *Handler) loadShellView(ctx context.Context, owner string) (*shellView, 
 		view.Options = append(view.Options, activeStudyLanguageOption{StudyLanguage: language})
 	}
 	return view, nil
+}
+
+// studyDueLoader reads the due count of the view's Last study language. The
+// chip is absent, the count zero, when there is no such language, when Study
+// does not serve it, or when the handler has no Study store.
+func (h *Handler) studyDueLoader(view *shellView, owner string) func(context.Context) (int, error) {
+	return func(ctx context.Context) (int, error) {
+		if view.LastLanguage == "" || !study.Available(view.LastLanguage) || h.services.Store.Study == nil {
+			return 0, nil
+		}
+		return h.services.Store.Study.CountStudyReviewsDue(ctx, owner, view.LastLanguage, h.now())
+	}
 }

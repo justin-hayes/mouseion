@@ -5,7 +5,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 test.describe('Study', () => {
@@ -23,6 +23,15 @@ test.describe('Study', () => {
     // No page-level horizontal scroll, in the compact viewport or any other.
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test('marks the Study tab as the current destination', async ({ page }) => {
+    await signIn(page);
+    const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
+    await navigation.getByRole('link', { name: 'Study', exact: true }).click();
+    await expect(page).toHaveURL(/\/de\/study$/);
+    await expect(navigation.getByRole('link', { name: 'Study', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(navigation.getByRole('link', { name: 'Reading', exact: true })).not.toHaveAttribute('aria-current', 'page');
   });
 
   test('takes the batch and grades each card with Show answer, Again and Got it', async ({ page }) => {

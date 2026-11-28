@@ -11,17 +11,17 @@ import (
 // JobsPage is the operational history surface: one Book preparations list
 // covering Classical preparation, EPUB acquisition and analysis, and one
 // Catalog sync list. A Book preparation row links to its Book only while the
-// Book is still a current My Books member; an analysis row also keeps its
+// Book is still a current Reading member; an analysis row also keeps its
 // link to the analysis detail page, and a Catalog sync row to its own detail
 // page.
 templ JobsPage(user domain.User, csrf string, preparations []domain.BookPreparationJob, syncJobs []cataloguesync.Status, catalogCode, message string) {
-	@ShellLayout("Jobs", &user, csrf, NavigationLibrary, shellStyleJobs) {
+	@ShellLayout("Jobs", &user, csrf, NavigationReading, shellStyleJobs) {
 		@PageHeader("Jobs", "Operational history for Book preparations and Catalog sync.", nil)
 		if message != "" {
 			@Feedback(FeedbackInfo, "", message)
 		}
 		if len(preparations) == 0 && len(syncJobs) == 0 && catalogCode == "" {
-			@EmptyState("No jobs yet", "Book preparation and catalog sync work will appear here when submitted.") { <a href="/library">Go to My Books</a> }
+			@EmptyState("No jobs yet", "Book preparation and catalog sync work will appear here when submitted.") { <a href="/reading">Go to Reading</a> }
 		}
 		if catalogCode != "" {
 			<section aria-labelledby="classical-catalog-job-status-heading">
@@ -96,7 +96,7 @@ templ JobsPage(user domain.User, csrf string, preparations []domain.BookPreparat
 }
 
 templ JobPage(user domain.User, csrf string, status analysis.Status, readingBookURL, bookTitle string) {
-	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationLibrary, shellStyleJobs) {
+	@ShellLayout(fmt.Sprintf("Job #%d", status.DisplayNumber), &user, csrf, NavigationReading, shellStyleJobs) {
 		@PageHeader(fmt.Sprintf("Analysis job #%d", status.DisplayNumber), "Operational status for this analysis run.", nil)
 		@JobStatus(csrf, status, readingBookURL, bookTitle)
 	}
@@ -119,8 +119,8 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 		if status.CorpusID != "" {
 			if status.Lifecycle == domain.JobLifecycleCompleted {
 					if status.SourceMaterialID != "" && status.RunID != "" && readingBookURL != "" {
-						<p>Analysis complete. Continue with this book in My Books.</p>
-						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in My Books</a>
+						<p>Analysis complete. Continue with this book in Reading.</p>
+						<a role="button" class="button button--outline" href={ templ.SafeURL(readingBookURL) }>View in Reading</a>
 					} else {
 						if status.SourceMaterialID != "" && status.RunID != "" {
 							<p>Analysis complete, but this book is no longer available in Reading.</p>
@@ -136,7 +136,7 @@ templ JobStatus(csrf string, status analysis.Status, readingBookURL, bookTitle s
 }
 
 templ CatalogueSyncJobPage(user domain.User, csrf string, status cataloguesync.Status) {
-	@ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationLibrary, shellStyleJobs) {
+	@ShellLayout(fmt.Sprintf("Catalog sync #%d", status.ID), &user, csrf, NavigationReading, shellStyleJobs) {
 		@PageHeader("Catalog sync", status.ConnectionName, nil)
 		@CatalogueSyncJobStatus(csrf, status)
 	}

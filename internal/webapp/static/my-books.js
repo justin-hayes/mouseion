@@ -1,21 +1,21 @@
 window.showMyBooksNetworkRecovery = function (ctx) {
-  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('[data-my-books-enhanced]') || ctx.response) return;
+  if (!ctx || !ctx.sourceElement || !ctx.sourceElement.closest('[data-reading-enhanced]') || ctx.response) return;
   var recovery = document.getElementById('library-recovery');
   if (!recovery) return;
   recovery.replaceChildren();
   var message = document.createElement('p');
   message.setAttribute('role', 'alert');
-  message.textContent = 'My Books did not receive a response because the connection failed or the request timed out. Your current results and URL are unchanged. Retry the attempted search.';
+  message.textContent = 'Reading did not receive a response because the connection failed or the request timed out. Your current results and URL are unchanged. Retry the attempted search.';
   var retry = document.createElement('a');
   retry.href = ctx.request.action;
-  retry.textContent = 'Retry My Books request';
+  retry.textContent = 'Retry Reading request';
   recovery.append(message, retry);
 };
 
 document.addEventListener('htmx:response:error', function (evt) {
   var ctx = evt.detail && evt.detail.ctx;
   if (!ctx || !ctx.sourceElement || !ctx.response || ctx.response.status !== 401) return;
-  var recoveryScope = ctx.sourceElement.closest('#primary-goal-section, [data-my-books-enhanced], .library-search, form[action^="/library/"]');
+  var recoveryScope = ctx.sourceElement.closest('#primary-goal-section, [data-reading-enhanced], .library-search, form[action^="/library/"]');
   if (!recoveryScope) return;
   var request = ctx.request;
   var isSafeGet = request && request.method && request.method.toUpperCase() === 'GET';

@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -36,8 +37,9 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 		currentLink string
 		currentCSS  string
 	}{
-		{name: "library", context: NavigationLibrary, currentLink: `href="/library"`, currentCSS: "site-nav__link--current"},
-		{name: "vocabulary", context: NavigationVocabulary, currentLink: `href="/vocabulary"`, currentCSS: "site-nav__link--current"},
+		{name: "reading", context: NavigationReading, currentLink: `href="/reading"`, currentCSS: "site-nav__link--current"},
+		{name: "study", context: NavigationStudy, currentLink: `href="/study"`, currentCSS: "site-nav__link--current"},
+		{name: "corpus", context: NavigationCorpus, currentLink: `href="/corpus"`, currentCSS: "site-nav__link--current"},
 		{name: "catalog", context: NavigationCatalogs, currentLink: `href="/catalogs"`, currentCSS: "site-nav__link--current"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -51,14 +53,14 @@ func TestAuthenticatedShellMarksEachPeerDestination(t *testing.T) {
 }
 
 func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T) {
-	html := renderShell(t, NavigationLibrary)
+	html := renderShell(t, NavigationReading)
 	navigation := renderedPrimaryNavigation(t, html)
-	assert.NotContains(t, navigation, `href="/reading"`, "Reading is not a destination")
 	ordered := []string{
 		`<a class="site-header__brand" href="/">`,
 		`<ul class="site-header__navigation">`,
-		`href="/library"`,
-		`href="/vocabulary"`,
+		`href="/reading"`,
+		`href="/study"`,
+		`href="/corpus"`,
 		`href="/catalogs"`,
 		`</ul><div class="site-header__tools">`,
 		`<details class="site-header__account">`,
@@ -76,7 +78,7 @@ func TestAuthenticatedShellPreservesKeyboardOrderAndNativeControls(t *testing.T)
 }
 
 func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *testing.T) {
-	navigation := renderedPrimaryNavigation(t, renderShell(t, NavigationLibrary))
+	navigation := renderedPrimaryNavigation(t, renderShell(t, NavigationReading))
 	assert.Equal(t, 1, strings.Count(navigation, `<details class="site-header__account">`))
 	assert.Contains(t, navigation, `<span class="site-header__account-name">learner</span>`)
 	assert.Contains(t, navigation, `<span class="site-header__account-compact">Account</span>`)
@@ -87,19 +89,19 @@ func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *
 }
 
 func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
-	for _, context := range []NavigationContext{NavigationLibrary, NavigationVocabulary, NavigationCatalogs} {
+	for _, context := range []NavigationContext{NavigationReading, NavigationStudy, NavigationCorpus, NavigationCatalogs} {
 		t.Run(string(context), func(t *testing.T) {
 			navigation := renderedPrimaryNavigation(t, renderShell(t, context))
 			assert.NotContains(t, navigation, `class="site-nav__link btn`)
 			assert.NotContains(t, navigation, `role="button"`)
-			assert.Equal(t, 3, strings.Count(navigation, `<a href="/`), "three destinations remain native links")
+			assert.Equal(t, 4, strings.Count(navigation, `<a href="/`), "four destinations remain native links")
 			assert.Contains(t, navigation, `<a class="site-header__brand" href="/">`)
 		})
 	}
 }
 
 func TestAuthenticatedShellCompactClassContract(t *testing.T) {
-	html := renderShell(t, NavigationLibrary)
+	html := renderShell(t, NavigationReading)
 	assert.True(t, strings.Contains(html, `class="site-header__nav"`) && strings.Contains(html, `class="site-header__navigation"`), "shell compact layout hooks missing: %s", html)
 
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/static/app.css", nil)
@@ -127,11 +129,47 @@ func TestAuthenticatedShellCompactClassContract(t *testing.T) {
 	}
 }
 
-func TestRootCompatibilityRedirectsToLibrary(t *testing.T) {
+func TestRootRedirectsToReading(t *testing.T) {
 	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 	(&Handler{}).dashboard(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
 	location := response.Header().Get("Location")
-	assert.Equal(t, "/library", location)
+	assert.Equal(t, "/reading", location)
+}
+
+func TestStudyTabDueChip(t *testing.T) {
+	render := func(t *testing.T, view *shellView) string {
+		t.Helper()
+		ctx := context.WithValue(context.Background(), shellViewContextKey{}, view)
+		var output bytes.Buffer
+		require.NoError(t, ShellLayout("Shell test", &domain.User{Username: "learner"}, "csrf", NavigationStudy).Render(ctx, &output))
+		return renderedPrimaryNavigation(t, output.String())
+	}
+	for _, test := range []struct {
+		name string
+		view *shellView
+		want string
+	}{
+		{name: "plural", view: &shellView{LastLanguage: "de", StudyDue: 12}, want: `aria-label="Study, 12 reviews due"`},
+		{name: "singular", view: &shellView{LastLanguage: "de", StudyDue: 1}, want: `aria-label="Study, 1 review due"`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			navigation := render(t, test.view)
+			assert.Contains(t, navigation, test.want)
+			assert.Contains(t, navigation, `<span class="site-nav__count" aria-hidden="true">`+strconv.Itoa(test.view.StudyDue)+`</span>`)
+			assert.Equal(t, 1, strings.Count(navigation, `aria-current="page"`))
+		})
+	}
+	for name, view := range map[string]*shellView{
+		"zero":              {LastLanguage: "de"},
+		"no study language": {},
+		"no shell view":     nil,
+	} {
+		t.Run("absent with "+name, func(t *testing.T) {
+			navigation := render(t, view)
+			assert.NotContains(t, navigation, "site-nav__count")
+			assert.NotContains(t, navigation, "aria-label=\"Study")
+		})
+	}
 }

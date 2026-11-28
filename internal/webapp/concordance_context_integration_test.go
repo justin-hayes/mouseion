@@ -42,12 +42,12 @@ func TestConcordanceWithoutALearnerLanguageRendersTheInvitation(t *testing.T) {
 	ctx := context.Background()
 	h, cookies := concordanceContextHandler(t, ctx, "no-language-learner", "password")
 
-	// With no study language every per-language surface other than My Books
-	// redirects to the unprefixed My Books empty state.
-	response := perform(t, h, http.MethodGet, "/vocabulary/concordance?term=gehen", nil, cookies)
+	// With no study language every per-language surface other than Reading
+	// redirects to the unprefixed Reading empty state.
+	response := perform(t, h, http.MethodGet, "/corpus/concordance?term=gehen", nil, cookies)
 	require.Equal(t, http.StatusSeeOther, response.Code)
-	require.Equal(t, "/library", response.Header().Get("Location"))
-	response = perform(t, h, http.MethodGet, "/library", nil, cookies)
+	require.Equal(t, "/reading", response.Header().Get("Location"))
+	response = perform(t, h, http.MethodGet, "/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
 	t.Run("offers the no-study-language empty state", func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestConcordanceDropsAnOriginBookInAnotherStudyLanguage(t *testing.T) {
 	h := New(Services{Auth: authService, WebAuth: webauth.New(authService, false, time.Hour), Store: storeDependencies(store), CatalogueSync: fixtures.NewCatalogueSync(fixtures.NewStore()), Analysis: fixtures.Analysis{}, SessionLifetime: time.Hour})
 	cookies, _ := loginCookies(t, h, "origin-language-alice", "alice-password")
 
-	response := perform(t, h, http.MethodGet, "/de/vocabulary/concordance?term=gehen&from_book="+italian.ID+"&from_snap=snapshot", nil, cookies)
+	response := perform(t, h, http.MethodGet, "/de/corpus/concordance?term=gehen&from_book="+italian.ID+"&from_snap=snapshot", nil, cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
 	require.Contains(t, body, ">Forms of gehen</h2>", "the lookup still renders")

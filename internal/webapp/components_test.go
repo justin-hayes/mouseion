@@ -43,7 +43,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 	view := &shellView{
 		LastLanguage: "de",
 		PageLanguage: "de",
-		PageKind:     pageKindMyBooks,
+		PageKind:     pageKindReading,
 		Options: []activeStudyLanguageOption{
 			{Language: "de", DisplayName: "German", HasBooks: true},
 			{Language: "it", DisplayName: "Italian", HasBooks: true, NewArrival: true},
@@ -51,7 +51,7 @@ func TestActiveStudyLanguageSwitcherMarksReadOnlyAndNewOptions(t *testing.T) {
 			{Language: "fr", DisplayName: "French"},
 		},
 	}
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationReading), "")
 	requireMarkup(t, html,
 		`<select id="active-study-language" name="lang"`,
 		`<label for="active-study-language"><span class="site-header__language-label">Study language</span>`,
@@ -73,7 +73,7 @@ func TestActiveStudyLanguageSwitcherIsHiddenWithoutAPageLanguage(t *testing.T) {
 		LastLanguage: "de",
 		Options:      []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}},
 	}
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationReading), "")
 	assert.Empty(t, html, "job status and other pages without a language have no picker")
 }
 
@@ -85,12 +85,12 @@ func TestActiveStudyLanguageSwitcherIsHiddenOnBookAddressedPages(t *testing.T) {
 		PageLanguage: "de",
 		Options:      []activeStudyLanguageOption{{Language: "de", DisplayName: "German", HasBooks: true}, {Language: "it", DisplayName: "Italian", HasBooks: true}},
 	}
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationLibrary), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(view, NavigationReading), "")
 	assert.Empty(t, html, "Book-addressed pages have no picker")
 }
 
 func TestActiveStudyLanguageSwitcherIsHiddenWithoutOptions(t *testing.T) {
-	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, NavigationLibrary), "")
+	html := renderPattern(t, ActiveStudyLanguageSwitcher(&shellView{}, NavigationReading), "")
 	assert.Empty(t, html, "empty language switcher rendered markup")
 }
 
@@ -110,10 +110,10 @@ func requireMarkup(t *testing.T, html string, fragments ...string) {
 }
 
 func TestPageHeaderPattern(t *testing.T) {
-	html := renderPattern(t, PageHeader("My Books", "Choose a book to continue.", StatusBadge("Analyzed", StatusSuccess)), `<button type="button">Choose a book</button>`)
+	html := renderPattern(t, PageHeader("Reading", "Choose a book to continue.", StatusBadge("Analyzed", StatusSuccess)), `<button type="button">Choose a book</button>`)
 	requireMarkup(t, html,
 		`<header class="page-header">`,
-		`<h1>My Books</h1>`,
+		`<h1>Reading</h1>`,
 		`<p>Choose a book to continue.</p>`,
 		`class="page-header__status"`,
 		`Analyzed`,
@@ -123,11 +123,11 @@ func TestPageHeaderPattern(t *testing.T) {
 }
 
 func TestBreadcrumbPattern(t *testing.T) {
-	html := renderPattern(t, Breadcrumb("/library", "My Books"), "")
+	html := renderPattern(t, Breadcrumb("/reading", "Reading"), "")
 	requireMarkup(t, html,
 		`<nav class="breadcrumb" aria-label="Breadcrumb">`,
-		`href="/library"`,
-		`← My Books`,
+		`href="/reading"`,
+		`← Reading`,
 	)
 }
 
@@ -329,7 +329,7 @@ func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
 			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`, `class="catalog-entry__detail">Monro 1902</p>`},
 		},
 		{
-			name: "My Books row",
+			name: "Reading row",
 			html: renderPattern(t, MyBookRow("csrf", book, ""), ""),
 			want: []string{`class="title-plate__title">Iliad</span>`, `class="title-plate__greek" lang="grc">Ἰλιάς</span>`, `class="title-plate__author">Homer</span>`},
 		},

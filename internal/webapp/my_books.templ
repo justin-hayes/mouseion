@@ -55,13 +55,13 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 						<form method="post" action={ templ.SafeURL("/library/books/"+url.PathEscape(book.Book.ID)+"/read-again") }><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/><button type="submit" class="btn btn-outline">Read again</button></form>
 					}
 					if book.IsCurrentReading {
-						<button type="submit" class="btn btn-outline" disabled>Remove from My Books</button>
+						<button type="submit" class="btn btn-outline" disabled>Remove from Reading</button>
 						<p class="metadata">Your current reading cannot be removed. Finish or end the reading first.</p>
 					} else {
 						<form method="post" action={ templ.SafeURL("/library/books/" + url.PathEscape(book.Book.ID) + "/remove") }>
 							<input type="hidden" name="csrf_token" value={ csrf }/>
 							<input type="hidden" name="return_to" value={ returnTo }/>
-							<button type="submit" class="btn btn-outline">Remove from My Books</button>
+							<button type="submit" class="btn btn-outline">Remove from Reading</button>
 						</form>
 					}
 				</div>
@@ -71,7 +71,7 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 }
 
 // MyBookEvidenceRecovery is the Book's retry: the one action that queues its
-// analysis again. It is shared by the My Books row and the Book detail page.
+// analysis again. It is shared by the Reading row and the Book detail page.
 templ MyBookEvidenceRecovery(book domain.MyBook, csrf, returnTo string) {
 	if action := myBookEvidenceRecovery(book); action != "" {
 		<form method="post" action={ templ.SafeURL(myBookEvidenceRecoveryURL(book)) }>
@@ -103,7 +103,7 @@ templ MyBookIdentityDetails(book domain.MyBook) {
 }
 
 templ MyBooksBrowseLink(browse MyBooksBrowseState, page int, label string, selected, focusResults bool) {
-	<a class="btn btn-outline" data-my-books-enhanced data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">{ label }</a>
+	<a class="btn btn-outline" data-reading-enhanced data-focus-results={ boolString(focusResults) } { myBooksSelectedAttributes(selected)... } href={ templ.SafeURL(myBooksResultsURL(browse, page)) } hx-get={ myBooksResultsURL(browse, page) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">{ label }</a>
 }
 
 templ MyBooksNeedsActionFilter(browse MyBooksBrowseState) {
@@ -134,22 +134,22 @@ templ MyBooksSortControl(browse MyBooksBrowseState) {
 
 templ MyBooksResultsError(message, retryURL string) {
 	<section id="library-results" aria-labelledby="library-books-heading" data-focus-id="library-books-heading">
-		<h2 id="library-books-heading" tabindex="-1">My Books could not be loaded</h2>
+		<h2 id="library-books-heading" tabindex="-1">Reading could not be loaded</h2>
 		<p role="alert">{ message }</p>
 		<p><a class="btn btn-outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
 	</section>
 }
 
 templ MyBooksFailurePage(user domain.User, csrf, message, retryURL string) {
-	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
-		@PageHeader("My Books", "Your working collection is temporarily unavailable.", nil)
-		@Feedback(FeedbackError, "My Books needs attention", message)
+	@ShellLayout("Reading", &user, csrf, NavigationReading, shellStyleReadingList) {
+		@PageHeader("Reading", "Your working collection is temporarily unavailable.", nil)
+		@Feedback(FeedbackError, "Reading needs attention", message)
 		<p><a class="btn btn-outline" href={ templ.SafeURL(retryURL) }>Try again</a></p>
 	}
 }
 
 templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
-	<nav class="library-filters" aria-label="My Books tabs">
+	<nav class="library-filters" aria-label="Reading tabs">
 		<a { myBooksSelectedAttributes(browse.Disposition == domain.BookDispositionToRead && !browse.History)... } href={ templ.SafeURL(myBooksToReadTabURL(browse)) }>{ fmt.Sprintf("To Read (%d)", browse.ToReadCount) }</a>
 		<a { myBooksSelectedAttributes(browse.History)... } href={ templ.SafeURL(myBooksReadTabURL(browse)) }>{ fmt.Sprintf("Read (%d)", browse.ReadCount) }</a>
 	</nav>
@@ -157,17 +157,17 @@ templ MyBooksDispositionFilters(browse MyBooksBrowseState) {
 
 templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseState) {
 	{{ visible := myBooksBrowseBooks(browse, books) }}
-	<section id="library-results" tabindex="-1" aria-label="My Books results" data-focus-id="library-results">
+	<section id="library-results" tabindex="-1" aria-label="Reading results" data-focus-id="library-results">
 		if browse.Total == 0 {
 			<p { myBooksResultAnnouncementAttributes()... }>
 				if browse.NeedsAction {
 					No { myBooksTabLabel(browse) } books in { myBooksLanguageName(browse) } need action.
 					if browse.Query != "" {
-						<a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) }>Clear search</a>
+						<a data-reading-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) }>Clear search</a>
 					}
 				} else if browse.TextNoMatch {
 					No { myBooksTabLabel(browse) } books in { myBooksLanguageName(browse) } match “{ browse.Query }”.
-					<a data-my-books-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
+					<a data-reading-enhanced data-focus-results="true" href={ templ.SafeURL(myBooksClearSearchURL(browse)) } hx-get={ myBooksClearSearchURL(browse) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false">Clear search</a>
 				} else if browse.History {
 					No books read in { myBooksLanguageName(browse) } yet.
 				} else if browse.Language != "" {
@@ -199,9 +199,9 @@ templ MyBooksResults(csrf string, books []domain.MyBook, browse MyBooksBrowseSta
 }
 
 templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message, pageError string, browse MyBooksBrowseState) {
-	@ShellLayout("My Books", &user, csrf, NavigationLibrary, shellStyleMyBooks) {
+	@ShellLayout("Reading", &user, csrf, NavigationReading, shellStyleReadingList) {
 		<section class="library-masthead" aria-labelledby="library-page-title">
-			<h1 id="library-page-title">My Books</h1>
+			<h1 id="library-page-title">Reading</h1>
 			if browse.Language != "" {
 				<p class="library-language-context">{ myBooksLanguageName(browse) } collection</p>
 			}
@@ -210,19 +210,19 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			@Feedback(FeedbackSuccess, "", message)
 		}
 		if pageError != "" {
-			@Feedback(FeedbackError, "My Books needs attention", pageError)
+			@Feedback(FeedbackError, "Reading needs attention", pageError)
 		}
 		if browse.CurrentReading != nil {
 			@CurrentReadingSection(browse.CurrentReading, csrf, "", "", "")
 		}
 		if len(books) == 0 && (!browse.Enabled || (browse.AllCount == 0 && browse.Language != "")) {
-			@EmptyState("Find your first Book", "My Books holds the Books you choose. Browse the Catalog to add a text to read.") {
+			@EmptyState("Find your first Book", "Reading holds the Books you choose. Browse the Catalog to add a text to read.") {
 				<a role="button" href="/catalogs">Browse the Catalog</a>
 			}
 		}
 		if browse.Enabled && browse.Language == "" {
 			if browse.AllCount == 0 {
-				@EmptyState("Find your first Book", "My Books holds the Books you choose. Browse the Catalog to add a text to read.") {
+				@EmptyState("Find your first Book", "Reading holds the Books you choose. Browse the Catalog to add a text to read.") {
 					<a role="button" href="/catalogs">Browse the Catalog</a>
 				}
 			} else {
@@ -230,7 +230,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 			}
 		} else if browse.Enabled && browse.AllCount > 0 {
 			<section class="library-finder" aria-label="Find books">
-				<form class="library-search" role="search" method="get" action={ templ.SafeURL(myBooksPath(browse.Language)) } hx-get={ myBooksPath(browse.Language) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-my-books-enhanced>
+				<form class="library-search" role="search" method="get" action={ templ.SafeURL(readingPath(browse.Language)) } hx-get={ readingPath(browse.Language) } hx-target="#library-results" hx-swap="outerHTML" hx-push-url="true" hx-status:5xx="target:#library-results select:#library-results swap:outerHTML push:false" data-reading-enhanced>
 					// A GET submit replaces the action's query string with the form fields, so the active tab travels as hidden fields.
 					if browse.Disposition != "" {
 						<input type="hidden" name="disposition" value={ string(browse.Disposition) }/>
@@ -244,7 +244,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 					if browse.MostReadable {
 						<input type="hidden" name="sort" value="readable"/>
 					}
-					<label class="sr-only" for="library-search-query">Search My Books</label>
+					<label class="sr-only" for="library-search-query">Search Reading</label>
 					<div class="library-search__controls">
 						<input class="input" id="library-search-query" type="search" name="q" value={ browse.Query } placeholder="Title, author, or Greek title"/>
 						<button class="btn btn-outline" type="submit">Search</button>
@@ -261,7 +261,7 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 				<h2 id="acquired-books-heading">Books</h2>
 				<ul class="library-books" role="list">
 					for _, book := range books {
-						@MyBookRow(csrf, book, myBooksPath(browse.Language))
+						@MyBookRow(csrf, book, readingPath(browse.Language))
 					}
 				</ul>
 			</section>

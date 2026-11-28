@@ -1,10 +1,10 @@
-# My Books Collection Browsing
+# Reading Collection Browsing
 
 Status: Implemented, including the cover-grid extension · Date: 2026-09-02 · Updated: 2026-11-22
 
 ## Motivation
 
-My Books is the learner's broad bibliographic collection, not a queue or a
+Reading is the learner's broad bibliographic collection, not a queue or a
 readiness ranking. As metadata-first catalog sync increases its size, a single
 unpaged list is no longer sufficient for finding a title, author, edition, or
 language. The canonical information architecture already promises a searchable
@@ -12,7 +12,7 @@ bibliographic catalog; this feature makes that promise concrete.
 
 ## Goal
 
-Let learners find and open a Book in a large local My Books collection through
+Let learners find and open a Book in a large local Reading collection through
 paging and text search scoped to the active study language, while keeping
 bibliographic identity and learner intention ahead of analysis evidence. My
 Books is always browsed within the active study language; there is no
@@ -20,8 +20,8 @@ cross-language "All languages" default ([ADR 0050](../adr/0050-active-study-lang
 
 ## Scope
 
-This feature applies to My Books at `/library`. It defines collection controls,
-collection hierarchy, progressive enhancement, and accessibility. My Books is the
+This feature applies to Reading at `/{language}/reading`. It defines collection controls,
+collection hierarchy, progressive enhancement, and accessibility. Reading is the
 sole browse surface for Books; the Catalog at `/catalogs` separately browses the
 Classical catalog and each connection's local Catalog index. There is no live
 OPDS browse or search surface.
@@ -39,10 +39,10 @@ contracts. Reading owns current evidence and current-reading presentation.
 
 ### Active-language scope
 
-- My Books always presents the active study language's Books. Browse, paging,
+- Reading always presents the active study language's Books. Browse, paging,
   and search are scoped to it; the shell's active-language switcher changes the
   scope instead of a per-page control.
-- My Books holds only chosen Books: every Book is Currently reading, To Read or
+- Reading holds only chosen Books: every Book is Currently reading, To Read or
   Read. Books without a chosen language belong to no language partition and are
   not listed; one with reading history keeps its membership and is reported by
   the backfill (see [Upgrading existing accounts](#upgrading-existing-accounts)).
@@ -51,7 +51,7 @@ contracts. Reading owns current evidence and current-reading presentation.
 
 ### Scoped collection search and paging
 
-- One text search filters the active study language's My Books collection,
+- One text search filters the active study language's Reading collection,
   including metadata-only and acquired Books. It is explicitly not a live OPDS
   query and does not depend on an upstream connection being available.
 - Search combines predictably with the active language and paging controls.
@@ -79,16 +79,16 @@ contracts. Reading owns current evidence and current-reading presentation.
   operable from their rows through disposition and catalog actions.
 - The list does not expose batch-select-then-analyze behavior.
 
-### Removing from My Books
+### Removing from Reading
 
-- **Remove from My Books** is the opposite of Catalog Add and belongs to every
-  Book's More actions. It ends My Books membership and changes nothing else:
+- **Remove from Reading** is the opposite of Catalog Add and belongs to every
+  Book's More actions. It ends Reading membership and changes nothing else:
   Book identity, analysis, corrections, exclusions, completions and Known
   vocabulary all remain.
 - The current reading is never removed. Its row states
   why the action is unavailable, and a direct request is refused with the same
   reason instead of ending the reading.
-- The Catalog offers **Add** for an entry whose Book left My Books. Adding it
+- The Catalog offers **Add** for an entry whose Book left Reading. Adding it
   again restores the same Book with its evidence, for both an OPDS Book and a
   classical Book.
 
@@ -100,7 +100,7 @@ contracts. Reading owns current evidence and current-reading presentation.
   position), Greek title, and Classical catalog provenance.
 - Two Editions of one Work are two rows, told apart by their Edition labels.
 - A leftover Book on a withdrawn per-book definition stays an ordinary row. The
-  learner removes it with **Remove from My Books**, one Book at a time.
+  learner removes it with **Remove from Reading**, one Book at a time.
 - Each Book carries the ordinary per-Book Analysis update notice; the current
   Reading's Book asks to end the Reading first.
 - Search matches title, author, English title, or Greek title ignoring accents.
@@ -127,7 +127,7 @@ contracts. Reading owns current evidence and current-reading presentation.
 
 | State | Required presentation | Primary action |
 |---|---|---|
-| Empty collection | Explain My Books and lead to the Catalog. | Browse the Catalog |
+| Empty collection | Explain Reading and lead to the Catalog. | Browse the Catalog |
 | Collection available | Show scoped search, a cover-led collection for the active language, and paging. | View in Reading on the current Book and To Read rows; More actions offer Mark as previously read (unstarted To Read), Read again (Read), or Remove |
 | Cover unavailable or pending | Keep the title and author visible beside a truthful placeholder. | The same actions as with a cover |
 | Search empty | Retain the query within the active language and state that the local collection has no match. | Revise or clear search |
@@ -136,12 +136,12 @@ contracts. Reading owns current evidence and current-reading presentation.
 
 ## Upgrading existing accounts
 
-My Books holds only chosen Books. A one-time data-only backfill removes the
-membership of every Book that is active in My Books, is not To Read, has no
+Reading holds only chosen Books. A one-time data-only backfill removes the
+membership of every Book that is active in Reading, is not To Read, has no
 reading history and is not the current reading. That covers unread Inbox Books,
 never-prepared classical Inbox Books and unread Books without a chosen
 language. Other Books with reading history stay. A language-less Book with
-history also leaves My Books, because My Books is browsed within a study
+history also leaves Reading, because Reading is browsed within a study
 language and would list it nowhere: it behaves like any removed Book, keeps its
 completions, and can be added again with a language. The backfill reports each
 one.
@@ -173,7 +173,7 @@ command's prerequisites, output, and recovery.
 ## Acceptance criteria
 
 - Browse, search, and paging return only Books in the active study language.
-- My Books shows exactly the To Read and Read tabs. The Inbox and needs-language
+- Reading shows exactly the To Read and Read tabs. The Inbox and needs-language
   states are retired: `/library?needs-language`, `?disposition=inbox`, and an
   unknown disposition return 404.
 - Query and page combinations return stable owner-scoped results and preserve

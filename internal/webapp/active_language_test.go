@@ -26,7 +26,7 @@ func TestAuthenticatedShellLazilyDefaultsWithoutWritingStoredLanguage(t *testing
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.NotContains(t, response.Body.String(), `id="active-study-language"`, "job status has no page language and no picker")
-	assert.Contains(t, response.Body.String(), `href="/it/library"`, "navigation uses the most recently activated language")
+	assert.Contains(t, response.Body.String(), `href="/it/reading"`, "navigation uses the most recently activated language")
 	stored, err := store.GetStoredActiveStudyLanguage(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
 	assert.Empty(t, stored)
@@ -43,29 +43,29 @@ func getAs(t *testing.T, h http.Handler, path string, cookies []*http.Cookie) *h
 	return response
 }
 
-// prefixedMyBooksRedirect reports where an unprefixed GET of My Books was sent:
+// prefixedMyBooksRedirect reports where an unprefixed GET of Reading was sent:
 // the same page under the Last study language. Test helpers follow it so a test
 // that does not care about the prefix still reads the page.
 func prefixedMyBooksRedirect(path string, response *httptest.ResponseRecorder) (string, bool) {
-	if response.Code != http.StatusSeeOther || (path != "/library" && !strings.HasPrefix(path, "/library?")) {
+	if response.Code != http.StatusSeeOther || (path != "/reading" && !strings.HasPrefix(path, "/reading?")) {
 		return "", false
 	}
 	location := response.Header().Get("Location")
 	_, rest, ok := strings.Cut(strings.TrimPrefix(location, "/"), "/")
-	return location, ok && (rest == "library" || strings.HasPrefix(rest, "library?"))
+	return location, ok && (rest == "reading" || strings.HasPrefix(rest, "reading?"))
 }
 
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
-	response := getAs(t, h, "/it/library", cookies)
+	response := getAs(t, h, "/it/reading", cookies)
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Contains(t, response.Body.String(), "fixture-italian-goal")
 }
 
 func TestRenderedFormsCarryTheBareCSRFToken(t *testing.T) {
 	h, cookies, csrf, _ := readingFixtureSession(t)
-	body := getAs(t, h, "/de/library", cookies).Body.String()
+	body := getAs(t, h, "/de/reading", cookies).Body.String()
 	assert.Contains(t, body, `name="csrf_token" value="`+csrf+`"`)
 }
 
@@ -101,8 +101,8 @@ func TestForgedCSRFTokenIsRefused(t *testing.T) {
 
 func TestSupportedConcordanceAndBrowseURLsCarryLanguage(t *testing.T) {
 	lookup := domain.ConcordanceLookup{Language: "de", Term: "haus", Match: domain.ConcordanceMatchLemma, UPOS: "NOUN"}
-	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
-	assert.Equal(t, "/de/vocabulary/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
+	assert.Equal(t, "/de/corpus/concordance?as=lemma&page=2&term=haus&upos=NOUN", vocabularyConcordancePageURL(2, lookup))
+	assert.Equal(t, "/de/corpus/concordance?as=lemma&page=1&term=haus&upos=NOUN", vocabularyConcordanceURL("de", "haus", "NOUN"))
 	assert.Equal(t, "/books/book-1?page=2&q=ha", bookWordsPageURL(2, domain.VocabularyBrowsePage{CurrentBookID: "book-1"}, "ha"))
-	assert.Equal(t, "/vocabulary/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
+	assert.Equal(t, "/corpus/concordance?page=1&term=x", vocabularyConcordancePageURL(1, domain.ConcordanceLookup{Term: "x"}))
 }

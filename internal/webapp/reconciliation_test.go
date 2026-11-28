@@ -65,7 +65,7 @@ func TestReconciliation_HomeRedirectsToLibrary(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.dashboard(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 	assert.Equal(t, http.StatusSeeOther, rec.Code)
-	assert.Equal(t, "/library", rec.Header().Get("Location"))
+	assert.Equal(t, "/reading", rec.Header().Get("Location"))
 }
 
 func TestReconciliation_KnownVocabAliasIsRetiredWithoutRedirect(t *testing.T) {
@@ -93,6 +93,10 @@ func TestReconciliation_ImportRoutesAreRetiredWithoutRedirect(t *testing.T) {
 		{name: "import page", method: http.MethodGet, path: "/vocabulary/import"},
 		{name: "import submission", method: http.MethodPost, path: "/vocabulary/import", form: url.Values{"csrf_token": {csrf}}},
 		{name: "import status", method: http.MethodGet, path: "/vocabulary/imports/7/status"},
+		{name: "prefixed import page", method: http.MethodGet, path: "/de/vocabulary/import"},
+		{name: "corpus import page", method: http.MethodGet, path: "/corpus/import"},
+		{name: "corpus import submission", method: http.MethodPost, path: "/corpus/import", form: url.Values{"csrf_token": {csrf}}},
+		{name: "corpus import status", method: http.MethodGet, path: "/corpus/imports/7/status"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

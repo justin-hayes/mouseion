@@ -44,7 +44,7 @@ func TestSentenceStudyShowsACorrectedGreekLemmaAsACitationForm(t *testing.T) {
 			"book": {registration.BookID}, "run": {run}, "corpus": {corpus}, "unit": {unit},
 			"sentence": {strconv.FormatInt(sentence, 10)}, "target": {strconv.FormatInt(target, 10)},
 		}
-		response := perform(t, h, http.MethodGet, "/grc/vocabulary/concordance/sentence?"+query.Encode(), nil, cookies)
+		response := perform(t, h, http.MethodGet, "/grc/corpus/concordance/sentence?"+query.Encode(), nil, cookies)
 		require.Equal(t, http.StatusOK, response.Code, "body=%s", response.Body.String())
 		return response.Body.String()
 	}

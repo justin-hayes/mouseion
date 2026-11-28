@@ -6,7 +6,7 @@ async function signIn(page: Page) {
   await page.getByLabel('Username').fill('fixture-learner');
   await page.getByLabel('Password').fill('fixture-password');
   await page.getByRole('button', { name: /sign in|log in/i }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/reading/);
 }
 
 test.describe('catalog sources and browsing', () => {
@@ -52,9 +52,9 @@ test.describe('catalog sources and browsing', () => {
     await expect(fixture).toContainText('Page 1 of 2');
     await expect(fixture.getByRole('link', { name: 'Next' })).toHaveAttribute('href', /language=de.*page_fixture-connection=2/);
     const addEntry = fixture.locator('.catalog-entry', { hasText: 'Ein kurzer Sommer' });
-    await expect(addEntry.getByRole('button', { name: 'Add', exact: true })).toBeVisible();
+    await expect(addEntry.getByRole('button', { name: 'Add to Reading', exact: true })).toBeVisible();
     await expect(addEntry).toContainText('Adding prepares the text for reading.');
-    await expect(page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first()).toBeVisible();
+    await expect(page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In Reading', exact: true }).first()).toBeVisible();
 
     // The Classical catalog is a section chosen with the Language filter, not a
     // separate page or button, and connection management stays off the Catalog.
@@ -66,7 +66,7 @@ test.describe('catalog sources and browsing', () => {
 
   test('Sync now maintains the Catalog index without adding Books', async ({ page }) => {
     await signIn(page);
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     const before = await page.locator('.library-books > li.library-book').count();
     expect(before).toBeGreaterThan(0);
 
@@ -74,9 +74,9 @@ test.describe('catalog sources and browsing', () => {
     await page.locator('#source-status-fixture-connection').getByRole('button', { name: 'Sync now' }).click();
     await expect(page).toHaveURL(/\/catalogs\?/);
 
-    await page.goto('/de/library');
+    await page.goto('/de/reading');
     await expect(page.locator('.library-books > li.library-book')).toHaveCount(before);
-    const retired = await page.goto('/de/library?needs-language');
+    const retired = await page.goto('/de/reading?needs-language');
     expect(retired?.status()).toBe(404);
   });
 
@@ -90,24 +90,24 @@ test.describe('catalog sources and browsing', () => {
     const plate = entry.locator('.book-cover-media__placeholder');
     await expect(plate).toHaveAttribute('aria-hidden', 'true');
     await expect(plate.locator('.title-plate__title')).toHaveText('Ein kurzer Sommer');
-    await entry.getByRole('button', { name: 'Add', exact: true }).click();
+    await entry.getByRole('button', { name: 'Add to Reading', exact: true }).click();
 
     await expect(page).toHaveURL(/\/catalogs\?.*message=/);
     const confirmation = page.locator('#catalog-add-confirmation');
     await expect(confirmation).toBeFocused();
-    await expect(confirmation).toContainText('Restored “Ein kurzer Sommer” to My Books.');
+    await expect(confirmation).toContainText('Restored “Ein kurzer Sommer” to Reading.');
     await expect(confirmation).toContainText('Downloading and analyzing the text.');
 
     // The same entry now shows ownership and no second Add.
     const owned = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Ein kurzer Sommer' });
-    await expect(owned.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
-    await expect(owned.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+    await expect(owned.getByRole('link', { name: 'In Reading', exact: true })).toBeVisible();
+    await expect(owned.getByRole('button', { name: 'Add to Reading', exact: true })).toHaveCount(0);
 
-    // The confirmation names and reaches the Book in My Books.
-    const view = confirmation.getByRole('link', { name: 'View in My Books', exact: true });
+    // The confirmation names and reaches the Book in Reading.
+    const view = confirmation.getByRole('link', { name: 'View in Reading', exact: true });
     await expect(view).toBeVisible();
     await view.click();
-    await expect(page).toHaveURL(/\/library/);
+    await expect(page).toHaveURL(/\/reading/);
     await expect(page.getByRole('heading', { name: 'Ein kurzer Sommer', exact: true })).toBeVisible();
   });
 
@@ -130,13 +130,13 @@ test.describe('catalog sources and browsing', () => {
     await expect(confirmation).toContainText('Recorded “Der lange Weg nach Hause” as previously read.');
 
     const owned = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Der lange Weg nach Hause' });
-    await expect(owned.getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
-    await expect(owned.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+    await expect(owned.getByRole('link', { name: 'In Reading', exact: true })).toBeVisible();
+    await expect(owned.getByRole('button', { name: 'Add to Reading', exact: true })).toHaveCount(0);
     await expect(owned.getByRole('button', { name: "I've read this", exact: true })).toHaveCount(0);
     expect(contacted, `I've read this contacted ${contacted.join(', ')}`).toEqual([]);
 
-    await confirmation.getByRole('link', { name: 'View in My Books', exact: true }).click();
-    await expect(page).toHaveURL(/\/library/);
+    await confirmation.getByRole('link', { name: 'View in Reading', exact: true }).click();
+    await expect(page).toHaveURL(/\/reading/);
     const row = page.locator('li.library-book', { has: page.getByRole('heading', { name: 'Der lange Weg nach Hause', exact: true }) });
     await expect(row).toBeVisible();
     await expect(row.getByText('Read before Mouseion')).toBeVisible();
@@ -194,14 +194,14 @@ test.describe('catalog sources and browsing', () => {
 
       // Ownership links and Add forms are ordinary server-rendered controls.
       await page.goto('/catalogs?language=de');
-      const owned = page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In My Books', exact: true }).first();
+      const owned = page.locator('#catalog-source-fixture-browser-sync-connection').getByRole('link', { name: 'In Reading', exact: true }).first();
       await expect(owned).toHaveAttribute('href', /\/catalogs\/books\/[^/]+\/in-my-books$/);
 
       const entry = page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Gedichte aus dem Norden' });
-      await entry.getByRole('button', { name: 'Add', exact: true }).click();
+      await entry.getByRole('button', { name: 'Add to Reading', exact: true }).click();
       await expect(page).toHaveURL(/\/catalogs\?.*message=/);
-      await expect(page.locator('#catalog-add-confirmation')).toContainText('Restored “Gedichte aus dem Norden” to My Books.');
-      await expect(page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Gedichte aus dem Norden' }).getByRole('link', { name: 'In My Books', exact: true })).toBeVisible();
+      await expect(page.locator('#catalog-add-confirmation')).toContainText('Restored “Gedichte aus dem Norden” to Reading.');
+      await expect(page.locator('#catalog-source-fixture-connection .catalog-entry', { hasText: 'Gedichte aus dem Norden' }).getByRole('link', { name: 'In Reading', exact: true })).toBeVisible();
     } finally {
       await context.close();
     }

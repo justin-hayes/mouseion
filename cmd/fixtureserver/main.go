@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/justin-hayes/mouseion/internal/auth"
@@ -52,6 +53,7 @@ func main() {
 		})
 	}
 	seedFluencyWordIfRequested(store)
+	seedDueReviewsIfRequested(store)
 	classicalCatalog, err := fixtures.NewClassicalCatalog()
 	if err != nil {
 		log.Fatalf("initialize fixture Classical catalog: %v", err)
@@ -140,6 +142,15 @@ func (s fixtureBooksStore) ListMyBooksBrowse(ctx context.Context, owner, query, 
 func seedFluencyWordIfRequested(store *fixtures.Store) {
 	if os.Getenv("MOUSEION_FIXTURE_STUDY_FLUENCY") == "1" {
 		seedFluencyWord(store)
+	}
+}
+
+// seedDueReviewsIfRequested seeds German reviews that are due today when the
+// browser spec asks for them (MOUSEION_FIXTURE_STUDY_DUE is their number), so
+// every other spec keeps its usual Study state and an empty due chip.
+func seedDueReviewsIfRequested(store *fixtures.Store) {
+	if count, err := strconv.Atoi(os.Getenv("MOUSEION_FIXTURE_STUDY_DUE")); err == nil {
+		store.SeedDueStudyReviews(fixtures.OwnerID, count, time.Now())
 	}
 }
 
