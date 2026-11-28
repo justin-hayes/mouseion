@@ -21,13 +21,13 @@ test.describe('Current reading over a failed re-analysis', () => {
 
     await page.goto('/de/reading');
     await expect(page.locator('#primary-goal-section').getByRole('heading', { name: 'Neue Analyse fehlgeschlagen' })).toBeVisible();
-    // The hero's status line names the failure; the analysis details disclosure
-    // holds the wording. Open it directly so the assertion checks the evidence
-    // rather than the disclosure control.
-    await expect(page.locator('#primary-goal-section .current-hero__status')).toContainText('Re-analysis failed.');
-    await page.locator('details.reading-supporting').evaluate((details: HTMLDetailsElement) => { details.open = true; });
-    await expect(page.locator('#primary-goal-section details strong', { hasText: 'Re-analysis failed.' })).toBeVisible();
-    await expect(page.getByText('The current analysis stays in effect.')).toBeVisible();
+    // The hero names the failure and where recovery works; it offers no Retry,
+    // which the server refuses for the Current reading.
+    const status = page.locator('#primary-goal-section .current-hero__status');
+    await expect(status).toContainText('Re-analysis failed.');
+    await expect(status).toContainText('The current analysis stays in effect.');
+    await expect(status).toContainText('End this reading to retry it from To Read.');
+    await expect(page.locator('#primary-goal-section details.reading-supporting')).toHaveCount(0);
     await expect(page.locator('#primary-goal-section').getByRole('button', { name: /^Retry / })).toHaveCount(0);
   });
 });

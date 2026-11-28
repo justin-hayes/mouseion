@@ -70,6 +70,12 @@ test.describe('the Current reading hero', () => {
         expect(box.y, `${name} starts on the first screen (${colorScheme})`).toBeGreaterThanOrEqual(0);
         expect(box.y + box.height, `${name} ends on the first screen (${colorScheme})`).toBeLessThanOrEqual(844);
       }
+      // The compact cover is 6.5rem wide and the title sits beside it.
+      const cover = (await hero.locator('.book-cover-media').boundingBox())!;
+      const title = (await parts.title.boundingBox())!;
+      expect(cover.width, `compact cover width (${colorScheme})`).toBeCloseTo(6.5 * 16, 0);
+      expect(title.x, `title beside the cover (${colorScheme})`).toBeGreaterThanOrEqual(cover.x + cover.width);
+      await expectNoOverflow(page);
     }
   });
 

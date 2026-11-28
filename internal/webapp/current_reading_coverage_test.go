@@ -5,6 +5,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReadingCoverageToTargetText(t *testing.T) {
@@ -50,34 +51,45 @@ func TestMyBookCanReadNext(t *testing.T) {
 
 func TestCurrentReadingCoverageFor(t *testing.T) {
 	ready := readingBookView{Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 1000, MatureTokenCount: 370, InStudyTokenCount: 421}}
-	view := currentReadingCoverageFor(ready)
-	assert.True(t, view.Ready)
-	assert.Equal(t, "37.0%", view.MatureText)
-	assert.Equal(t, "42.1%", view.InStudyText)
-	assert.InDelta(t, 37.0, view.MaturePct, 0.001)
-	assert.InDelta(t, 5.1, view.ExtraPct, 0.001, "the bar stacks the share beyond Mature, since in study includes Mature")
-	assert.Equal(t, "370 of 1,000 word occurrences are Mature.", view.Occurrences)
-	assert.Equal(t, "Mature 37.0%; with words in study 42.1%", view.BarLabel)
 
-	equal := readingBookView{Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 100, MatureTokenCount: 40, InStudyTokenCount: 40}}
-	assert.InDelta(t, 0, currentReadingCoverageFor(equal).ExtraPct, 0.001)
+	t.Run("ready counts become figures and a bar", func(t *testing.T) {
+		view := currentReadingCoverageFor(ready)
+		require.True(t, view.Ready)
+		assert.Equal(t, "37.0%", view.MatureText)
+		assert.Equal(t, "42.1%", view.InStudyText)
+		assert.InDelta(t, 37.0, view.MaturePct, 0.001)
+		assert.InDelta(t, 5.1, view.ExtraPct, 0.001, "the bar stacks the share beyond Mature, since in study includes Mature")
+		assert.Equal(t, "370 of 1,000 word occurrences are Mature.", view.Occurrences)
+		assert.Equal(t, "Mature 37.0%; with words in study 42.1%", view.BarLabel)
+	})
 
-	over := readingBookView{Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 100, MatureTokenCount: 140, InStudyTokenCount: 150}}
-	view = currentReadingCoverageFor(over)
-	assert.InDelta(t, 100, view.MaturePct, 0.001)
-	assert.InDelta(t, 0, view.ExtraPct, 0.001)
+	t.Run("equal shares stack nothing", func(t *testing.T) {
+		equal := readingBookView{Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 100, MatureTokenCount: 40, InStudyTokenCount: 40}}
+		assert.InDelta(t, 0, currentReadingCoverageFor(equal).ExtraPct, 0.001)
+	})
 
-	updating := currentReadingCoverageFor(readingBookView{CountsUpdating: true})
-	assert.False(t, updating.Ready)
-	assert.Equal(t, "Updating", updating.Word)
+	t.Run("shares are capped at 100", func(t *testing.T) {
+		over := readingBookView{Coverage: &domain.AnalysisCoverage{AnalyzableTokenCount: 100, MatureTokenCount: 140, InStudyTokenCount: 150}}
+		view := currentReadingCoverageFor(over)
+		assert.InDelta(t, 100, view.MaturePct, 0.001)
+		assert.InDelta(t, 0, view.ExtraPct, 0.001)
+	})
+
+	t.Run("updating counts read Updating", func(t *testing.T) {
+		updating := currentReadingCoverageFor(readingBookView{CountsUpdating: true})
+		require.False(t, updating.Ready)
+		assert.Equal(t, "Updating", updating.Word)
+	})
 
 	for name, item := range map[string]readingBookView{
 		"no coverage":        {},
 		"statistics missing": {Coverage: ready.Coverage, StatisticsUnavailable: true},
 		"no analyzable":      {Coverage: &domain.AnalysisCoverage{}},
 	} {
-		view := currentReadingCoverageFor(item)
-		assert.False(t, view.Ready, name)
-		assert.Equal(t, "Unavailable", view.Word, name)
+		t.Run(name+" reads Unavailable", func(t *testing.T) {
+			view := currentReadingCoverageFor(item)
+			require.False(t, view.Ready)
+			assert.Equal(t, "Unavailable", view.Word)
+		})
 	}
 }

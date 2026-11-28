@@ -28,7 +28,13 @@ func readingCoverageShare(tokens, analyzable int64) string {
 	if analyzable <= 0 {
 		return readingCoverageNoWords
 	}
-	return fmt.Sprintf("%.1f%%", min(float64(tokens)*100/float64(analyzable), 100))
+	return fmt.Sprintf("%.1f%%", readingCoveragePercent(tokens, analyzable))
+}
+
+// readingCoveragePercent is tokens as a percentage of the analyzable tokens,
+// capped at 100. The caller has checked that analyzable is positive.
+func readingCoveragePercent(tokens, analyzable int64) float64 {
+	return min(float64(tokens)*100/float64(analyzable), 100)
 }
 
 // readingCoverageToTargetText says roughly how many more words in study bring
@@ -78,10 +84,8 @@ func currentReadingCoverageFor(item readingBookView) currentReadingCoverageView 
 		}
 		return currentReadingCoverageView{Word: "Unavailable"}
 	}
-	share := func(tokens int64) float64 {
-		return min(float64(tokens)*100/float64(coverage.AnalyzableTokenCount), 100)
-	}
-	mature, inStudy := share(coverage.MatureTokenCount), share(coverage.InStudyTokenCount)
+	mature := readingCoveragePercent(coverage.MatureTokenCount, coverage.AnalyzableTokenCount)
+	inStudy := readingCoveragePercent(coverage.InStudyTokenCount, coverage.AnalyzableTokenCount)
 	view := currentReadingCoverageView{
 		Ready:       true,
 		MatureText:  readingCoverageMatureDisplay(*coverage),

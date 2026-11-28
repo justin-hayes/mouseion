@@ -883,28 +883,6 @@ test.describe('responsive and theme regression coverage', () => {
     expect(boxes.titleColor).toBe(boxes.bodyColor);
   });
 
-  test('the compact Current reading hero shows cover, title and actions on the first screen', async ({ page }) => {
-    test.skip(!test.info().project.name.startsWith('compact'), 'This contract applies to the compact layout.');
-    await signIn(page);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/de/reading');
-    const hero = page.locator('#primary-goal-section .current-hero');
-    await expect(hero).toBeVisible();
-    const layout = await hero.evaluate((node, height) => {
-      const rect = (selector: string) => node.querySelector<HTMLElement>(selector)!.getBoundingClientRect();
-      const inView = (box: DOMRect) => box.top >= 0 && box.bottom <= height;
-      const cover = rect('.book-cover-media');
-      const title = rect('.current-hero__title');
-      const open = rect('.current-hero__open');
-      const finish = Array.from(node.querySelectorAll<HTMLElement>('summary')).find((item) => item.textContent?.includes('Mark reading finished'))!.getBoundingClientRect();
-      return { cover: { width: cover.width, right: cover.right, visible: inView(cover) }, titleLeft: title.left, titleVisible: inView(title), openVisible: inView(open), finishVisible: inView(finish) };
-    }, 844);
-    expect(layout.cover.width).toBeCloseTo(6.5 * 16, 0);
-    expect(layout.titleLeft).toBeGreaterThanOrEqual(layout.cover.right);
-    expect(layout.cover.visible && layout.titleVisible && layout.openVisible && layout.finishVisible).toBe(true);
-    await expectNoPageOverflow(page);
-  });
-
   test('current Book and its evidence reflow without overflow at 200 percent text on a narrow viewport', async ({ page }) => {
     await signIn(page);
     await page.setViewportSize({ width: 320, height: 812 });

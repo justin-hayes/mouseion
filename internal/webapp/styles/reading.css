@@ -990,7 +990,6 @@ body:is(.reading-shell, .reading-list-shell) .current-hero a:not(.button) {
 .current-hero__detail {
   margin: var(--mouseion-space-2) 0 0;
   color: var(--mouseion-color-text-muted);
-  font-size: var(--mouseion-font-size-metadata);
 }
 
 .coverage-bar {
@@ -1074,9 +1073,5 @@ body:is(.reading-shell, .reading-list-shell) .current-hero a:not(.button) {
 
   .current-hero .title-plate__title {
     font-size: 0.8125rem;
-  }
-
-  .current-hero .book-cover-media__label {
-    display: none;
   }
 }
