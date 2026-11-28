@@ -77,7 +77,9 @@ type Store struct {
 	epubAcquisitionFailures map[string]domain.EPUBAcquisitionFailureRecord
 	// removedBooks holds the Books whose My Books membership is inactive. The
 	// Book and its evidence stay so a later Add can restore them.
-	removedBooks         map[string]struct{}
+	removedBooks map[string]struct{}
+	// positionReports are the recorded Position reports in insertion order.
+	positionReports      []fixturePositionReport
 	currentReadings      map[string]domain.CurrentReading
 	readingHistory       map[string]domain.ReadingCompletion
 	importedHistory      map[string]domain.ReadingCompletion

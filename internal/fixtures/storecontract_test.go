@@ -166,6 +166,10 @@ func (h *contractHarness) MarkBookPreviouslyRead(owner, bookID string) error {
 	return h.store.MarkBookPreviouslyRead(context.Background(), owner, bookID)
 }
 
+func (h *contractHarness) RecordManualPosition(owner, bookID string, fraction float64, recordedAt time.Time) error {
+	return h.store.RecordManualPosition(context.Background(), owner, bookID, fraction, recordedAt)
+}
+
 func (h *contractHarness) ResolveOrCreateBookForAcquisition(owner, sourceIdentifier, language, title string) (string, error) {
 	return h.store.ResolveOrCreateBookForAcquisition(context.Background(), owner, sourceIdentifier, language, title)
 }
@@ -186,6 +190,7 @@ func (h *contractHarness) Catalogue() storecontract.CatalogueStore         { ret
 func (h *contractHarness) Study() storecontract.StudyStore                 { return h }
 func (h *contractHarness) StudyProgress() storecontract.StudyProgressStore { return h }
 func (h *contractHarness) StudyFluency() storecontract.StudyFluencyStore   { return h }
+func (h *contractHarness) Positions() storecontract.PositionStore          { return h }
 
 func (h *contractHarness) BrowseCatalogueEntries(owner, connectionID string, query domain.CatalogueQuery) (domain.CataloguePage, error) {
 	return h.store.BrowseCatalogueEntries(context.Background(), owner, connectionID, query)

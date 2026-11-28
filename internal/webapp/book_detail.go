@@ -16,6 +16,8 @@ type bookDetailView struct {
 	LanguageLabel string
 	// Words is nil when the Book has no chosen language, so no word list exists.
 	Words *bookWordsView
+	// PercentInput refills the Reading position form after a refusal.
+	PercentInput string
 }
 
 // bookDetailPage serves a Book's detail page (ADR 0136 §5). It replaces the
@@ -36,7 +38,7 @@ func (h *Handler) bookDetailPage(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	view := bookDetailView{Book: detail, Language: language, LanguageLabel: languageLabel}
+	view := bookDetailView{Book: detail, Language: language, LanguageLabel: languageLabel, PercentInput: r.URL.Query().Get("percent")}
 	status := http.StatusOK
 	if detail.Book.LanguageState == domain.LanguageChosen && language != "" {
 		words, wordsStatus := h.loadBookWords(r.Context(), r, owner.ID, language, detail.Book.ID)
@@ -73,4 +75,9 @@ func redirectReadingToBookDetail(w http.ResponseWriter, r *http.Request) bool {
 	}
 	redirect(w, r, location)
 	return true
+}
+
+// readingPositionURL is the route that records a Reading position for a Book.
+func readingPositionURL(bookID string) string {
+	return "/library/books/" + url.PathEscape(bookID) + "/position"
 }
