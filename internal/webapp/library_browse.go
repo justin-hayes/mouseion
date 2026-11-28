@@ -207,6 +207,8 @@ type MyBooksBrowseState struct {
 	// CurrentReading is the language's Current reading, pinned above the
 	// Books. It is set only on a full-page render.
 	CurrentReading *readingBookView
+	// PROTOTYPE (#2843)
+	PrototypeHero *prototypeHeroView
 }
 
 // myBooksScopedURL is the one place a My Books tab location is spelled.

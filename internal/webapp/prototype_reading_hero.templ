@@ -1,0 +1,377 @@
+package webapp
+
+// PROTOTYPE (#2843): throwaway Current reading hero variants on My Books.
+// Three variants switchable via ?variant=A|B|C, edge cases via ?hero_state=,
+// theme via ?theme=light|dark. Never merge this file to main.
+
+import "fmt"
+
+templ PrototypeReadingHero(v prototypeHeroView, csrf string) {
+	@prototypeHeroStyles()
+	switch v.Variant {
+		case "B":
+			@prototypeHeroB(v, csrf)
+		case "C":
+			@prototypeHeroC(v, csrf)
+		default:
+			@prototypeHeroA(v, csrf)
+	}
+	@prototypeHeroSwitcher(v)
+}
+
+templ prototypeHeroCover(v prototypeHeroView) {
+	@BookCoverMedia(readingBookID(v.Item), titlePlate{Title: v.Title, OriginalTitle: v.OriginalTitle, OriginalLang: v.OriginalLang, Author: v.Author}, v.Item.Cover)
+}
+
+templ prototypeHeroSince(v prototypeHeroView) {
+	if !v.Item.ReadingSince.IsZero() {
+		<span>Reading since <time datetime={ v.Item.ReadingSince.Format("2006-01-02") }>{ v.Item.ReadingSince.Format("January 2, 2006") }</time></span>
+	}
+}
+
+templ prototypeHeroStatus(v prototypeHeroView) {
+	if v.StatusLabel != "" {
+		<p class="phero-status" data-needs-action><strong>{ v.StatusLabel }.</strong> { v.StatusDesc }</p>
+	}
+}
+
+templ prototypeHeroActions(v prototypeHeroView, csrf string) {
+	@CurrentReadingLifecycleActions(v.Item, csrf)
+}
+
+templ prototypeHeroOriginal(v prototypeHeroView) {
+	if v.OriginalTitle != "" {
+		<p class="phero-original" lang={ v.OriginalLang }>{ v.OriginalTitle }</p>
+	}
+}
+
+// ---------------------------------------------------------------------------
+// A. Frontispiece: a raised card led by a large cover; two big stat figures and
+// a stacked bar carry coverage; "Open Book" is the primary action.
+// ---------------------------------------------------------------------------
+templ prototypeHeroA(v prototypeHeroView, csrf string) {
+	<section id="primary-goal-section" class="phero phero-a" aria-labelledby="phero-title">
+		<div class="phero-a__cover">
+			<a href={ templ.SafeURL(v.BookURL()) } tabindex="-1" aria-hidden="true">@prototypeHeroCover(v)</a>
+		</div>
+		<div class="phero-a__body">
+			<p class="phero-eyebrow">Currently reading · @prototypeHeroSince(v)</p>
+			<h2 id="phero-title" class="phero-a__title"><a href={ templ.SafeURL(v.BookURL()) }>{ v.Title }</a></h2>
+			@prototypeHeroOriginal(v)
+			if v.Author != "" {
+				<p class="phero-a__author">{ v.Author }</p>
+			}
+			@prototypeHeroStatus(v)
+			<div class="phero-a__stats" role="group" aria-label="Coverage of this Book">
+				if v.HasCoverage {
+					<div class="phero-a__stat"><span class="phero-a__figure numeric">{ v.MatureText }</span><span class="phero-a__caption">Mature</span></div>
+					<div class="phero-a__stat"><span class="phero-a__figure phero-a__figure--quiet numeric">{ v.InStudyText }</span><span class="phero-a__caption">With words in study</span></div>
+					<div class="phero-bar phero-a__bar" aria-hidden="true">
+						<span class="phero-bar__mature" style={ templ.SafeCSS(fmt.Sprintf("width:%.1f%%", v.MaturePct)) }></span>
+						<span class="phero-bar__study" style={ templ.SafeCSS(fmt.Sprintf("width:%.1f%%", v.InStudyExtraPct())) }></span>
+					</div>
+					<p class="phero-a__detail numeric">{ v.MatureCount } of { v.Analyzable } word occurrences are Mature. { v.TargetText }</p>
+				} else {
+					<div class="phero-a__stat"><span class="phero-a__figure phero-a__figure--none">—</span><span class="phero-a__caption">Mature</span></div>
+					<div class="phero-a__stat"><span class="phero-a__figure phero-a__figure--none">—</span><span class="phero-a__caption">With words in study</span></div>
+					<p class="phero-a__detail">{ v.CoverageNote }.</p>
+				}
+			</div>
+			<div class="phero-a__actions">
+				<a class="button phero-a__open" href={ templ.SafeURL(v.BookURL()) }>Open Book</a>
+				@prototypeHeroActions(v, csrf)
+			</div>
+		</div>
+	</section>
+}
+
+// ---------------------------------------------------------------------------
+// B. Banner & ledger: a full-width tinted band. Cover, identity and a tabular
+// ledger of figures sit side by side; actions stack under the ledger.
+// ---------------------------------------------------------------------------
+templ prototypeHeroB(v prototypeHeroView, csrf string) {
+	<section id="primary-goal-section" class="phero phero-b" aria-labelledby="phero-title">
+		if v.StatusLabel != "" {
+			<p class="phero-b__alert" data-needs-action><strong>{ v.StatusLabel }.</strong> { v.StatusDesc }</p>
+		}
+		<div class="phero-b__band">
+			<div class="phero-b__cover">@prototypeHeroCover(v)</div>
+			<div class="phero-b__identity">
+				<p class="phero-eyebrow">Currently reading</p>
+				<h2 id="phero-title" class="phero-b__title"><a href={ templ.SafeURL(v.BookURL()) }>{ v.Title }</a></h2>
+				@prototypeHeroOriginal(v)
+				if v.Author != "" {
+					<p class="phero-b__author">By { v.Author }</p>
+				}
+				<p class="phero-b__since">@prototypeHeroSince(v)</p>
+				<p><a class="phero-b__link" href={ templ.SafeURL(v.BookURL()) }>Words and analysis <span aria-hidden="true">→</span></a></p>
+			</div>
+			<aside class="phero-b__ledger" aria-label="Coverage of this Book">
+				<dl>
+					<div>
+						<dt>Mature coverage</dt>
+						<dd class="numeric">
+							if v.HasCoverage {
+								{ v.MatureText }
+							} else {
+								<span class="phero-none">Unavailable</span>
+							}
+						</dd>
+					</div>
+					<div>
+						<dt>With words in study</dt>
+						<dd class="numeric">
+							if v.HasCoverage {
+								{ v.InStudyText }
+							} else {
+								<span class="phero-none">Unavailable</span>
+							}
+						</dd>
+					</div>
+					if v.HasCoverage {
+						<div><dt>Word occurrences</dt><dd class="numeric">{ v.Analyzable }</dd></div>
+					}
+				</dl>
+				if v.HasCoverage {
+					<p class="phero-b__target numeric">{ v.TargetText }</p>
+				} else {
+					<p class="phero-b__target">{ v.CoverageNote }; figures return when it settles.</p>
+				}
+				<div class="phero-b__actions">@prototypeHeroActions(v, csrf)</div>
+			</aside>
+		</div>
+	</section>
+}
+
+// ---------------------------------------------------------------------------
+// C. Bookmark spread: an open-book spread. The left page holds the cover; the
+// right page is a centred title page with ring meters; actions sit in a
+// footer strip beneath the spread.
+// ---------------------------------------------------------------------------
+templ prototypeHeroC(v prototypeHeroView, csrf string) {
+	<section id="primary-goal-section" class="phero phero-c" aria-labelledby="phero-title">
+		<div class="phero-c__spread">
+			<div class="phero-c__verso">
+				<div class="phero-c__cover">@prototypeHeroCover(v)</div>
+			</div>
+			<div class="phero-c__recto">
+				if v.Author != "" {
+					<p class="phero-c__author">{ v.Author }</p>
+				}
+				<h2 id="phero-title" class="phero-c__title"><a href={ templ.SafeURL(v.BookURL()) }>{ v.Title }</a></h2>
+				@prototypeHeroOriginal(v)
+				<p class="phero-c__rule" aria-hidden="true">❦</p>
+				<p class="phero-c__since">@prototypeHeroSince(v)</p>
+				@prototypeHeroStatus(v)
+				<div class="phero-c__meters" role="group" aria-label="Coverage of this Book">
+					@prototypeHeroRing("Mature", v.MaturePct, v.MatureText, v.HasCoverage, "mature")
+					@prototypeHeroRing("With words in study", v.InStudyPct, v.InStudyText, v.HasCoverage, "study")
+				</div>
+				if v.HasCoverage {
+					<p class="phero-c__target numeric">{ v.TargetText }</p>
+				} else {
+					<p class="phero-c__target">{ v.CoverageNote }.</p>
+				}
+				<p><a class="button button--outline phero-c__open" href={ templ.SafeURL(v.BookURL()) }>Go to this Book</a></p>
+			</div>
+		</div>
+		<div class="phero-c__footer">
+			<span class="phero-eyebrow">Your Current reading</span>
+			@prototypeHeroActions(v, csrf)
+		</div>
+	</section>
+}
+
+templ prototypeHeroRing(label string, pct float64, text string, ok bool, tone string) {
+	<div class={ "phero-ring", "phero-ring--" + tone }>
+		if ok {
+			<div class="phero-ring__dial" style={ templ.SafeCSS(fmt.Sprintf("--pct:%.1f", pct)) } aria-hidden="true"><span class="numeric">{ text }</span></div>
+			<span class="phero-ring__label"><span class="sr-only">{ text } </span>{ label }</span>
+		} else {
+			<div class="phero-ring__dial phero-ring__dial--none" aria-hidden="true"><span>—</span></div>
+			<span class="phero-ring__label">{ label }: unavailable</span>
+		}
+	</div>
+}
+
+// ---------------------------------------------------------------------------
+// Floating switcher: not part of the design under evaluation.
+// ---------------------------------------------------------------------------
+templ prototypeHeroSwitcher(v prototypeHeroView) {
+	<div class="phero-switcher" role="toolbar" aria-label="Prototype switcher">
+		<button type="button" data-phero-step="-1" aria-label="Previous variant">←</button>
+		<span class="phero-switcher__label">
+			for _, info := range prototypeHeroVariants {
+				if info.Key == v.Variant {
+					{ info.Key } ({ info.Name })
+				}
+			}
+		</span>
+		<button type="button" data-phero-step="1" aria-label="Next variant">→</button>
+		<label><span>state</span> <select data-phero-state>
+			for _, s := range prototypeHeroStates {
+				<option value={ s } selected?={ s == v.State }>{ s }</option>
+			}
+		</select></label>
+		<button type="button" data-phero-theme>theme</button>
+	</div>
+	<script data-variants={ prototypeHeroVariantKeys() }>
+	(function () {
+		var keys = document.currentScript.dataset.variants.split(',');
+		var params = new URLSearchParams(location.search);
+		var theme = params.get('theme');
+		if (theme) document.documentElement.setAttribute('data-theme', theme);
+		function go(mutate) { mutate(params); location.replace(location.pathname + '?' + params.toString()); }
+		function step(d) {
+			var i = keys.indexOf(params.get('variant') || keys[0]);
+			go(function (p) { p.set('variant', keys[(i + d + keys.length) % keys.length]); });
+		}
+		document.querySelectorAll('[data-phero-step]').forEach(function (b) {
+			b.addEventListener('click', function () { step(Number(b.dataset.pheroStep)); });
+		});
+		document.querySelector('[data-phero-state]').addEventListener('change', function (e) {
+			go(function (p) { p.set('hero_state', e.target.value); });
+		});
+		document.querySelector('[data-phero-theme]').addEventListener('click', function () {
+			var dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+				(!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+			go(function (p) { p.set('theme', dark ? 'light' : 'dark'); });
+		});
+		document.addEventListener('keydown', function (e) {
+			var t = e.target;
+			if (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+			if (e.key === 'ArrowLeft') step(-1);
+			if (e.key === 'ArrowRight') step(1);
+		});
+	})();
+	</script>
+}
+
+func prototypeHeroVariantKeys() string {
+	keys := ""
+	for i, info := range prototypeHeroVariants {
+		if i > 0 {
+			keys += ","
+		}
+		keys += info.Key
+	}
+	return keys
+}
+
+templ prototypeHeroStyles() {
+	<style>
+	/* PROTOTYPE (#2843) styles: design tokens only. */
+	.phero { margin: 0 0 var(--mouseion-space-7); }
+	.phero a { color: inherit; }
+	.phero-eyebrow { margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+	.phero-eyebrow span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+	.phero-original { margin: 0; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-section-title); color: var(--mouseion-color-text-muted); }
+	.phero-status { margin: var(--mouseion-space-3) 0 0; padding: var(--mouseion-space-2) var(--mouseion-space-3); border-left: 3px solid var(--mouseion-color-warning); background: color-mix(in srgb, var(--mouseion-color-warning) 10%, transparent); font-size: var(--mouseion-font-size-metadata); }
+	.phero-status strong { color: var(--mouseion-color-warning); }
+	.phero-bar { display: flex; height: 0.5rem; overflow: hidden; border-radius: 999px; background: var(--mouseion-color-surface-quiet); }
+	.phero-bar__mature { background: var(--mouseion-color-success); }
+	.phero-bar__study { background: color-mix(in srgb, var(--mouseion-color-accent) 55%, transparent); }
+	.phero-none { color: var(--mouseion-color-text-muted); font-style: italic; }
+	.phero .journey-book__lifecycle { margin-top: 0; }
+	.phero .book-cover-media__label { display: block; }
+	.phero .book-cover-media { box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 8px 24px rgb(0 0 0 / 0.14); border-radius: 2px; }
+	.phero .title-plate__title { font-size: 1.25rem; }
+
+	/* A: Frontispiece */
+	.phero-a { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); gap: var(--mouseion-space-6); align-items: start; padding: var(--mouseion-space-6); border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); }
+	.phero-a__cover a { display: block; }
+	.phero-a__title { margin: var(--mouseion-space-2) 0 var(--mouseion-space-1); font-family: var(--mouseion-font-reading); font-size: clamp(2rem, 4.5vw, 3.25rem); font-weight: 520; line-height: 1.08; text-wrap: balance; overflow-wrap: anywhere; }
+	.phero-a__title a { text-decoration: none; }
+	.phero-a__title a:hover, .phero-a__title a:focus-visible { text-decoration: underline; }
+	.phero-a__author { margin: 0; font-family: var(--mouseion-font-reading); font-style: italic; font-size: var(--mouseion-font-size-section-title); color: var(--mouseion-color-text-muted); }
+	.phero-a__stats { display: grid; grid-template-columns: auto auto 1fr; gap: var(--mouseion-space-2) var(--mouseion-space-6); margin-top: var(--mouseion-space-5); align-items: end; }
+	.phero-a__stat { display: grid; }
+	.phero-a__figure { font-family: var(--mouseion-font-reading); font-size: 2.5rem; line-height: 1; font-weight: 500; color: var(--mouseion-color-success); }
+	.phero-a__figure--quiet { color: var(--mouseion-color-accent); }
+	.phero-a__figure--none { color: var(--mouseion-color-text-muted); }
+	.phero-a__caption { margin-top: var(--mouseion-space-1); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+	.phero-a__bar { grid-column: 1 / -1; }
+	.phero-a__detail { grid-column: 1 / -1; margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+	.phero-a__actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--mouseion-space-3) var(--mouseion-space-4); margin-top: var(--mouseion-space-5); }
+	@media (max-width: 40rem) {
+		.phero-a { grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--mouseion-space-2) var(--mouseion-space-4); padding: var(--mouseion-space-4); }
+		.phero-a__body { display: contents; }
+		.phero-a__body > * { grid-column: 1 / -1; }
+		.phero-a__cover { grid-row: 1 / span 4; }
+		.phero-a__body > .phero-eyebrow, .phero-a__body > .phero-a__title, .phero-a__body > .phero-original, .phero-a__body > .phero-a__author { grid-column: 2; }
+		.phero-a__title { font-size: 1.625rem; margin-top: 0; }
+		.phero-a__author { font-size: 1rem; }
+		.phero-a__figure { font-size: 1.75rem; }
+		.phero-a__stats { margin-top: var(--mouseion-space-3); gap: var(--mouseion-space-2) var(--mouseion-space-5); }
+		.phero .title-plate__title { font-size: 0.8125rem; }
+		.phero-a .book-cover-media__label { display: none; }
+	}
+
+	/* B: Banner & ledger */
+	.phero-b { margin-inline: calc(-1 * var(--mouseion-page-gutter)); }
+	.phero-b__alert { margin: 0; padding: var(--mouseion-space-2) var(--mouseion-page-gutter); background: color-mix(in srgb, var(--mouseion-color-warning) 14%, var(--mouseion-color-surface)); border-block: 1px solid color-mix(in srgb, var(--mouseion-color-warning) 40%, transparent); font-size: var(--mouseion-font-size-metadata); }
+	.phero-b__alert strong { color: var(--mouseion-color-warning); }
+	.phero-b__band { display: grid; grid-template-columns: 10rem minmax(0, 1fr) minmax(15rem, 20rem); gap: var(--mouseion-space-6); align-items: center; padding: var(--mouseion-space-6) var(--mouseion-page-gutter); background: var(--mouseion-color-surface-quiet); border-block: 1px solid var(--mouseion-color-border); }
+	.phero-b__cover { transform: rotate(-2deg); }
+	.phero-b__title { margin: var(--mouseion-space-1) 0; font-family: var(--mouseion-font-reading); font-size: clamp(1.75rem, 3.5vw, 2.75rem); font-weight: 520; line-height: 1.1; text-wrap: balance; overflow-wrap: anywhere; }
+	.phero-b__title a { text-decoration: none; }
+	.phero-b__title a:hover, .phero-b__title a:focus-visible { text-decoration: underline; }
+	.phero-b__author { margin: 0; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-section-title); }
+	.phero-b__since { margin: var(--mouseion-space-2) 0 var(--mouseion-space-3); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+	.phero-b__link { color: var(--mouseion-color-accent) !important; font-weight: 600; }
+	.phero-b__ledger { align-self: stretch; padding: var(--mouseion-space-4); border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); }
+	.phero-b__ledger dl { margin: 0; }
+	.phero-b__ledger dl > div { display: flex; justify-content: space-between; gap: var(--mouseion-space-3); padding: var(--mouseion-space-2) 0; border-bottom: 1px dotted var(--mouseion-color-border); }
+	.phero-b__ledger dt { color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
+	.phero-b__ledger dd { margin: 0; font-size: var(--mouseion-font-size-stat); font-weight: 600; }
+	.phero-b__target { margin: var(--mouseion-space-3) 0; font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); }
+	.phero-b__actions .journey-book__lifecycle { flex-direction: column; align-items: stretch; gap: var(--mouseion-space-2); }
+	@media (max-width: 56rem) {
+		.phero-b__band { grid-template-columns: 6rem minmax(0, 1fr); gap: var(--mouseion-space-4); padding: var(--mouseion-space-5) var(--mouseion-page-gutter); }
+		.phero-b__ledger { grid-column: 1 / -1; }
+		.phero-b__cover { transform: none; align-self: start; }
+		.phero-b__title { font-size: 1.5rem; }
+		.phero .phero-b__cover .title-plate__title { font-size: 0.8125rem; }
+		.phero-b .book-cover-media__label { display: none; }
+	}
+
+	/* C: Bookmark spread */
+	.phero-c { border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); overflow: hidden; }
+	.phero-c__spread { display: grid; grid-template-columns: 1fr 1fr; position: relative; }
+	.phero-c__spread::after { content: ""; position: absolute; inset-block: 0; left: 50%; width: 2.5rem; transform: translateX(-50%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mouseion-color-text) 7%, transparent) 48%, color-mix(in srgb, var(--mouseion-color-text) 12%, transparent) 50%, color-mix(in srgb, var(--mouseion-color-text) 7%, transparent) 52%, transparent); pointer-events: none; }
+	.phero-c__verso { display: grid; place-items: center; padding: var(--mouseion-space-7) var(--mouseion-space-6); background: var(--mouseion-color-surface-quiet); }
+	.phero-c__cover { width: min(15rem, 100%); }
+	.phero-c__recto { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: var(--mouseion-space-7) var(--mouseion-space-6); }
+	.phero-c__author { margin: 0; font-variant: small-caps; letter-spacing: 0.08em; font-size: var(--mouseion-font-size-section-title); font-family: var(--mouseion-font-reading); }
+	.phero-c__title { margin: var(--mouseion-space-2) 0; font-family: var(--mouseion-font-reading); font-size: clamp(1.75rem, 3.5vw, 2.75rem); font-weight: 520; line-height: 1.12; text-wrap: balance; overflow-wrap: anywhere; }
+	.phero-c__title a { text-decoration: none; }
+	.phero-c__title a:hover, .phero-c__title a:focus-visible { text-decoration: underline; }
+	.phero-c__rule { margin: var(--mouseion-space-2) 0; color: var(--mouseion-color-text-muted); font-size: 1.25rem; }
+	.phero-c__since { margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); font-style: italic; }
+	.phero-c__meters { display: flex; gap: var(--mouseion-space-6); margin-top: var(--mouseion-space-5); }
+	.phero-c__target { margin: var(--mouseion-space-3) 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); max-width: 22rem; }
+	.phero-c__footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--mouseion-space-3); padding: var(--mouseion-space-3) var(--mouseion-space-5); border-top: 1px solid var(--mouseion-color-border); background: var(--mouseion-color-surface); }
+	.phero-ring { display: grid; justify-items: center; gap: var(--mouseion-space-2); }
+	.phero-ring__dial { --pct: 0; --tone: var(--mouseion-color-success); display: grid; place-items: center; width: 6.5rem; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, var(--mouseion-color-surface-raised) 80%, transparent 81%), conic-gradient(var(--tone) calc(var(--pct) * 1%), var(--mouseion-color-surface-quiet) 0); font-weight: 650; font-size: 1.0625rem; }
+	.phero-ring--study .phero-ring__dial { --tone: var(--mouseion-color-accent); }
+	.phero-ring__dial--none { color: var(--mouseion-color-text-muted); }
+	.phero-ring__label { font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); }
+	@media (max-width: 48rem) {
+		.phero-c__spread { grid-template-columns: 1fr; }
+		.phero-c__spread::after { display: none; }
+		.phero-c__verso { padding: var(--mouseion-space-5) var(--mouseion-space-4) var(--mouseion-space-3); }
+		.phero-c__cover { width: 8rem; }
+		.phero-c__recto { padding: var(--mouseion-space-3) var(--mouseion-space-4) var(--mouseion-space-5); }
+		.phero-c__meters { gap: var(--mouseion-space-4); }
+		.phero-ring__dial { width: 5rem; font-size: 0.9375rem; }
+		.phero .phero-c__cover .title-plate__title { font-size: 0.875rem; }
+	}
+
+	/* Switcher (not part of the design) */
+	.phero-switcher { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem; border-radius: 999px; background: #111; color: #fff; font: 600 0.8125rem/1 system-ui, sans-serif; box-shadow: 0 6px 24px rgb(0 0 0 / 0.35); white-space: nowrap; max-width: calc(100vw - 1rem); flex-wrap: wrap; justify-content: center; }
+	@media (max-width: 40rem) { .phero-switcher { left: 0.5rem; right: 0.5rem; transform: none; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; gap: 0.3rem; font-size: 0.75rem; } .phero-switcher__label { min-width: 0; } .phero-switcher label span { display: none; } }
+	.phero-switcher button, .phero-switcher select { min-height: 0; padding: 0.3rem 0.6rem; border: 1px solid #555; border-radius: 999px; background: #222; color: #fff; font: inherit; cursor: pointer; }
+	.phero-switcher label { display: flex; align-items: center; gap: 0.3rem; color: #bbb; font-weight: 400; }
+	.phero-switcher__label { min-width: 9rem; text-align: center; }
+	</style>
+}

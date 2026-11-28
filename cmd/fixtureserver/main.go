@@ -26,6 +26,10 @@ func main() {
 			log.Fatalf("set fixture server secret: %v", err)
 		}
 	}
+	// PROTOTYPE (#2843): the fixture server shows the Current reading hero variants.
+	if os.Getenv("MOUSEION_PROTOTYPE_HERO") == "" {
+		_ = os.Setenv("MOUSEION_PROTOTYPE_HERO", "1")
+	}
 	addr := os.Getenv("MOUSEION_FIXTURE_ADDR")
 	if addr == "" {
 		addr = "127.0.0.1:8099"

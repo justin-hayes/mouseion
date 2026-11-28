@@ -212,7 +212,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		if pageError != "" {
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
 		}
-		if browse.CurrentReading != nil {
+		if browse.PrototypeHero != nil {
+			@PrototypeReadingHero(*browse.PrototypeHero, csrf)
+		} else if browse.CurrentReading != nil {
 			@CurrentReadingSection(browse.CurrentReading, csrf, "", "", "")
 		}
 		if len(books) == 0 && (!browse.Enabled || (browse.AllCount == 0 && browse.Language != "")) {

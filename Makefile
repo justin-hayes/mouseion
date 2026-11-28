@@ -290,3 +290,9 @@ dev: go-tmp
 
 clean:
 	rm -rf bin .pytest_cache .ruff_cache
+
+# PROTOTYPE (#2843): Current reading hero variants. Open
+# http://127.0.0.1:8099/login (fixture-learner / fixture-password), then
+# /de/library?variant=A|B|C&hero_state=...&theme=light|dark.
+prototype-hero: go-tmp
+	MOUSEION_PROTOTYPE_HERO=1 go run ./cmd/fixtureserver

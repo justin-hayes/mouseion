@@ -65,6 +65,7 @@ func (h *Handler) library(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		browse.CurrentReading = readingView.CurrentReading
+		browse.PrototypeHero = prototypeHeroFromRequest(r, readingView.CurrentReading)
 	}
 	render(w, r, MyBooksPage(u, h.csrf(w, r), books, r.URL.Query().Get("message"), r.URL.Query().Get("error"), browse))
 }
