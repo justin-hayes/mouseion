@@ -67,7 +67,7 @@ _Avoid_: configured language, preferred language, library language (as a stored
 selection defining the set).
 
 **Active study language**:
-The study language of the per-language page in view (My Books, Study,
+The study language of the per-language page in view (Reading, Study,
 Vocabulary, Concordance, Sentence study), named by that page's address. It is
 context, not configuration: it never defines which languages are studied, and
 two pages open at once may each have their own. The Catalog, a Book's own pages
@@ -343,7 +343,7 @@ is Mature in Study: at least 99%, at least 97% but below 99%, at least
 confirmed Lemma corrections apply, excluded occurrences remain in the
 analyzable-token total, and an Idiom changes nothing. A lighter second figure
 also counts words in study. It reads the Book's Browse
-count projection, the same per-Book counts My Books uses, and shows Updating
+count projection, the same per-Book counts Reading uses, and shows Updating
 instead of a band while that projection is not ready. It is evidence, not a
 reading recommendation.
 _Avoid_: accessibility, readiness, difficulty band.
@@ -429,7 +429,7 @@ content).
 **Catalog**:
 The one surface where a learner finds and adds texts from every source: the
 Classical catalog and each OPDS catalog connection. It shows whether an entry is
-in My Books, never its disposition, analysis or preparation. Sources are shown
+in Reading, never its disposition, analysis or preparation. Sources are shown
 side by side, each presented alike, and never merged. It is not a per-language
 surface: its language filter may offer languages the learner does not study.
 _Avoid_: Catalogs (the retired plural label), library, Browse (the vocabulary
@@ -521,7 +521,7 @@ _Avoid_: manifest entry, shelf item, catalog entry (an OPDS offering).
 
 **Classical catalog**:
 The installation-wide collection of Reading-unit definitions a learner can add
-to My Books. They are curated, not learner-authored; adding one gives the
+to Reading. They are curated, not learner-authored; adding one gives the
 learner at most one Book for its Reading unit, which keeps that link when the
 definition takes a new revision.
 _Avoid_: shelf (a Book workflow bucket synonym), Browse (the vocabulary view),
@@ -599,7 +599,7 @@ addressed by its owner-scoped Book ID; its current acquired source and analysis
 evidence are resolved underneath that identity. A Book comes into being only
 when the learner adds a Catalog entry or Reading unit, or records it as
 Previously read; a learner never creates one by manual entry, and listing or
-syncing an entry never creates one. Removing a Book from My Books ends its
+syncing an entry never creates one. Removing a Book from Reading ends its
 membership but not the Book, and adding the same entry again restores it.
 Analysis is Book-level evidence, not membership state.
 _Avoid_: source material (the acquired evidence, not the identity), acquired
@@ -625,7 +625,7 @@ and reading history; the current Book remains To Read underneath.
 _Avoid_: book status, reading state, workflow state.
 
 **Hidden (Book visibility)** (retired):
-Retired by ADR 0117; removing the Book from My Books replaces it. The code no
+Retired by ADR 0117; removing the Book from Reading replaces it. The code no
 longer reads or writes the former owner-and-Book visibility choice: no surface
 hides a Book, Hide/Unhide and Show hidden books are gone, and their routes are
 unsupported. The `book_visibility` rows are retained for a separate, reviewed
@@ -633,34 +633,28 @@ data cleanup, and a Book with a stored row is an ordinary Book.
 _Avoid_: archived, deleted, set aside.
 
 **Book workflow bucket**:
-The one visible My Books placement of a Book, derived in precedence order from
-Current reading, To Read, then Read. Every Book in My Books has one. The Current
-reading is pinned at the top of My Books, and is also listed under To Read,
+The one visible Reading placement of a Book, derived in precedence order from
+Current reading, To Read, then Read. Every Book in Reading has one. The Current
+reading is pinned at the top of Reading, and is also listed under To Read,
 where it keeps its distinct Currently reading label.
 _Avoid_: Book disposition, shelf.
 
-**My Books**:
-The learner's chosen Books, on one page per study language: the Current reading
-pinned at the top with its progress toward Target coverage, then To Read, then
-Read. It owns Read next, Finish, End, To Read, Read again, Mark as previously
-read and Remove, but not finding texts (Catalog). A Book that needs action
-shows a status line, and a filter shows only those Books. To Read is in title
-order unless the learner chooses the optional **most readable** sort by Mature
-coverage, which the address keeps.
-_Avoid_: library queue, reading plan.
-
-**Reading** (retired as a page):
-Retired by ADR 0136: My Books holds what the Reading page held. The old Reading
-addresses redirect to My Books, or to the Book detail page when they name a
-Book, and the shell no longer lists Reading. "Current reading" stays as the role
-a Book has. A classical Book is a whole Work in one Edition, so it is read,
-finished and chosen as one unit; its Constituent books are locations within it,
-never entries of their own. My Books keeps no learner-authored order.
-_Avoid_: Reading Journey, Primary Goal, reading queue.
+**Reading**:
+The learner's chosen Books, on one page per study language at
+`/{language}/reading`: the Current reading pinned at the top with its progress
+toward Target coverage, then To Read, then Read. It owns Read next, Finish, End,
+To Read, Read again, Mark as previously read and Remove from Reading, but not
+finding texts (Catalog). A Book that needs action shows a status line, and a
+filter shows only those Books. To Read is in title order unless the learner
+chooses the optional **most readable** sort by Mature coverage, which the
+address keeps. It was called My Books until the rename. A separate, earlier
+Reading page that held the Current reading was retired by ADR 0136; its
+addresses still redirect, to Reading or to the Book detail page they name.
+_Avoid_: My Books, library queue, reading plan.
 
 **Inbox** (retired):
 Retired by ADR 0117: a Book does not exist before the learner chooses it, so
-nothing is untriaged. Unread Inbox Books left My Books through the backfill and
+nothing is untriaged. Unread Inbox Books left Reading through the backfill and
 their entries stay in the Catalog. The stored `inbox` disposition value now
 means only "not To Read"; it has no visible bucket. A Book marked previously
 read, and a Book whose reading was finished, appears in Read.
@@ -702,7 +696,7 @@ analysed or has no Book language.
 _Avoid_: Start, Switch (the retired two-step actions), commit.
 
 **Book detail**:
-The page for one Book in My Books, in the Book's own study language, at
+The page for one Book in Reading, in the Book's own study language, at
 `/books/{id}`. It hosts the Book's analysis actions (retry, Analysis update and
 Source structure update), shows its Book language, and lists the Book's words
 as Mature, in study or not yet introduced, read-only, each linking to its
@@ -726,7 +720,7 @@ _Avoid_: review deck, practice, SRS, vocabulary study, Explore (a retired idea
 for browsing upcoming words).
 
 **Corpus**:
-The analysed Books in My Books in one study language. Study draws Study
+The analysed Books in Reading in one study language. Study draws Study
 material and Fluency contexts from all of it, Read Books included, and
 Concordance searches it. Adding a Book from the Catalog is how a learner
 includes it; only its To Read Books set the priority of new words.
