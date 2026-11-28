@@ -14,7 +14,7 @@ from stanza.models.lemma_classifier.lstm_model import LemmaClassifierLSTM
 
 
 def test_unseen_upos_in_a_classifier_sentence_maps_to_padding_not_keyerror() -> None:
-    # The Greek classifier's table: reserved prefix tags only, no SYM or INTJ.
+    # A classifier UPOS table without SYM or INTJ, like the Greek one.
     upos_to_id = {"<PAD>": 0, "NOUN": 1, "PRON": 2, "VERB": 3, "PUNCT": 4}
     classifier = LemmaClassifierLSTM.__new__(LemmaClassifierLSTM)
     classifier.upos_to_id = upos_to_id
