@@ -156,7 +156,7 @@ func (s *Store) validateLemmaDecisionsLocked(decisions []domain.LemmaReviewDecis
 	return nil
 }
 
-// applyLemmaDecisionLocked stores one decision's correction or exclusion and
+// applyLemmaDecisionLocked stores one decision's correction or exclusion.
 // Callers hold s.mu.
 func (s *Store) applyLemmaDecisionLocked(decision domain.LemmaReviewDecision) {
 	occurrence, lemma, excluded := decision.Occurrence, decision.CanonicalLemma, decision.Excluded

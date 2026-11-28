@@ -179,8 +179,7 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 	duce, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, bookID, "duce")
 	require.NoError(t, err)
 	require.Len(t, duce, 1)
-	request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/", strings.NewReader(url.Values{"form": {"duce"}, "decision": {"correct"}, "lemma": {"M."}}.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request := lemmaDecisionRequest(t, handler, learner.ID, "duce", "correct", "M.")
 	_, err = handler.previewLemmaDecisionStep(request, learner.ID, bookID, []string{duce[0].ID()})
 	require.ErrorIs(t, err, domain.ErrLemmaReviewLemma, "no confirmable preview for an inadmissible lemma")
 }

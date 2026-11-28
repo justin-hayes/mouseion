@@ -3,6 +3,7 @@
 package webapp
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -26,9 +27,7 @@ func confirmLemmaDecisionForm(t *testing.T, h http.Handler, owner, bookID, form,
 	t.Helper()
 	handler, ok := h.(*Handler)
 	require.True(t, ok, "the test handler is the web handler")
-	values := url.Values{"form": {form}, "decision": {decision}, "lemma": {lemma}}
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(values.Encode()))
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request := lemmaDecisionRequest(t, handler, owner, form, decision, lemma)
 	step, err := handler.previewLemmaDecisionStep(request, owner, bookID, []string{occurrenceID})
 	require.NoError(t, err, "preview %s", decision)
 	request.Form.Set("fingerprint", step.Preview.Fingerprint)
@@ -42,4 +41,16 @@ func previewFingerprint(t *testing.T, body string) string {
 	match := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(body)
 	require.Len(t, match, 2, "preview body has no fingerprint: %s", body)
 	return match[1]
+}
+
+// lemmaDecisionRequest is a decision form post carrying the owner's shell view,
+// whose page language the workflow reads, as the user middleware sets it.
+func lemmaDecisionRequest(t *testing.T, handler *Handler, owner, form, decision, lemma string) *http.Request {
+	t.Helper()
+	values := url.Values{"form": {form}, "decision": {decision}, "lemma": {lemma}}
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(values.Encode()))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	view, err := handler.loadShellView(request.Context(), owner)
+	require.NoError(t, err)
+	return request.WithContext(context.WithValue(request.Context(), shellViewContextKey{}, view))
 }
