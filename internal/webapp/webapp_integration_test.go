@@ -102,7 +102,7 @@ func TestFirstAccountOnboardingAndExistingLogin(t *testing.T) {
 	navigation := httptest.NewRecorder()
 	h.ServeHTTP(navigation, navigationRequest)
 	assert.Equal(t, http.StatusSeeOther, navigation.Code)
-	assert.Equal(t, "/login?next=%2Flibrary%3Fsort%3Dtitle", navigation.Header().Get("Location"))
+	assert.Equal(t, "/login?next=%2Freading%3Fsort%3Dtitle", navigation.Header().Get("Location"))
 	returnPage := perform(t, h, "GET", navigation.Header().Get("Location"), nil, nil)
 	assert.Contains(t, returnPage.Body.String(), `name="next" value="/reading?sort=title"`, "body=%s", returnPage.Body.String())
 	returnCSRF := hiddenToken(t, returnPage.Body.String())

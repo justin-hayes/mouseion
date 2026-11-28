@@ -52,7 +52,7 @@ func prefixedMyBooksRedirect(path string, response *httptest.ResponseRecorder) (
 	}
 	location := response.Header().Get("Location")
 	_, rest, ok := strings.Cut(strings.TrimPrefix(location, "/"), "/")
-	return location, ok && (rest == "library" || strings.HasPrefix(rest, "library?"))
+	return location, ok && (rest == "reading" || strings.HasPrefix(rest, "reading?"))
 }
 
 func TestRequestNamingTheActiveLanguageIsNotStale(t *testing.T) {

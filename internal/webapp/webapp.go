@@ -306,7 +306,7 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("POST /logout-all", h.user(http.HandlerFunc(h.logoutAll)))
 	h.mux.Handle("GET /{$}", h.user(http.HandlerFunc(h.dashboard)))
 	h.perLanguage(pageKindReading, h.library)
-	h.perLanguageRetired(pageKindLegacyLibrary, h.library)
+	h.perLanguageRetired(pageKindLegacyLibrary)
 	h.perLanguage(pageKindReadingSwitch, h.switchReadingPage)
 	h.perLanguage(pageKindStudy, h.study)
 	h.perLanguage(pageKindStudyReports, h.studyReports)

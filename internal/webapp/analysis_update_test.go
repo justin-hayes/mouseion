@@ -61,9 +61,6 @@ func readingGet(t *testing.T, h http.Handler, path string, cookies []*http.Cooki
 	if location, ok := prefixedMyBooksRedirect(path, response); ok {
 		return readingGet(t, h, location, cookies)
 	}
-	if response.Code == http.StatusSeeOther && (path == "/reading" || strings.HasPrefix(path, "/reading?") || strings.HasSuffix(strings.SplitN(path, "?", 2)[0], "/reading")) {
-		return readingGet(t, h, response.Header().Get("Location"), cookies)
-	}
 	require.Equal(t, http.StatusOK, response.Code)
 	return response.Body.String()
 }

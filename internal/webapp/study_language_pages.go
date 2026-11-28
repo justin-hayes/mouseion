@@ -80,15 +80,20 @@ type languagePrefixed struct {
 	handler http.Handler
 }
 
-// perLanguageRetired registers a retired address that redirects to the
-// successor page under the same language, keeping the query. An unprefixed
-// request goes to the successor's own unprefixed handling.
-func (h *Handler) perLanguageRetired(kind studyLanguagePageKind, successorHandler http.HandlerFunc) {
+// perLanguageRetired registers a retired address that redirects to its
+// successor page in one hop, keeping the query. A prefixed request keeps its
+// language; an unprefixed one takes the Last study language, as the successor's
+// own unprefixed address does.
+func (h *Handler) perLanguageRetired(kind studyLanguagePageKind) {
 	successor := studyLanguagePages[kind].Successor
-	h.perLanguageWith(kind, successor, func(w http.ResponseWriter, r *http.Request) {
+	prefixed := func(w http.ResponseWriter, r *http.Request) {
 		language := canonicalization.NormalizeLanguage(r.PathValue("lang"))
 		redirectLocal(w, r, studyLanguagePath(successor, language), r.URL.RawQuery)
-	}, successorHandler)
+	}
+	unprefixed := func(w http.ResponseWriter, r *http.Request) {
+		redirectLocal(w, r, studyLanguagePath(successor, ""), r.URL.RawQuery)
+	}
+	h.perLanguageWith(kind, successor, prefixed, unprefixed)
 }
 
 // perLanguage registers a GET surface. It is served under /{language}/<path>,

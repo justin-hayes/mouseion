@@ -393,8 +393,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	// Browse must not silently fall back to the former cross-Book inventory.
 	require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 	noReading := perform(t, h, http.MethodGet, "/de/reading?page=1", nil, cookies)
-	require.Equal(t, http.StatusSeeOther, noReading.Code)
-	assert.Equal(t, "/de/reading", noReading.Header().Get("Location"))
+	require.Equal(t, http.StatusOK, noReading.Code, "a bare Reading address is the Reading page")
 	assert.NotContains(t, noReading.Body.String(), `id="vocabulary-workflow"`, "between Books there is no Browse")
 	assert.NotContains(t, noReading.Body.String(), "Browse selection")
 
@@ -435,8 +434,8 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.NotContains(t, italianBrowse.Body.String(), "Browse selection")
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, alice.ID, "de"))
 	germanBrowse := perform(t, h, http.MethodGet, "/de/reading?page=1", nil, cookies)
-	require.Equal(t, http.StatusSeeOther, germanBrowse.Code, "German has no Current reading, so there is no Browse")
-	assert.Equal(t, "/de/reading", germanBrowse.Header().Get("Location"))
+	require.Equal(t, http.StatusOK, germanBrowse.Code, "German has no Current reading, so there is no Browse")
+	assert.NotContains(t, germanBrowse.Body.String(), `id="vocabulary-workflow"`)
 }
 
 func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
