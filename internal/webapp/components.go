@@ -197,7 +197,7 @@ const (
 	NavigationNone       NavigationContext = ""
 	NavigationLibrary    NavigationContext = "library"
 	NavigationReading    NavigationContext = "reading"
-	NavigationLearning   NavigationContext = NavigationReading
+	NavigationStudy      NavigationContext = "study"
 	NavigationVocabulary NavigationContext = "vocabulary"
 	NavigationCatalogs   NavigationContext = "catalogs"
 )
@@ -206,6 +206,8 @@ func navigationContextForTitle(title string) NavigationContext {
 	switch title {
 	case "My Books", "My Library":
 		return NavigationLibrary
+	case "Study":
+		return NavigationStudy
 	case "Reading", "Learning":
 		return NavigationReading
 	case "Vocabulary":
