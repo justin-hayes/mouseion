@@ -11,7 +11,7 @@ async function signIn(page: Page) {
 test.describe('Devices', () => {
   test('adds a Device and shows its credential once', async ({ page }) => {
     await signIn(page);
-    await page.getByText('Account').first().click();
+    await page.locator('.site-header__account > summary').click();
     await page.getByRole('link', { name: 'Devices' }).click();
     await expect(page).toHaveURL(/\/devices$/);
     await expect(page.getByText('No devices yet')).toBeVisible();

@@ -1118,7 +1118,7 @@
   .site-header__account-panel strong {
     overflow-wrap: anywhere;
   }
-  .site-header .site-header__account-panel button {
+  .site-header .site-header__account-panel button, .site-header .site-header__account-panel a.button {
     text-align: left;
   }
   .site-header .inline {

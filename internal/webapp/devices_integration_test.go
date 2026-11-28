@@ -41,7 +41,7 @@ func TestDevicesAddShowsCredentialOnceAndIsolatesOwners(t *testing.T) {
 	t.Run("account panel links Devices", func(t *testing.T) {
 		page := perform(t, h, http.MethodGet, "/devices", nil, aliceCookies)
 		require.Equal(t, http.StatusOK, page.Code)
-		assert.Contains(t, page.Body.String(), `<a href="/devices">Devices</a>`)
+		assert.Contains(t, page.Body.String(), `<a class="button button--outline button--quiet" href="/devices">Devices</a>`)
 		assert.Contains(t, page.Body.String(), "No devices yet")
 	})
 

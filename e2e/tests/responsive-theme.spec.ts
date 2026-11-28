@@ -472,7 +472,7 @@ test.describe('responsive and theme regression coverage', () => {
 
     await expect(navigation.getByRole('link', { name: 'Reading' })).toHaveAttribute('aria-current', 'page');
     await expect(page.getByLabel('Study language')).toBeVisible();
-    const controls = navigation.locator('a, select, button:visible');
+    const controls = navigation.locator('a:visible, select, button:visible');
     const boxes = await controls.evaluateAll((nodes) => nodes.map((node) => {
       const box = node.getBoundingClientRect();
       return { text: node.textContent?.trim(), width: box.width, height: box.height, left: box.left, right: box.right };
