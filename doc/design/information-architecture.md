@@ -231,6 +231,7 @@ replace the ADRs' detailed storage and compatibility decisions.
 ```text
 Authentication
     sign in or first-account onboarding
+    Devices (from the account panel): add a Device, see its credential once
 
 Reading
     To Read and Read tabs
@@ -316,6 +317,7 @@ surface:
 /catalogs
 /connections (compatibility redirect to `/catalogs`)
 /settings (compatibility redirect to `/reading`)
+/devices (account panel: add a Device, see its credential once, list Devices)
 /corpus (Concordance)
 ```
 

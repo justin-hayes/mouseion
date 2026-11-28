@@ -1,0 +1,55 @@
+package webapp
+
+import (
+	"github.com/justin-hayes/mouseion/internal/auth"
+	"github.com/justin-hayes/mouseion/internal/domain"
+)
+
+// DevicesView is what the Devices page shows. Issued is set only on the
+// response to adding a Device, the one time its password is displayed.
+type DevicesView struct {
+	Devices       []domain.Device
+	Issued        *auth.DeviceCredential
+	KosyncAddress string
+	ErrorMessage  string
+	Name          string
+}
+
+// DevicesPage lists the learner's Devices and adds new ones. It is linked from
+// the account panel in the shell.
+templ DevicesPage(user domain.User, csrf string, view DevicesView) {
+	@ShellLayout("Devices", &user, csrf, navigationContextForTitle("Devices")) {
+		@PageHeader("Devices", "Give each device that syncs with Mouseion, such as a KOReader e-reader, its own credential. A Device never holds your account password.", nil)
+		if view.ErrorMessage != "" {
+			@Feedback(FeedbackError, "", view.ErrorMessage)
+		}
+		if view.Issued != nil {
+			<article class="device-credential" id="device-credential" aria-labelledby="device-credential-title">
+				<h2 id="device-credential-title">{ view.Issued.Device.Name } is ready</h2>
+				<p><strong>This password will not be shown again.</strong> Copy it into the device now.</p>
+				<dl>
+					<dt>Username</dt><dd><code id="device-username">{ view.Issued.Device.Username }</code></dd>
+					<dt>Password</dt><dd><code id="device-password">{ view.Issued.Password }</code></dd>
+					<dt>Server address</dt><dd><code id="device-address">{ view.KosyncAddress }</code></dd>
+				</dl>
+				<h3>Set up KOReader</h3>
+				<ol><li>Open Settings, then Progress sync.</li><li>Choose Custom sync server and enter the server address above.</li><li>Choose Login and enter the username and password above.</li></ol>
+			</article>
+		}
+		<article id="add-device"><h2>Add device</h2><form class="device-form" method="post" action="/devices"><input type="hidden" name="csrf_token" value={ csrf }/><div class="form-grid"><label>Name<input class="input" name="name" value={ view.Name } maxlength="60" required/></label></div><button class="button" type="submit">Add device</button></form></article>
+		if len(view.Devices) == 0 {
+			@EmptyState("No devices yet", "Add a device to get a username and password for it.")
+		} else {
+			<h2>Your devices</h2>
+			<div class="catalog-list">
+				for _, device := range view.Devices {
+					<article class="catalog-record" id={ "device-" + device.ID } aria-labelledby={ "device-name-" + device.ID }><header><h3 id={ "device-name-" + device.ID }>{ device.Name }</h3></header><div class="catalog-record__details"><p>Username: <code>{ device.Username }</code></p><p>Added: { completedAtLabel(&device.CreatedAt) }</p><p>Last seen: { deviceLastSeen(device) }</p>
+					if device.RevokedAt != nil {
+						<p>Revoked</p>
+					}
+					</div></article>
+				}
+			</div>
+		}
+	}
+}

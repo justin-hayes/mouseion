@@ -527,7 +527,7 @@ func buildWebHandler(ctx context.Context, cfg serverConfig, store *persistence.P
 	if err := catalogueSyncService.RegisterAll(ctx); err != nil {
 		return nil, err
 	}
-	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store}
+	storeDeps := webapp.StoreDependencies{Shell: store, MyBooks: store, Reading: store, Vocabulary: store, Catalogs: store, CatalogCovers: store, CatalogueAdd: store, CatalogueRead: store, Jobs: store, Study: store, Devices: auth.NewDeviceService(store)}
 	lemmaReview := lemmareview.New(lemmareview.Config{Store: store, BrowseCounts: analysisService})
 	preparation, err := readingintent.NewPreparation(readingintent.PreparationConfig{
 		Classical:       analysisService,

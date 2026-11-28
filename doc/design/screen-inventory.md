@@ -82,6 +82,7 @@ the next Book.
 |---|---|---|---|---|
 | First-account onboarding | Current `GET /login`, `POST /onboarding` | Create the first local learner account. | Reading | Fresh installation, validation error, password requirements, submission failure |
 | Sign in | Current `GET /login`, `POST /login` | Access an existing learner account. | Requested protected page or Reading | Invalid credentials, expired-session redirect, service error |
+| Devices | Current `GET /devices`, `POST /devices`; linked as Devices from the account panel | Add a reading device such as a KOReader e-reader and copy its username and password once. | The page that opened the account panel | No Devices, Devices listed with name, username, added time and last seen (Never until it syncs), credential shown once after adding (never on a later load), name validation error keeping the input, CSRF refusal |
 
 ## Reading and book analysis
 
