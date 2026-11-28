@@ -404,3 +404,17 @@ func TestFluencyWorkerDoesNotRecordExhaustionWhenAProviderFailureStopsIt(t *test
 	require.Error(t, fluencyWork(worker))
 	assert.Empty(t, store.exhausted)
 }
+
+func TestFluencyWorkerDoesNotRecordExhaustionWhenThePageCapStopsTheRead(t *testing.T) {
+	worker, store, _ := newFluencyFixture()
+	for i := range maxFluencyPages + 1 {
+		store.addOccurrence(int64(i+2), "haus"+string(rune('a'+i)), map[string]string{"Case": "x"})
+	}
+	// Every occurrence the capped read can reach is already assessed.
+	for _, item := range store.occurrences[:maxFluencyPages] {
+		store.existing = append(store.existing, domain.FluencyContext{ProgressID: "p1", Agreement: domain.FluencyDisagrees, Reason: domain.FluencyReasonUndefendable, AnalysisRunID: item.AnalysisRunID, SentenceOrdinal: item.SentenceOrdinal, TokenOrdinal: item.TokenOrdinal})
+	}
+
+	require.NoError(t, fluencyWork(worker))
+	assert.Empty(t, store.exhausted, "occurrences remain beyond the page cap")
+}

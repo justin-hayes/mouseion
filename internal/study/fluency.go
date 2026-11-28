@@ -211,11 +211,13 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	}
 	// Ranking comes before the provider gate: that no candidate is left does
 	// not depend on a provider assessment, so it is recorded either way.
-	ranked, err := w.rankedCandidates(ctx, owner, word, assessed)
+	ranked, complete, err := w.rankedCandidates(ctx, owner, word, assessed)
 	if err != nil {
 		return err
 	}
-	if len(ranked) == 0 {
+	// A read the page cap stopped may have left occurrences unread, so it is
+	// not exhausted.
+	if len(ranked) == 0 && complete {
 		return w.Store.RecordStudyFluencyExhausted(ctx, owner, word.ID, scannedAt)
 	}
 	evidence, proceed, err := w.wordGate(ctx, word)
@@ -360,15 +362,15 @@ func assessedOccurrences(contexts []domain.FluencyContext, progressID string) (m
 // Current reading's first, keeps those the sentence-quality gate accepts and
 // that were not assessed, and orders them to prefer a different form than the
 // one the word was introduced in.
-func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word domain.StudyProgress, assessed map[occurrenceKey]bool) ([]sentenceChoice, error) {
+func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word domain.StudyProgress, assessed map[occurrenceKey]bool) (ordered []sentenceChoice, complete bool, err error) {
 	material, err := w.Store.GetStudyMaterial(ctx, owner, word.MaterialID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	introduced := w.introducedForm(ctx, owner, material)
 	reading, err := w.Store.GetCurrentReading(ctx, owner, word.Language)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	priority, lookupPriority := "", domain.ConcordancePriorityNone
 	if reading.IsActive() {
@@ -376,11 +378,11 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 	}
 	retired, err := w.Store.ListRetiredStudyOccurrences(ctx, owner, word.ID)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	choices, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority, w.Idioms.reader(word.Language))
+	choices, complete, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority, w.Idioms.reader(word.Language))
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	byKey := make(map[string]sentenceChoice, len(choices))
 	candidates := make([]domain.FluencyCandidate, 0, len(choices))
@@ -393,31 +395,30 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 		})
 	}
 	ranked := domain.RankFluencyCandidates(introduced, candidates)
-	ordered := make([]sentenceChoice, 0, len(ranked))
+	ordered = make([]sentenceChoice, 0, len(ranked))
 	for _, candidate := range ranked {
 		ordered = append(ordered, byKey[candidate.Key])
 	}
-	return ordered, nil
+	return ordered, complete, nil
 }
 
 // otherOccurrences reads the word's concordance page by page and keeps the
 // occurrences the sentence-quality gate accepts, leaving out the occurrences
 // already assessed and the word's own introducing sentence, wherever else the
 // library repeats that text.
-func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string, reader *idiomReader) ([]sentenceChoice, error) {
+func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string, reader *idiomReader) (kept []sentenceChoice, complete bool, err error) {
 	introducing := strings.TrimSpace(material.Sentence)
-	var kept []sentenceChoice
 	for page := 1; page <= maxFluencyPages; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, word.Language, domain.ConcordanceLookup{
 			Language: word.Language, Term: word.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
 			UPOS: word.UPOS, Priority: lookupPriority, Page: page,
 		})
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		choices, err := scoreOccurrences(ctx, w.Store, owner, word.StudyItem, result.Occurrences, retired, reader)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 		for _, choice := range choices {
 			occurrence := choice.occurrence
@@ -426,10 +427,11 @@ func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word
 			}
 		}
 		if !result.HasNext {
-			break
+			return kept, true, nil
 		}
 	}
-	return kept, nil
+	// The page cap stopped the read: occurrences may remain beyond it.
+	return kept, false, nil
 }
 
 // introducedForm is the form the word took in its introducing sentence. It is
