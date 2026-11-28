@@ -1,8 +1,8 @@
 // Package sourceevidence resolves the imported-source evidence of a
 // source-evidence language: its dictionary entries, their compact outlines and
 // the translated passage a representative sentence sits in. It branches only on
-// the card policy value, never on a language code (ADR 0133), so the Prepared
-// deck and Study share one resolver (ADR 0138).
+// the card policy value, never on a language code (ADR 0133), so every
+// source-evidence language shares one resolver (ADR 0138).
 package sourceevidence
 
 import (
@@ -90,17 +90,11 @@ type Resolution struct {
 	Pin string
 }
 
-// Resolve looks the lemma up for a Prepared deck, by the policy's deck lookup
-// rule, and returns every entry with its structured outline; cited is the set of
-// entry senses to flag. It resolves nothing for a policy with no dictionary, a
-// provider without the capability, or a lemma with no usable entry.
-func Resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
-	return resolve(ctx, lexical, policy, policy.DictionaryLookup, lemma, cited)
-}
-
-// ResolveStudy is Resolve under the policy's Study lookup rule (ADR 0139): Greek
-// Study takes every competing LSJ entry in source order where the deck takes
-// exactly one.
+// ResolveStudy looks the lemma up by the policy's Study lookup rule (ADR 0139)
+// and returns every entry with its structured outline; cited is the set of entry
+// senses to flag. Greek Study takes every competing LSJ entry in source order. It
+// resolves nothing for a policy with no dictionary, a provider without the
+// capability, or a lemma with no usable entry.
 func ResolveStudy(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	return resolve(ctx, lexical, policy, policy.StudyLookup, lemma, cited)
 }
