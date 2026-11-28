@@ -197,6 +197,12 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-failed-connection", State: domain.CatalogueSyncFailed, LastError: "Authentication failed for this connection. Check the saved credentials and try again.", UpdatedAt: fixtureJourneyTime},
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
+		// French has Study progress and no Book, so the language stays
+		// selectable as "(no books)".
+		studyProgress: []domain.StudyProgress{{
+			ID: "fixture-study-progress-fr-bonjour", OwnerID: OwnerID, StudyItem: domain.WordItem("fr", "bonjour", "NOUN", ""),
+			IntroducedAt: fixtureJourneyTime, Memory: domain.NewStudyMemory(fixtureJourneyTime), CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime,
+		}},
 		myBooks: []domain.MyBook{{
 			Book: domain.Book{ID: "fixture-metadata-only", OwnerID: OwnerID, Title: "Metadata-only migration book", Author: "Fixture Catalogue Author", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime}, CompletionCount: 1,
 		}, {

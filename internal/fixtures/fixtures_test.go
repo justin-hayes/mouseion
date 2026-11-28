@@ -112,6 +112,19 @@ func TestStoreActiveStudyLanguageIsStoredAndNullable(t *testing.T) {
 	assert.Empty(t, got, "cleared active language=%q err=%v", got, err)
 }
 
+func TestStoreStudyProgressOnlyLanguageRemainsSelectable(t *testing.T) {
+	store := NewStore()
+	progress, err := store.ListStudyProgressLanguages(context.Background(), OwnerID)
+	require.NoError(t, err)
+	require.Len(t, progress, 1, "study progress languages=%+v", progress)
+	assert.Equal(t, "fr", progress[0].Language)
+	languages, err := store.ListStudyLanguages(context.Background(), OwnerID)
+	require.NoError(t, err)
+	for _, language := range languages {
+		assert.NotEqual(t, "fr", language.Language, "French has no Book")
+	}
+}
+
 func TestStoreMyBooksBrowseUsesCanonicalLanguageIdentity(t *testing.T) {
 	store := NewStore()
 	store.books = nil
