@@ -119,10 +119,6 @@ const (
 	// mainTextDistributorConfigIdentity identifies a run where landmark and
 	// Distributor rules both exclude something.
 	mainTextDistributorConfigIdentity = "selection-maintext-landmarks-distributor-gutenberg-v1"
-	// Version 2 identifies the current ordinary analysis contract, including
-	// lemma-boundary cleanup. Bump it whenever ordinary normalization or
-	// analyzer output semantics change.
-	ordinaryAnalysisContractVersion = "2"
 )
 
 type Service struct {
@@ -2103,10 +2099,6 @@ func requireDependencyParsing(ctx context.Context, provider analyzer.CapabilityP
 		return nil
 	}
 	return fmt.Errorf("%w for language %q", ErrDependencyParsingUnavailable, language)
-}
-
-func ordinaryAnalysisIdentity(contentHash string) string {
-	return fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(contentHash+"\x00"+ordinaryAnalysisContractVersion)))
 }
 
 func normalizedArtifactHash(contentHash, scopeID, analysisIdentity, analyzerName, analyzerVersion, configIdentity string, result analyzer.Result) string {

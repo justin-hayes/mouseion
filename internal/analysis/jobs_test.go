@@ -182,14 +182,6 @@ func TestNormalizedArtifactHashIncludesAnalysisIdentity(t *testing.T) {
 	assert.NotEqual(t, base, normalizedArtifactHash("sha256:source", "scope", "old-scope-identity", "mouseion-scoped-analyzer", "3", "selection-default-v1", result), "analysis identity did not change artifact identity")
 }
 
-func TestOrdinaryAnalysisIdentityDoesNotReuseLegacyContentHash(t *testing.T) {
-	contentHash := "sha256:source"
-	legacyIdentity := contentHash // The pre-contract-change duplicate lookup key.
-	currentIdentity := ordinaryAnalysisIdentity(contentHash)
-	assert.NotEqual(t, legacyIdentity, currentIdentity, "current ordinary identity reused legacy key %q", legacyIdentity)
-	assert.Equal(t, currentIdentity, ordinaryAnalysisIdentity(contentHash), "ordinary analysis identity is not deterministic")
-}
-
 func TestSnapshotAnalysisUsesDeclaredMainTextSelection(t *testing.T) {
 	units := []snapshotUnit{
 		{UnitID: "front", Order: 0, LandmarkTypes: []string{"titlepage"}},

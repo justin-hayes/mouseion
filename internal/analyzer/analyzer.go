@@ -101,20 +101,15 @@ type Token struct {
 	HeadUnprintedNode    string            `json:"HeadUnprintedNode,omitempty"`
 }
 
-// IsSeparableParticle reports whether tokens[index] is a component of its head
+// isSeparableParticle reports whether tokens[index] is a component of its head
 // verb's full canonical lemma rather than its own word. A compound:prt
 // dependent always is. An advmod dependent is too when the NLP producer
 // recovered a separable verb whose particle Stanza tagged as an adverb: it
 // follows its head verb, has no dependents of its own, and the head verb's
 // canonical lemma begins with the particle's surface. A true adverb of the base
 // verb (for example fern meaning "far") leaves the verb's lemma unchanged and
-// therefore stays eligible.
-func IsSeparableParticle(tokens []Token, index int) bool {
-	return isSeparableParticle(tokens, index, dependentOrdinals(tokens))
-}
-
-// isSeparableParticle is the shared implementation. withDependents holds the
-// ordinals some token points at, so callers scanning a sentence compute it once.
+// therefore stays eligible. withDependents holds the ordinals some token points
+// at, so callers scanning a sentence compute it once.
 func isSeparableParticle(tokens []Token, index int, withDependents map[int]bool) bool {
 	if index < 0 || index >= len(tokens) {
 		return false
