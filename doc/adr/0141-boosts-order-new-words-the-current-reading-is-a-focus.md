@@ -25,13 +25,16 @@ now rather than on a choice the learner made about the words.
    target) and ADR 0137 §4 (the Current reading's Idioms first). The Current
    reading stays the learner's focus in Reading.
 2. **A Boost is the only way a Book's words come first.** The learner starts a
-   Boost on a Book from Book detail. While it is not complete, its remaining
-   items lead the new-word stream, ranked as the Boost ranked them. Everything
+   Boost on a Book from Book detail or the Current reading's hero. While it
+   is not complete, its remaining items lead the new-word stream. Active
+   Boosts interleave round-robin, most recent first, each in its own ranking,
+   with an item listed twice counted once. Everything
    else keeps the ordering ADR 0136 and ADR 0137 define, by frequency across
    the To Read Books.
 3. **Sentence preference follows the Boost.** Where Study material or an
    Idiom's sentence preferred the Current reading's Book, it prefers the
-   Boosted Book instead, and has no Book preference when none is boosted.
+   Book of the most recent active Boost listing the item, and has no Book
+   preference when none lists it.
 4. **Stored shape.** A Boost belongs to one owner, one study language and one
    Book. It records its creation time and, once ended, an end time and a
    reason: removed by the learner, or the Book was removed from Reading. It
@@ -42,8 +45,8 @@ now rather than on a choice the learner made about the words.
    candidates, and includes only Idioms whose counts are ready when it starts.
 5. **Completion is derived, not stored.** A Boost is complete when none of its
    items remains: each is in study by the predicate Study already uses, or is
-   unpreparable (a reopenable omission counts while it is omitted), or is no
-   longer offered after a correction or exclusion. No completion state or time
+   unpreparable (a reopenable omission counts while it is omitted), or has no eligible
+   occurrence left in the Book after a correction or exclusion. No completion state or time
    is written, so a reopened omission makes its item remaining again.
 6. **No backfill.** Existing Current readings start no Boost, and the first
    release has no Boosts until the learner starts one.
