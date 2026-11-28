@@ -56,6 +56,16 @@ func (s *acquisitionImporterStub) ImportForAcquisition(_ context.Context, owner,
 	return epub.ImportResult{Source: domain.SourceMaterial{OwnerID: owner}}, nil
 }
 
+type bookAcquisitionImporterStub struct {
+	acquisitionImporterStub
+	bookID string
+}
+
+func (s *bookAcquisitionImporterStub) ImportForAcquisitionForBook(ctx context.Context, owner, language, bookID string, acquisition epub.AcquisitionContent) (epub.ImportResult, error) {
+	s.bookID = bookID
+	return s.ImportForAcquisition(ctx, owner, language, acquisition)
+}
+
 // catalogEPUB is a clean fixture with nothing to remove, so its Retained EPUB
 // is byte-identical to the Catalog file.
 func catalogEPUB(t *testing.T) []byte {
@@ -413,4 +423,24 @@ func TestCatalogURLSchemesAreCaseInsensitiveAndNormalized(t *testing.T) {
 		_, err = resolveCatalogTarget(raw, got)
 		require.NoError(t, err)
 	}
+}
+
+func TestAcquireForBookImportsIntoTheSelectedBook(t *testing.T) {
+	catalog := catalogEPUB(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", EPUBMediaType)
+		testwrite.Bytes(t, w, catalog)
+	}))
+	defer server.Close()
+	store := &connectionStoreStub{connection: domain.OpdsConnection{URL: server.URL}}
+	importer := &bookAcquisitionImporterStub{}
+	service := NewService(store, importer, server.Client()).WithAcquisitionTempDir(t.TempDir())
+	_, err := service.AcquireForBook(t.Context(), "owner", "connection", "de", "book-1", Entry{Links: []Link{{Rel: AcquisitionRel, Type: EPUBMediaType, Href: server.URL}}})
+	require.NoError(t, err)
+	t.Run("imports into the selected Book", func(t *testing.T) {
+		require.Equal(t, "book-1", importer.bookID)
+	})
+	t.Run("imports the downloaded EPUB", func(t *testing.T) {
+		require.Equal(t, catalog, importer.acquisition.Content)
+	})
 }
