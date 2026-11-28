@@ -14,13 +14,6 @@ async function signIn(page: Page) {
   }
 }
 
-// Compact Reading collapses the analysis, reservation, and preparation details.
-// Open them before asserting on their contents; desktop shows them already.
-async function openSupportingDetails(page: Page) {
-  const summary = page.locator('details.reading-supporting > summary');
-  if (await summary.isVisible()) await summary.click();
-}
-
 const representativePages: Array<[string, RegExp]> = [
   ['/de/reading', /Reading/],
   ['/books/fixture-book', /Der lange Weg nach Hause/],
@@ -304,14 +297,10 @@ test.describe('responsive and theme regression coverage', () => {
     await page.goto('/de/reading');
     await expect(page.locator('#primary-goal-section')).toBeVisible();
     await expect(page.locator('link[rel="stylesheet"][href*="pico-"]')).toHaveCount(0);
-    const currentBook = page.locator('#primary-goal-section article.journey-book');
+    const currentBook = page.locator('#primary-goal-section article.current-hero');
     await expect(currentBook).toBeVisible();
-    expect(await currentBook.evaluate((node) => getComputedStyle(node).display)).toBe(
-      test.info().project.name.startsWith('compact') ? 'flex' : 'grid',
-    );
-    await openSupportingDetails(page);
+    expect(await currentBook.evaluate((node) => getComputedStyle(node).display)).toBe('grid');
     await expect(currentBook.getByRole('heading', { name: 'Reserved vocabulary' })).toHaveCount(0);
-    await expect(currentBook.getByRole('heading', { name: 'Analysis' })).toBeVisible();
     await expect(currentBook.getByRole('heading', { name: 'Book deck' })).toHaveCount(0);
     await expect(currentBook.getByRole('link', { name: 'Open focused deck task' })).toHaveCount(0);
 
@@ -826,11 +815,11 @@ test.describe('responsive and theme regression coverage', () => {
     await signIn(page);
     await page.goto('/de/reading');
     const current = page.locator('#primary-goal-section');
-    if (await current.locator('.journey-book--goal').count()) {
+    if (await current.locator('.current-hero').count()) {
       await expect(current.getByRole('link', { name: 'Switch current reading' })).toHaveCount(0);
       const finishSummary = current.locator('details').filter({ hasText: 'Mark reading finished' }).locator('summary');
       await expect(finishSummary).toBeVisible();
-      const primaryActions = await current.locator('.journey-book__lifecycle > a.button, .journey-book__lifecycle > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
+      const primaryActions = await current.locator('.current-hero__actions > a.button, .journey-book__lifecycle > .confirmation > summary').evaluateAll((nodes) => nodes.map((node) => {
         const box = node.getBoundingClientRect();
         return { width: box.width, height: box.height, left: box.left, right: box.right, text: node.textContent?.trim() };
       }));
@@ -872,44 +861,48 @@ test.describe('responsive and theme regression coverage', () => {
     await expect(page.locator('#book-detail-summary a[href$="/deck/preparations/new"]')).toHaveCount(0);
   });
 
-  test('standard Journey rows preserve a readable book column beside controls', async ({ page }) => {
+  test('the Current reading hero leads with a cover beside the Book on wide screens', async ({ page }) => {
     test.skip(!test.info().project.name.startsWith('desktop'), 'This contract applies to the standard desktop layout.');
     await signIn(page);
     await page.goto('/de/reading');
-    const rows = await page.locator('#primary-goal-section article.journey-book--goal').evaluateAll((nodes) => nodes.map((node) => {
-      const book = node.querySelector<HTMLElement>('.journey-book__identity')?.getBoundingClientRect();
-      const controls = node.querySelector<HTMLElement>('.journey-book__lifecycle')?.getBoundingClientRect();
-      const margin = node.querySelector<HTMLElement>('.journey-book__evidence')?.getBoundingClientRect();
-      const switchLink = node.querySelector<HTMLElement>('a[href="/de/reading/switch"]');
-      const title = node.querySelector<HTMLElement>('.journey-book__title');
-      const accentProbe = document.createElement('span');
-      accentProbe.style.color = 'var(--mouseion-color-accent)';
-      document.body.append(accentProbe);
-      const accentColor = getComputedStyle(accentProbe).color;
-      accentProbe.remove();
+    const hero = page.locator('#primary-goal-section .current-hero');
+    await expect(hero).toBeVisible();
+    const boxes = await hero.evaluate((node) => {
+      const rect = (selector: string) => node.querySelector<HTMLElement>(selector)!.getBoundingClientRect();
+      const title = node.querySelector<HTMLElement>('.current-hero__title')!;
       return {
-        bookWidth: book?.width ?? 0,
-        controlsWidth: controls?.width ?? 0,
-        rowWidth: node.getBoundingClientRect().width,
-        marginLeft: margin?.left ?? 0,
-        marginHeight: margin?.height ?? 0,
-        identityRight: book?.right ?? 0,
-        controlsBottom: controls?.bottom ?? 0,
-        identityTop: book?.top ?? 0,
-        titleColor: title ? getComputedStyle(title).color : '',
-        bodyColor: getComputedStyle(document.body).color,
-        switchBackground: switchLink ? getComputedStyle(switchLink).backgroundColor : '',
-        accentColor,
+        cover: rect('.book-cover-media'), body: rect('.current-hero__body'), card: node.getBoundingClientRect(),
+        open: rect('.current-hero__open'), title: title.getBoundingClientRect(),
+        titleColor: getComputedStyle(title).color, bodyColor: getComputedStyle(document.body).color,
       };
-    }));
-    expect(rows.length).toBeGreaterThan(0);
-    for (const row of rows) {
-      expect(row.bookWidth).toBeGreaterThan(200);
-      expect(row.controlsWidth).toBeLessThan(row.rowWidth * 0.6);
-      expect(row.marginLeft).toBeGreaterThan(row.identityRight);
-      expect(row.titleColor).toBe(row.bodyColor);
-      if (row.switchBackground) expect(row.switchBackground).not.toBe(row.accentColor);
-    }
+    });
+    expect(boxes.cover.width).toBeGreaterThanOrEqual(11 * 16 - 1);
+    expect(boxes.cover.width).toBeLessThanOrEqual(15 * 16 + 1);
+    expect(boxes.body.left).toBeGreaterThanOrEqual(boxes.cover.right);
+    expect(boxes.open.top).toBeGreaterThan(boxes.title.bottom);
+    expect(boxes.titleColor).toBe(boxes.bodyColor);
+  });
+
+  test('the compact Current reading hero shows cover, title and actions on the first screen', async ({ page }) => {
+    test.skip(!test.info().project.name.startsWith('compact'), 'This contract applies to the compact layout.');
+    await signIn(page);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/de/reading');
+    const hero = page.locator('#primary-goal-section .current-hero');
+    await expect(hero).toBeVisible();
+    const layout = await hero.evaluate((node, height) => {
+      const rect = (selector: string) => node.querySelector<HTMLElement>(selector)!.getBoundingClientRect();
+      const inView = (box: DOMRect) => box.top >= 0 && box.bottom <= height;
+      const cover = rect('.book-cover-media');
+      const title = rect('.current-hero__title');
+      const open = rect('.current-hero__open');
+      const finish = Array.from(node.querySelectorAll<HTMLElement>('summary')).find((item) => item.textContent?.includes('Mark reading finished'))!.getBoundingClientRect();
+      return { cover: { width: cover.width, right: cover.right, visible: inView(cover) }, titleLeft: title.left, titleVisible: inView(title), openVisible: inView(open), finishVisible: inView(finish) };
+    }, 844);
+    expect(layout.cover.width).toBeCloseTo(6.5 * 16, 0);
+    expect(layout.titleLeft).toBeGreaterThanOrEqual(layout.cover.right);
+    expect(layout.cover.visible && layout.titleVisible && layout.openVisible && layout.finishVisible).toBe(true);
+    await expectNoPageOverflow(page);
   });
 
   test('current Book and its evidence reflow without overflow at 200 percent text on a narrow viewport', async ({ page }) => {

@@ -1,0 +1,59 @@
+package webapp
+
+// CurrentReadingHero is the Current reading at the top of Reading: a raised
+// card led by the cover, then the Book's identity, any action it needs, its
+// coverage and the lifecycle actions (#2843).
+templ CurrentReadingHero(item readingBookView, csrf string) {
+	{{ plate := newTitlePlate(canonicalBookTitle(item.Book), readingUnitOriginalTitle(item.ReadingUnit), item.Book.Source.Language, canonicalBookAuthor(item.Book)) }}
+	{{ status, needsAction := currentReadingHeroStatusFor(item) }}
+	{{ showRecovery := currentReadingHeroShowsRecovery(item, status, needsAction) }}
+	<article id={ readingBookAnchorID(readingBookID(item)) } tabindex="-1" data-focus-anchor class="current-hero">
+		<div class="current-hero__cover">
+			if readingEntryAvailable(item) {
+				<a href={ templ.SafeURL(bookDetailURL(readingBookID(item))) } tabindex="-1" aria-hidden="true">@BookCoverMedia(readingBookID(item), plate, item.Cover)</a>
+			} else {
+				@BookCoverMedia(readingBookID(item), plate, item.Cover)
+			}
+		</div>
+		<div class="current-hero__body">
+			<p class="current-hero__label">Currently reading</p>
+			<h2 id={ currentReadingHeroTitleID() } class="current-hero__title">
+				if readingEntryAvailable(item) {
+					<a href={ templ.SafeURL(bookDetailURL(readingBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+				} else {
+					{ canonicalBookTitle(item.Book) }
+				}
+			</h2>
+			if plate.OriginalTitle != "" {
+				<p class="current-hero__original" lang={ plate.OriginalLang }>{ plate.OriginalTitle }</p>
+			}
+			if plate.Author != "" {
+				<p class="current-hero__author">{ plate.Author }</p>
+			}
+			if !item.ReadingSince.IsZero() {
+				<p class="current-hero__since">Reading since <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></p>
+			}
+			if needsAction {
+				<p class="current-hero__status" data-needs-action><strong>{ status.Label }</strong> { status.Description }</p>
+			}
+			if showRecovery {
+				<details class="reading-supporting current-hero__details">
+					<summary>Analysis details</summary>
+					<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + readingBookID(item) }>
+						<h3 id={ "reading-note-analysis-" + readingBookID(item) }>Analysis</h3>
+						@ReadingEvidence(item, csrf)
+					</section>
+				</details>
+			}
+			<div class="current-hero__coverage">
+				if item.Coverage != nil || !needsAction || !status.Evidence {
+					@CurrentReadingCoverage(item)
+				}
+			</div>
+			<div class="current-hero__actions">
+				<a class="button current-hero__open" href={ templ.SafeURL(bookDetailURL(readingBookID(item))) }>Open Book</a>
+				@CurrentReadingLifecycleActions(item, csrf)
+			</div>
+		</div>
+	</article>
+}

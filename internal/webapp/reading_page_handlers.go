@@ -25,6 +25,8 @@ type readingBookView struct {
 	Coverage                *domain.AnalysisCoverage
 	StatisticsUnavailable   bool
 	CountsUpdating          bool
+	// LanguageMissing is true when the Book has no chosen Book language.
+	LanguageMissing bool
 }
 
 func readingBookAnchorID(bookID string) string {
@@ -267,6 +269,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 	coverByBookID := make(map[string]domain.BookCover)
 	readingUnitByID := make(map[string]*domain.BookReadingUnit, len(books))
 	classicalPreparationByID := make(map[string]*domain.ClassicalPreparationStatus, len(books))
+	languageMissingByID := make(map[string]bool, len(books))
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
@@ -278,6 +281,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		coverByBookID[myBook.Book.ID] = myBook.Cover
 		readingUnitByID[myBook.Book.ID] = myBook.ReadingUnit
 		classicalPreparationByID[myBook.Book.ID] = myBook.ClassicalPreparation
+		languageMissingByID[myBook.Book.ID] = myBook.Book.LanguageState != domain.LanguageChosen
 		if myBook.Acquired != nil {
 			book := *myBook.Acquired
 			book.BookTitle = myBook.Book.Title
@@ -306,6 +310,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		book.ReadingUnit = readingUnitByID[currentReading.BookID]
 		book.ClassicalPreparation = classicalPreparationByID[currentReading.BookID]
 		book.Cover = coverByBookID[currentReading.BookID]
+		book.LanguageMissing = languageMissingByID[currentReading.BookID]
 		book.ReadingSince = currentReading.CreatedAt
 		if err := h.addReadingEvidence(ctx, owner, &book); err != nil {
 			return readingPageView{}, err

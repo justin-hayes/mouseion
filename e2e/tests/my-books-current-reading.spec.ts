@@ -26,8 +26,12 @@ test.describe('Reading pins the Current reading', () => {
     await signIn(page);
     const pinned = page.locator('#primary-goal-section');
     await expect(pinned).toBeVisible();
-    await expect(pinned).toHaveAttribute('aria-label', 'Current reading');
+    const hero = page.getByRole('region', { name: 'Der lange Weg nach Hause' });
+    await expect(hero).toBeVisible();
+    await expect(hero).toHaveAttribute('id', 'primary-goal-section');
     await expect(pinned.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause' })).toBeVisible();
+    await expect(pinned.getByText('Currently reading', { exact: true })).toBeVisible();
+    await expect(pinned.locator('.current-hero__status')).toHaveCount(0);
 
     const coverage = pinned.locator('.journey-book__coverage');
     await expect(coverage).toContainText(/Mature coverage:\s*37\.0%/);
@@ -40,6 +44,7 @@ test.describe('Reading pins the Current reading', () => {
     await expect(pinned.locator('form[action="/reading/finish"] input[name="language"]')).toHaveValue('de');
     await expect(pinned.locator('form[action="/reading/end"] input[name="language"]')).toHaveValue('de');
     await expect(pinned.getByRole('link', { name: 'Switch current reading' })).toHaveCount(0);
+    await expect(pinned.getByRole('link', { name: 'Open Book' })).toHaveAttribute('href', '/books/fixture-book');
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
     await expectNoPageOverflow(page);
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });

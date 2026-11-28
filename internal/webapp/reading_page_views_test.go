@@ -3,7 +3,6 @@ package webapp
 import (
 	"bytes"
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -40,11 +39,8 @@ func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 	assert.Contains(t, html, "Reading since")
 	assert.Contains(t, html, `<time datetime="2026-01-03">January 3, 2026</time>`)
 	assert.Contains(t, html, "Der lange Weg nach Hause")
-	sinceIndex := strings.Index(html, `<p class="journey-book__since">`)
-	titleIndex := strings.Index(html, `<h2 class="journey-book__title">`)
-	assert.True(t, sinceIndex >= 0 && sinceIndex < titleIndex, "Reading since must remain outside the Book title heading: %s", html)
-	assert.Contains(t, html, "By A. Reader")
-	assert.Contains(t, html, `class="journey-book__title-page journey-book__title-page--current"`)
+	assert.NotContains(t, html, "By A. Reader", "the hero shows the author without a byline")
+	assert.Contains(t, html, `<p class="current-hero__author">A. Reader</p>`)
 	assert.Contains(t, html, `class="journey-book__lifecycle"`)
 	assert.Contains(t, html, "Mark reading finished")
 	assert.NotContains(t, html, "Switch current reading", "Read next on Reading replaces Switch")
@@ -66,7 +62,7 @@ func TestIsCurrentReadingShowsNoReservedVocabularyOrDeck(t *testing.T) {
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	currentReading := testReadingBook("goal-state", "Goal state book", testAnalyzed)
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "Analysis</h2>")
+	assert.Contains(t, html, `class="current-hero"`)
 	assert.NotContains(t, html, "Book deck</h2>")
 }
 

@@ -33,7 +33,7 @@ by [ADR 0077](../adr/0077-catalog-supplied-book-covers.md).
 ## Scope
 
 The feature applies to active-language Reading results at `/{language}/reading`, current
-and the pinned Current reading and To Read Book rows, and catalog sync. Search, alphabetical
+and the Current reading hero and To Read Book rows, and catalog sync. Search, alphabetical
 ordering, paging, language scope, and Book identity remain unchanged.
 
 Reading shows the active language's chosen Books in two tabs, **To Read** and

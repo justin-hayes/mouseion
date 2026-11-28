@@ -335,7 +335,7 @@ func TestTitlePlateAppearsOnCatalogMyBooksAndReading(t *testing.T) {
 		},
 		{
 			name: "Reading current Book",
-			html: renderPattern(t, ReadingBookCard(readingBookView{
+			html: renderPattern(t, CurrentReadingHero(readingBookView{
 				Book:        domain.SourceMaterialSummary{BookTitle: "Iliad", BookAuthor: "Homer", Source: domain.SourceMaterial{Language: "grc"}},
 				BookID:      "book-1",
 				ReadingUnit: unit,

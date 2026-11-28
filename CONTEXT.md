@@ -637,13 +637,13 @@ _Avoid_: archived, deleted, set aside.
 **Book workflow bucket**:
 The one visible Reading placement of a Book, derived in precedence order from
 Current reading, To Read, then Read. Every Book in Reading has one. The Current
-reading is pinned at the top of Reading, and is also listed under To Read,
+reading opens Reading as its hero, and is also listed under To Read,
 where it keeps its distinct Currently reading label.
 _Avoid_: Book disposition, shelf.
 
 **Reading**:
 The learner's chosen Books, on one page per study language at
-`/{language}/reading`: the Current reading pinned at the top with its progress
+`/{language}/reading`: the Current reading hero at the top with its progress
 toward Target coverage, then To Read, then Read. It owns Read next, Finish, End,
 To Read, Read again, Mark as previously read and Remove from Reading, but not
 finding texts (Catalog). A Book that needs action shows a status line, and a

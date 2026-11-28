@@ -793,3 +793,20 @@ func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testin
 	assert.False(t, second.Completion.CompletedAt.Before(first.Completion.CompletedAt))
 	assert.Len(t, store.readingHistory, 2, "every Finish appends a completion")
 }
+
+// A Classical Book has no source material of its own; Read next accepts it the
+// way the Reading list presents it, as an analysed To Read Book.
+func TestStartCurrentReadingAcceptsAProjectedClassicalBook(t *testing.T) {
+	store := NewStore()
+	store.SeedWithdrawnClassicalBooks()
+	ctx := t.Context()
+	bookID := fixtureClassicalBookID(OwnerID, "fixture-iliad-1")
+	start, err := store.StartCurrentReadingResult(ctx, OwnerID, "grc", bookID)
+	require.NoError(t, err)
+	assert.Equal(t, bookID, start.Reading.BookID)
+	assert.False(t, start.Replayed)
+
+	replay, err := store.StartCurrentReadingResult(ctx, OwnerID, "grc", bookID)
+	require.NoError(t, err)
+	assert.True(t, replay.Replayed)
+}

@@ -19,7 +19,7 @@ templ CurrentReadingFinish(outcome currentReadingFinishView) {
 }
 
 templ CurrentReadingSection(currentReading *readingBookView, csrf string, message, sectionError, focusBookID string) {
-	<section id="primary-goal-section" tabindex="-1" aria-label="Current reading" class="journey-goal" data-focus-id={ currentReadingSectionFocusID(focusBookID) }>
+	<section id="primary-goal-section" tabindex="-1" class="journey-goal" data-focus-id={ currentReadingSectionFocusID(focusBookID) } { currentReadingSectionLabel(currentReading)... }>
 		if message != "" {
 			<p id="goal-section-status" class="journey-status" role="status" aria-live="polite" aria-atomic="true">{ message }</p>
 		}
@@ -29,46 +29,9 @@ templ CurrentReadingSection(currentReading *readingBookView, csrf string, messag
 		if currentReading == nil {
 			@EmptyState("No current Book yet", "Choose Read next on a To Read book when you are ready to begin reading.")
 		} else {
-			@ReadingBookCard(*currentReading, csrf)
+			@CurrentReadingHero(*currentReading, csrf)
 		}
 	</section>
-}
-
-templ ReadingBookCard(item readingBookView, csrf string) {
-	<article id={ readingBookAnchorID(readingBookID(item)) } tabindex="-1" data-focus-anchor class="resource-card journey-book journey-book--goal">
-		<div class="journey-book__title-page journey-book__title-page--current">
-			<div class="journey-book__cover">@BookCoverMedia(readingBookID(item), newTitlePlate(canonicalBookTitle(item.Book), readingUnitOriginalTitle(item.ReadingUnit), item.Book.Source.Language, canonicalBookAuthor(item.Book)), item.Cover)</div>
-			<div class="journey-book__identity">
-				if !item.ReadingSince.IsZero() {
-					<p class="journey-book__since"><span>Reading since</span> <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></p>
-				}
-				<h2 class="journey-book__title">
-					if readingEntryAvailable(item) {
-						<a href={ templ.SafeURL(bookDetailURL(readingBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
-					} else {
-						{ canonicalBookTitle(item.Book) }
-					}
-				</h2>
-				if author := canonicalBookAuthor(item.Book); author != "" {
-					<p class="journey-book__author">By { author }</p>
-				}
-				@CurrentReadingCoverage(item)
-				@CurrentReadingLifecycleActions(item, csrf)
-			</div>
-		</div>
-		<div class="journey-book__evidence">
-			<details class="reading-supporting">
-				<summary>Analysis details</summary>
-				<section class="reading-note" aria-labelledby={ "reading-note-analysis-" + readingBookID(item) }>
-					<h2 id={ "reading-note-analysis-" + readingBookID(item) }>Analysis</h2>
-					if readingEvidenceState(item) == "current" {
-						<p>Current analysis evidence is available for this Book.</p>
-					}
-					@ReadingEvidence(item, csrf)
-				</section>
-			</details>
-		</div>
-	</article>
 }
 
 templ CurrentReadingCoverage(item readingBookView) {

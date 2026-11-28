@@ -353,7 +353,7 @@ Book adds its Work title, Edition label, position and Classical catalog
 provenance, and two Editions of one Work are two rows told apart by their
 Edition labels. Each row carries the ordinary per-Book Analysis update notice;
 there is no Work-level move, removal or update. Filters count Books.
-Reading pins the Current reading at the top with its progress toward Target
+Reading opens with the Current reading hero, with its progress toward Target
 coverage, then lists To Read and Read; analysis evidence beyond coverage bands
 lives on the Book detail page and `/jobs`.
 
