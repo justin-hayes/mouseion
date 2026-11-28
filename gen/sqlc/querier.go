@@ -200,7 +200,7 @@ type Querier interface {
 	GetLatestAnalysisFailureCode(ctx context.Context, arg GetLatestAnalysisFailureCodeParams) (string, error)
 	GetLegacyEnrichmentForSentence(ctx context.Context, arg GetLegacyEnrichmentForSentenceParams) (GetLegacyEnrichmentForSentenceRow, error)
 	GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookCompletionSummaryParams) (GetMyBookCompletionSummaryRow, error)
-	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error)
+	GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (GetMyBookDetailRow, error)
 	GetNormalizedCorpusArtifact(ctx context.Context, contentHash string) (NormalizedCorpusArtifact, error)
 	GetOpdsConnection(ctx context.Context, arg GetOpdsConnectionParams) (GetOpdsConnectionRow, error)
 	GetOpenStudyReport(ctx context.Context, arg GetOpenStudyReportParams) (StudyReport, error)
@@ -278,6 +278,9 @@ type Querier interface {
 	// Read next never freezes a vocabulary snapshot (ADR 0136 §4), so the row names
 	// none.
 	InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error)
+	// Records a manual Position report for a Book still in the owner's Reading. A
+	// Book outside Reading inserts nothing.
+	InsertManualPositionReport(ctx context.Context, arg InsertManualPositionReportParams) (int64, error)
 	InsertPreviouslyReadImport(ctx context.Context, arg InsertPreviouslyReadImportParams) (InsertPreviouslyReadImportRow, error)
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
 	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error

@@ -129,8 +129,19 @@ WHERE e.book_owner_id = sqlc.arg('owner');
 
 -- name: GetMyBookDetail :one
 SELECT e.*
+     , (pos.id IS NOT NULL)::boolean AS has_reading_position
+     , COALESCE(pos.fraction, 0)::numeric(7,6) AS position_fraction
+     , COALESCE(pos.source, '')::text AS position_source
+     , COALESCE(pos.recorded_at, 'epoch'::timestamptz)::timestamptz AS position_recorded_at
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN LATERAL (
+    SELECT r.id, r.fraction, r.source, r.recorded_at
+    FROM reading_position_reports r
+    WHERE r.owner_id::text = e.book_owner_id AND r.book_id::text = e.book_id
+    ORDER BY r.recorded_at DESC, r.id DESC
+    LIMIT 1
+) pos ON true
 WHERE e.book_owner_id = sqlc.arg('owner') AND (e.book_id = sqlc.arg('id') OR EXISTS (
   SELECT 1 FROM source_materials requested_source
   WHERE requested_source.owner_id::text = e.book_owner_id

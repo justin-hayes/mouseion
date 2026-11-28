@@ -932,6 +932,17 @@ type ReadingHistory struct {
 	CompletionSource            string
 }
 
+type ReadingPositionReport struct {
+	ID         int64
+	OwnerID    string
+	BookID     string
+	Source     string
+	Fraction   float64
+	Page       pgtype.Int4
+	PageCount  pgtype.Int4
+	RecordedAt time.Time
+}
+
 type ReadingUnit struct {
 	ID                       string
 	EditionID                string

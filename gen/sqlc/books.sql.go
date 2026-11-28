@@ -393,8 +393,19 @@ func (q *Queries) GetMyBookCompletionSummary(ctx context.Context, arg GetMyBookC
 
 const getMyBookDetail = `-- name: GetMyBookDetail :one
 SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.book_language_state, e.book_language_tag, e.book_created_at, e.book_updated_at, e.source_id, e.source_owner_id, e.source_language, e.source_identifier, e.source_title, e.source_media_type, e.source_content_hash, e.source_content_digest, e.source_content_revision_id, e.source_content_snapshot_id, e.source_digest_version, e.source_created_at, e.acquired, e.analysis_status, e.analysis_state, e.analysis_run_id, e.corpus_id, e.analysis_job_id, e.book_author, e.book_cover_state, e.book_cover_width, e.book_cover_height
+     , (pos.id IS NOT NULL)::boolean AS has_reading_position
+     , COALESCE(pos.fraction, 0)::numeric(7,6) AS position_fraction
+     , COALESCE(pos.source, '')::text AS position_source
+     , COALESCE(pos.recorded_at, 'epoch'::timestamptz)::timestamptz AS position_recorded_at
 FROM my_books_evidence e
 JOIN book_dispositions d ON d.owner_id::text = e.book_owner_id AND d.book_id::text = e.book_id
+LEFT JOIN LATERAL (
+    SELECT r.id, r.fraction, r.source, r.recorded_at
+    FROM reading_position_reports r
+    WHERE r.owner_id::text = e.book_owner_id AND r.book_id::text = e.book_id
+    ORDER BY r.recorded_at DESC, r.id DESC
+    LIMIT 1
+) pos ON true
 WHERE e.book_owner_id = $1 AND (e.book_id = $2 OR EXISTS (
   SELECT 1 FROM source_materials requested_source
   WHERE requested_source.owner_id::text = e.book_owner_id
@@ -410,9 +421,46 @@ type GetMyBookDetailParams struct {
 	ID    string
 }
 
-func (q *Queries) GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (MyBooksEvidence, error) {
+type GetMyBookDetailRow struct {
+	BookID                  string
+	BookOwnerID             string
+	BookTitle               string
+	BookMetadataProvenance  string
+	BookLanguageState       string
+	BookLanguageTag         string
+	BookCreatedAt           time.Time
+	BookUpdatedAt           time.Time
+	SourceID                string
+	SourceOwnerID           string
+	SourceLanguage          string
+	SourceIdentifier        string
+	SourceTitle             string
+	SourceMediaType         string
+	SourceContentHash       string
+	SourceContentDigest     string
+	SourceContentRevisionID string
+	SourceContentSnapshotID string
+	SourceDigestVersion     int
+	SourceCreatedAt         *time.Time
+	Acquired                bool
+	AnalysisStatus          string
+	AnalysisState           string
+	AnalysisRunID           string
+	CorpusID                string
+	AnalysisJobID           int64
+	BookAuthor              string
+	BookCoverState          string
+	BookCoverWidth          int
+	BookCoverHeight         int
+	HasReadingPosition      bool
+	PositionFraction        float64
+	PositionSource          string
+	PositionRecordedAt      time.Time
+}
+
+func (q *Queries) GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams) (GetMyBookDetailRow, error) {
 	row := q.db.QueryRow(ctx, getMyBookDetail, arg.Owner, arg.ID)
-	var i MyBooksEvidence
+	var i GetMyBookDetailRow
 	err := row.Scan(
 		&i.BookID,
 		&i.BookOwnerID,
@@ -444,6 +492,10 @@ func (q *Queries) GetMyBookDetail(ctx context.Context, arg GetMyBookDetailParams
 		&i.BookCoverState,
 		&i.BookCoverWidth,
 		&i.BookCoverHeight,
+		&i.HasReadingPosition,
+		&i.PositionFraction,
+		&i.PositionSource,
+		&i.PositionRecordedAt,
 	)
 	return i, err
 }

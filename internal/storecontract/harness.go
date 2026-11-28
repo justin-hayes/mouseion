@@ -92,6 +92,7 @@ type Harness interface { //nolint:interfacebloat // the harness exposes one acce
 	StudyCorrections() StudyCorrectionsStore
 	StudyReports() StudyReportStore
 	StudyFluency() StudyFluencyStore
+	Positions() PositionStore
 	Seeds() Seeder
 }
 
@@ -129,6 +130,15 @@ type BookStateStore interface {
 	// ClearEPUBAcquisitionFailure deletes a Book's failure after a successful
 	// acquisition. A missing row is not an error.
 	ClearEPUBAcquisitionFailure(owner, bookID string) error
+}
+
+// PositionStore is the Reading position surface under test. The position
+// itself is read from the Book detail (BookStateStore.GetBookDetail).
+type PositionStore interface {
+	// RecordManualPosition records the learner's own Position report at the
+	// given time. A Book outside the owner's Reading, or another owner's, is
+	// refused with the adapter's not-found error.
+	RecordManualPosition(owner, bookID string, fraction float64, recordedAt time.Time) error
 }
 
 // ClassicalStore is the built-in Classical catalog membership surface under
@@ -317,6 +327,7 @@ func Scenarios() []Scenario {
 	scenarios = append(scenarios, studyReportScenarios()...)
 	scenarios = append(scenarios, studyFluencyScenarios()...)
 	scenarios = append(scenarios, chosenBookScenarios()...)
+	scenarios = append(scenarios, readingPositionScenarios()...)
 	return append(scenarios, bookStateScenarios()...)
 }
 

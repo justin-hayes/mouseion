@@ -189,6 +189,9 @@ type MyBook struct {
 	CoverageMatureTokens   int64
 	CoverageInStudyTokens  int64
 	CoverageTotalTokens    int64
+	// ReadingPosition is the Book's latest Position report, nil when none was
+	// recorded.
+	ReadingPosition *ReadingPosition
 }
 
 // WorkflowBucket derives the visible My Books role. A current reading keeps
