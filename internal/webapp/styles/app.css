@@ -37,7 +37,7 @@
  * are intentionally excluded from this deterministic build. */
 @source "../*.templ";
 @source "../components.go";
-@source "../static/reading.js";
+@source "../static/my-books.js";
 
 /* daisyUI's input component uses a translucent text-derived border by default.
  * Give the shared public component class Mouseion's meaningful boundary token. */

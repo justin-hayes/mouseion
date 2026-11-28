@@ -69,7 +69,7 @@ expect "generated templ output runs generated, Go, and browser checks" "browser 
 expect "frontend stylesheet source runs frontend checks only" "build frontend" \
   internal/webapp/styles/app.css
 expect "embedded static asset runs browser, Go, and frontend checks" "browser build frontend go" \
-  internal/webapp/static/reading.js
+  internal/webapp/static/my-books.js
 expect "fixture server source runs browser and Go" "browser build go" \
   cmd/fixtureserver/main.go
 expect "shared Go package used by fixture server runs browser and Go" "browser build go" \

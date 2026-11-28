@@ -44,7 +44,7 @@ def main() -> None:
         for name in ("components.go",):
             shutil.copy2(WEBAPP / name, fixture_webapp / name)
         (fixture_webapp / "static").mkdir()
-        shutil.copy2(WEBAPP / "static" / "reading.js", fixture_webapp / "static" / "reading.js")
+        shutil.copy2(WEBAPP / "static" / "my-books.js", fixture_webapp / "static" / "my-books.js")
         shutil.copytree(WEBAPP / "styles", fixture_styles, dirs_exist_ok=True)
 
         entry = fixture_styles / "app.css"
@@ -82,7 +82,7 @@ def main() -> None:
             "new-authored-view.templ": "w-[732px]",
             "study.templ": "w-[733px]",
             "components.go": "w-[734px]",
-            "static/reading.js": "w-[735px]",
+            "static/my-books.js": "w-[735px]",
         }
         for relative, candidate in included.items():
             path = fixture_webapp / relative
