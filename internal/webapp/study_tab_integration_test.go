@@ -33,3 +33,15 @@ func TestStudyTabLinksToTheActiveLanguageAndIsCurrentOnStudyPages(t *testing.T) 
 	require.Equal(t, http.StatusSeeOther, picker.Code)
 	assert.Equal(t, "/it/study", picker.Header().Get("Location"))
 }
+
+func TestStudyTabIsCurrentOnTheRemediationPage(t *testing.T) {
+	s := newStudyHarness(t)
+	s.reportedHaus(3)
+	id := s.openReports()[0].ID
+
+	response := getAs(t, s.h, "/study/reports/"+id+"/remediation", s.cookies)
+	require.Equal(t, http.StatusOK, response.Code)
+	body := response.Body.String()
+	assert.Contains(t, body, `data-navigation-context="study"`)
+	assert.Contains(t, body, `href="/de/study" aria-current="page"`)
+}
