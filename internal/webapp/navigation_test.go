@@ -84,6 +84,7 @@ func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *
 	assert.Contains(t, navigation, `<span class="site-header__account-compact">Account</span>`)
 	assert.Contains(t, navigation, `Signed in as <strong>learner</strong>`)
 	assert.Contains(t, navigation, `<summary`)
+	assert.Contains(t, navigation, `<a href="/devices">Devices</a>`)
 	assert.Contains(t, navigation, `<form method="post" action="/logout"`)
 	assert.Contains(t, navigation, `<button class="button button--outline button--quiet" type="submit">Log out</button>`)
 }
@@ -94,7 +95,7 @@ func TestAuthenticatedNavigationUsesLinksNotButtonControls(t *testing.T) {
 			navigation := renderedPrimaryNavigation(t, renderShell(t, context))
 			assert.NotContains(t, navigation, `class="site-nav__link btn`)
 			assert.NotContains(t, navigation, `role="button"`)
-			assert.Equal(t, 4, strings.Count(navigation, `<a href="/`), "four destinations remain native links")
+			assert.Equal(t, 5, strings.Count(navigation, `<a href="/`), "four destinations and the account panel Devices link remain native links")
 			assert.Contains(t, navigation, `<a class="site-header__brand" href="/">`)
 		})
 	}

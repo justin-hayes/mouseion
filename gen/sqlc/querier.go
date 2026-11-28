@@ -278,6 +278,10 @@ type Querier interface {
 	// Read next never freezes a vocabulary snapshot (ADR 0136 §4), so the row names
 	// none.
 	InsertCurrentReading(ctx context.Context, arg InsertCurrentReadingParams) (InsertCurrentReadingRow, error)
+	// Devices and their credentials (ADR 0143, spec #2868). Every query is scoped
+	// to the owner; the key hash never leaves the database in a list.
+	// Stores a new Device. A taken username violates devices_username_key.
+	InsertDevice(ctx context.Context, arg InsertDeviceParams) (InsertDeviceRow, error)
 	InsertPreviouslyReadImport(ctx context.Context, arg InsertPreviouslyReadImportParams) (InsertPreviouslyReadImportRow, error)
 	InsertProcessingHistory(ctx context.Context, arg InsertProcessingHistoryParams) error
 	InsertProcessingHistoryWithoutCorpus(ctx context.Context, arg InsertProcessingHistoryWithoutCorpusParams) error
@@ -370,6 +374,8 @@ type Querier interface {
 	ListCorpusLemmaReviewOccurrences(ctx context.Context, arg ListCorpusLemmaReviewOccurrencesParams) ([]ListCorpusLemmaReviewOccurrencesRow, error)
 	ListCorpusSentences(ctx context.Context, arg ListCorpusSentencesParams) ([]ListCorpusSentencesRow, error)
 	ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentStudyMaterialParams) ([]ListCurrentStudyMaterialRow, error)
+	// The owner's Devices that are not revoked, oldest first.
+	ListDevices(ctx context.Context, owner string) ([]ListDevicesRow, error)
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
 	ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error)
