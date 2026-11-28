@@ -241,8 +241,7 @@ func TestIndexIdiomEntriesFeedTheMatcherEveryPartOfSpeech(t *testing.T) {
 		{Ordinal: 0, Surface: "di", CanonicalLemma: "di"},
 		{Ordinal: 1, Surface: "fronte", CanonicalLemma: "fronte"},
 	}
-	anchors := []idiom.Anchor{{TokenOrdinal: 1, Identity: idiom.AnchorIdentity{Language: "it", CanonicalLemma: "fronte", UPOS: "NOUN"}}}
-	candidates := idiom.Match(idiom.DefaultParameters(), tokens, anchors, entries)
+	candidates := idiom.MatchUnanchored(idiom.DefaultParameters(), tokens, entries)
 	t.Run("matcher pools the senses into one candidate", func(t *testing.T) {
 		require.Len(t, candidates, 1)
 		glosses := make([]string, 0, len(candidates[0].Entry.Senses))
