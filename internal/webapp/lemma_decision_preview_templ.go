@@ -21,7 +21,7 @@ import (
 // remediation screen both render it, so the step is one component (ADR 0136
 // §6). report names the Study report a remediation confirms, or is empty.
 // Children render inside the confirm form, before its button.
-func LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview, recovery lemmareview.Recovery) templ.Component {
+func LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {

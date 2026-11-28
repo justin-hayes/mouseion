@@ -13,7 +13,6 @@ import (
 // webapp owns their learner-facing wording and maps each sentinel to a status
 // and message, so the messages here serve logs and wrapped errors only.
 var (
-	ErrLemmaReviewCurrentReading        = errors.New("lemma review: book is the current reading")
 	ErrLemmaReviewStale                 = errors.New("lemma review: vocabulary state or proposal changed after preview")
 	ErrLemmaReviewCountsRefreshing      = errors.New("lemma review: vocabulary counts are being refreshed")
 	ErrLemmaReviewOccurrenceUnavailable = errors.New("lemma review: selected occurrence changed")
@@ -23,11 +22,6 @@ var (
 	ErrLemmaReviewLemma                 = errors.New("lemma review: lemma must be one canonical word without spaces")
 	ErrLemmaReviewUnsupportedLanguage   = errors.New("lemma review: study language does not support lemma correction")
 
-	// ErrLemmaDecisionCurrentReading is what every store returns when a vocabulary
-	// decision targets the Book that is the owner's current reading. It is the
-	// same sentinel the review handler reports, so the gate reads identically at
-	// each layer.
-	ErrLemmaDecisionCurrentReading = ErrLemmaReviewCurrentReading
 	// ErrLemmaReviewPreviewStale reports that the learner's vocabulary state or the
 	// surface form's occurrences changed after the proposal was previewed.
 	ErrLemmaReviewPreviewStale = errors.New("persistence: lemma review preview is stale")

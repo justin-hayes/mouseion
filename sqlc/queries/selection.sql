@@ -140,10 +140,6 @@ WHERE cai.owner_id = sqlc.arg('owner') AND cai.book_id = sqlc.arg('book')
   AND t.surface = sqlc.arg('expected_surface') AND t.raw_lemma = sqlc.arg('expected_raw_lemma')
   AND t.canonical_lemma = sqlc.arg('expected_canonical_lemma')
   AND t.upos = sqlc.arg('expected_upos')
-   AND NOT EXISTS (
-     SELECT 1 FROM primary_goals pg
-     WHERE pg.owner_id = cai.owner_id AND pg.book_id = cai.book_id
-   )
 ON CONFLICT(owner_id, book_id, analysis_run_id, source_document_id, start_offset, end_offset)
 DO UPDATE SET canonical_lemma = excluded.canonical_lemma,
                 normalization_profile = excluded.normalization_profile,

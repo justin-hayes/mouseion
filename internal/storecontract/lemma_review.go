@@ -147,15 +147,14 @@ func lemmaDecisionScenarios() []Scenario {
 			assert.Empty(t, reviewOccurrence(t, h, bookID, 0).CorrectedLemma)
 		},
 	}, {
-		Name: "the current reading refuses a confirmed decision on its Book and saves nothing",
+		Name: "the current reading's Book accepts a confirmed decision",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)
 			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
 			require.NoError(t, err)
 			proposal := reviewProposal(h, bookID, "correct", "pfad", reviewOccurrence(t, h, bookID, 0))
-			err = h.LemmaReview().PutLemmaDecisionProposal(proposal, previewProposal(t, h, proposal))
-			require.ErrorIs(t, err, domain.ErrLemmaDecisionCurrentReading)
-			assert.Empty(t, reviewOccurrence(t, h, bookID, 0).CorrectedLemma)
+			require.NoError(t, h.LemmaReview().PutLemmaDecisionProposal(proposal, previewProposal(t, h, proposal)))
+			assert.Equal(t, "pfad", reviewOccurrence(t, h, bookID, 0).CorrectedLemma)
 		},
 	}}
 }

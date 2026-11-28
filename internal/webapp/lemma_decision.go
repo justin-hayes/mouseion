@@ -105,7 +105,6 @@ type lemmaReviewRejection struct {
 // lemmaReviewRejections is the one place learner-facing lemma review copy lives.
 // Every domain rejection needs an entry; the table test enforces it.
 var lemmaReviewRejections = []lemmaReviewRejection{
-	{domain.ErrLemmaReviewCurrentReading, http.StatusConflict, "Stop this Book's current reading before changing its vocabulary."},
 	{domain.ErrLemmaReviewStale, http.StatusConflict, "Learner vocabulary state or this proposal changed after preview. No decision was saved; review it again."},
 	{domain.ErrLemmaReviewCountsRefreshing, http.StatusConflict, "Vocabulary counts are being refreshed. No decision was saved; review it again shortly."},
 	{domain.ErrLemmaReviewOccurrenceUnavailable, http.StatusBadRequest, "The selected occurrence changed. Find it again before reviewing."},

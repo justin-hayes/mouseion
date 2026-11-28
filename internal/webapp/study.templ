@@ -556,9 +556,7 @@ templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationV
 				} else if view.Occurrence.CorrectedLemma != "" {
 					<p role="status"><strong>Effective lemma:</strong> { lemmaReviewKeyDisplay(ctx, view.Occurrence.CorrectedLemma) } (corrected)</p>
 				}
-				if !view.CanCorrect {
-					<article role="alert">This Book is current reading. End current reading before changing its vocabulary; the frozen reading snapshot remains unchanged.</article>
-				} else if view.Preview == nil {
+				if view.Preview == nil {
 					<form method="post" action={ templ.SafeURL(view.Path) } id="study-remediation-form">
 						<input type="hidden" name="csrf_token" value={ csrf }/>
 						<input type="hidden" name="stage" value="preview"/>
@@ -574,7 +572,7 @@ templ StudyRemediationPage(user domain.User, csrf string, view studyRemediationV
 				}
 			}
 			if view.Preview != nil {
-				@LemmaDecisionPreview(csrf, view.Path, view.Report.TargetWord, "", *view.Preview, view.Recovery) {
+				@LemmaDecisionPreview(csrf, view.Path, view.Report.TargetWord, "", *view.Preview) {
 					for _, match := range view.MatchPreviews {
 						@StudyRemediationMatchPreview(match)
 					}
@@ -595,14 +593,11 @@ templ StudyRemediationMatches(books []studyRemediationBook) {
 			<p>The same decision is applied only to the occurrences you tick, each in its own Book. Unticked occurrences stay as they are.</p>
 			for _, book := range books {
 				<h3>{ book.Title }</h3>
-				if !book.CanCorrect {
-					<p role="status">This Book is current reading. End current reading before changing its vocabulary.</p>
-				}
 				<ul>
 					for _, match := range book.Matches {
 						<li>
 							<label>
-								<input type="checkbox" name="match" value={ match.Value } disabled?={ !book.CanCorrect }/>
+								<input type="checkbox" name="match" value={ match.Value }/>
 								<span class="reading-text">{ match.Sentence }</span>
 							</label>
 						</li>

@@ -51,20 +51,9 @@ func New(cfg Config) *Service {
 	return &Service{store: cfg.Store, browseCounts: cfg.BrowseCounts}
 }
 
-// Recovery is what a reviewer needs to know about a Book's existing reading
-// before changing its vocabulary identities.
-type Recovery struct {
-	ActiveReading       bool
-	ActiveReadingBookID string
-	HasCompletedReading bool
-	HasIdentityDecision bool
-}
-
-// Review is the occurrence list for one form, with whether correction is allowed.
+// Review is the occurrence list for one form.
 type Review struct {
 	Occurrences []domain.LemmaReviewOccurrence
-	CanCorrect  bool
-	Recovery    Recovery
 }
 
 // Proposal is one learner decision as requested: the form its occurrences were
@@ -96,31 +85,24 @@ type Preview struct {
 // Review lists the occurrences of one exact form and what the learner may do
 // with them.
 func (s *Service) Review(ctx context.Context, owner, bookID, form string) (Review, error) {
-	_, recovery, err := s.load(ctx, owner, bookID)
-	if err != nil {
+	if _, err := s.store.GetBookDetail(ctx, owner, bookID); err != nil {
 		return Review{}, err
 	}
-	review := Review{CanCorrect: !recovery.ActiveReading, Recovery: recovery}
 	if form == "" {
-		return review, nil
+		return Review{}, nil
 	}
-	review.Occurrences, err = s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, form)
+	occurrences, err := s.store.ListLemmaReviewOccurrences(ctx, owner, bookID, form)
 	if err != nil {
 		return Review{}, err
 	}
-	review.Recovery.HasIdentityDecision = hasDecision(review.Occurrences)
-	return review, nil
+	return Review{Occurrences: occurrences}, nil
 }
 
 // CorpusMatch is another occurrence in the learner's Corpus of the same observed
-// form and analyzer lemma as a reported occurrence, with what the learner may do
-// with its Book.
+// form and analyzer lemma as a reported occurrence, with its Book.
 type CorpusMatch struct {
 	Occurrence domain.LemmaReviewOccurrence
 	BookTitle  string
-	// CanCorrect is false while the occurrence's Book is the Current reading,
-	// whose vocabulary cannot change.
-	CanCorrect bool
 }
 
 // CorpusMatches lists the occurrences in the Corpus, in any Book, that share
@@ -134,20 +116,19 @@ func (s *Service) CorpusMatches(ctx context.Context, owner, language string, rep
 		return nil, err
 	}
 	titles := map[string]string{}
-	editable := map[string]bool{}
 	var matches []CorpusMatch
 	for _, occurrence := range found {
 		if occurrence.ID() == reported.ID() || occurrence.Excluded || occurrence.CorrectedLemma != "" {
 			continue
 		}
 		if _, known := titles[occurrence.BookID]; !known {
-			detail, recovery, err := s.load(ctx, owner, occurrence.BookID)
+			detail, err := s.store.GetBookDetail(ctx, owner, occurrence.BookID)
 			if err != nil {
 				return nil, err
 			}
-			titles[occurrence.BookID], editable[occurrence.BookID] = detail.Book.Title, !recovery.ActiveReading
+			titles[occurrence.BookID] = detail.Book.Title
 		}
-		matches = append(matches, CorpusMatch{Occurrence: occurrence, BookTitle: titles[occurrence.BookID], CanCorrect: editable[occurrence.BookID]})
+		matches = append(matches, CorpusMatch{Occurrence: occurrence, BookTitle: titles[occurrence.BookID]})
 	}
 	return matches, nil
 }
@@ -155,9 +136,6 @@ func (s *Service) CorpusMatches(ctx context.Context, owner, language string, rep
 // Preview resolves a proposal against the current analysis and reports its
 // consequences. It changes nothing.
 func (s *Service) Preview(ctx context.Context, owner, bookID string, p Proposal) (Preview, error) {
-	if err := s.rejectCurrentReading(ctx, owner, bookID, p.Language); err != nil {
-		return Preview{}, err
-	}
 	proposal, err := s.resolve(ctx, owner, bookID, p)
 	if err != nil {
 		return Preview{}, err
@@ -182,9 +160,6 @@ func (s *Service) Confirm(ctx context.Context, owner, bookID string, p Proposal,
 	if len(p.OccurrenceIDs) == 0 {
 		return domain.ErrLemmaReviewNoSelection
 	}
-	if err := s.rejectCurrentReading(ctx, owner, bookID, p.Language); err != nil {
-		return err
-	}
 	proposal, err := s.resolve(ctx, owner, bookID, p)
 	if err != nil {
 		return err
@@ -198,38 +173,6 @@ func (s *Service) Confirm(ctx context.Context, owner, bookID string, p Proposal,
 			// this missing projection if the immediate queue write is unavailable.
 			log.Printf("mouseion: could not enqueue Browse count rebuild; startup reconciliation will retry")
 		}
-	}
-	return nil
-}
-
-// load reads the Book and the reading state that decides whether a vocabulary
-// change is allowed.
-func (s *Service) load(ctx context.Context, owner, bookID string) (domain.MyBook, Recovery, error) {
-	detail, err := s.store.GetBookDetail(ctx, owner, bookID)
-	if err != nil {
-		return domain.MyBook{}, Recovery{}, err
-	}
-	current, err := s.store.GetCurrentReading(ctx, owner, detail.Book.LanguageTag)
-	if err != nil {
-		return domain.MyBook{}, Recovery{}, err
-	}
-	recovery := Recovery{
-		ActiveReading: current.IsActive() && current.BookID == bookID, ActiveReadingBookID: current.BookID,
-		HasCompletedReading: detail.CompletionCount > 0,
-	}
-	return detail, recovery, nil
-}
-
-// rejectCurrentReading refuses vocabulary changes to the Book the learner is
-// reading now. The store enforces the same rule under lock; this check gives
-// the preview and the confirmation the same answer before any work starts.
-func (s *Service) rejectCurrentReading(ctx context.Context, owner, bookID, language string) error {
-	current, err := s.store.GetCurrentReading(ctx, owner, language)
-	if err != nil {
-		return err
-	}
-	if current.IsActive() && current.BookID == bookID {
-		return domain.ErrLemmaReviewCurrentReading
 	}
 	return nil
 }
@@ -331,8 +274,6 @@ func changes(proposal domain.LemmaReviewProposal) []Change {
 // sentinels. Any other error is an infrastructure failure and passes through.
 func mapStoreError(err error) error {
 	switch {
-	case errors.Is(err, domain.ErrLemmaDecisionCurrentReading):
-		return domain.ErrLemmaReviewCurrentReading
 	case errors.Is(err, domain.ErrLemmaReviewPreviewStale), errors.Is(err, persistence.ErrNotFound):
 		return domain.ErrLemmaReviewStale
 	case errors.Is(err, persistence.ErrVocabularyBrowseCountsPending), errors.Is(err, persistence.ErrVocabularyBrowseCountsUnavailable):
@@ -347,13 +288,4 @@ func occurrenceIDs(occurrences []domain.LemmaReviewOccurrence) []string {
 		ids = append(ids, occurrence.ID())
 	}
 	return ids
-}
-
-func hasDecision(occurrences []domain.LemmaReviewOccurrence) bool {
-	for _, occurrence := range occurrences {
-		if occurrence.Excluded || occurrence.CorrectedLemma != "" {
-			return true
-		}
-	}
-	return false
 }

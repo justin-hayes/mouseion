@@ -13,7 +13,7 @@ import (
 // remediation screen both render it, so the step is one component (ADR 0136
 // §6). report names the Study report a remediation confirms, or is empty.
 // Children render inside the confirm form, before its button.
-templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview, recovery lemmareview.Recovery) {
+templ LemmaDecisionPreview(csrf, action, form, report string, proposal lemmareview.Preview) {
 		<article aria-labelledby="lemma-preview-heading">
 			<h2 id="lemma-preview-heading">Review the proposed change</h2>
 			<p>This is a preview only. Nothing changes until you confirm.</p>

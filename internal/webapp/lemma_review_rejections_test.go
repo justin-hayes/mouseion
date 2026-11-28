@@ -17,7 +17,6 @@ import (
 // falling through to the generic infrastructure-failure response.
 func TestEveryLemmaReviewRejectionHasLearnerMapping(t *testing.T) {
 	sentinels := []error{
-		domain.ErrLemmaReviewCurrentReading,
 		domain.ErrLemmaReviewStale,
 		domain.ErrLemmaReviewCountsRefreshing,
 		domain.ErrLemmaReviewOccurrenceUnavailable,

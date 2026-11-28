@@ -23,10 +23,8 @@ type studyRemediationView struct {
 	Occurrence domain.LemmaReviewOccurrence
 	// Found is false when the report's occurrence is no longer in the Book's
 	// analysis; the learner can only dismiss the report then.
-	Found      bool
-	CanCorrect bool
-	Preview    *lemmareview.Preview
-	Recovery   lemmareview.Recovery
+	Found   bool
+	Preview *lemmareview.Preview
 	// Books are the other occurrences in the Corpus of the reported word's
 	// form and lemma, by Book, none ticked. MatchPreviews are the previews of
 	// the ticked ones, one per Book, each decided in its own Book's analysis.
@@ -36,9 +34,8 @@ type studyRemediationView struct {
 
 // studyRemediationBook is one Book's matching occurrences.
 type studyRemediationBook struct {
-	ID, Title  string
-	CanCorrect bool
-	Matches    []studyRemediationMatch
+	ID, Title string
+	Matches   []studyRemediationMatch
 }
 
 // studyRemediationMatch is one matching occurrence a learner may tick.
@@ -64,9 +61,6 @@ func matchValue(bookID, occurrenceID string) string { return bookID + "/" + occu
 func tickedMatches(r *http.Request, books []studyRemediationBook) (map[string][]string, error) {
 	offered := map[string]bool{}
 	for _, book := range books {
-		if !book.CanCorrect {
-			continue
-		}
 		for _, match := range book.Matches {
 			offered[match.Value] = true
 		}
@@ -146,13 +140,13 @@ func (h *Handler) studyRemediationView(r *http.Request, report domain.StudyRepor
 		return studyRemediationView{}, err
 	}
 	adoptDetailLanguage(r.Context(), detail)
-	review, occurrence, found, err := h.reportedOccurrence(r, owner, report)
+	_, occurrence, found, err := h.reportedOccurrence(r, owner, report)
 	if err != nil {
 		return studyRemediationView{}, err
 	}
 	view := studyRemediationView{
 		Report: report, Language: report.Language, BookTitle: detail.Book.Title, Path: studyRemediationPath(report.ID),
-		Occurrence: occurrence, Found: found, CanCorrect: review.CanCorrect, Recovery: review.Recovery,
+		Occurrence: occurrence, Found: found,
 	}
 	if found {
 		matches, err := h.services.LemmaReview.CorpusMatches(r.Context(), owner, report.Language, occurrence)
@@ -170,7 +164,7 @@ func remediationBooks(matches []lemmareview.CorpusMatch) []studyRemediationBook 
 	for _, match := range matches {
 		id := match.Occurrence.BookID
 		if len(books) == 0 || books[len(books)-1].ID != id {
-			books = append(books, studyRemediationBook{ID: id, Title: match.BookTitle, CanCorrect: match.CanCorrect})
+			books = append(books, studyRemediationBook{ID: id, Title: match.BookTitle})
 		}
 		last := &books[len(books)-1]
 		last.Matches = append(last.Matches, studyRemediationMatch{Value: matchValue(id, match.Occurrence.ID()), Sentence: match.Occurrence.SentenceText})
@@ -240,7 +234,7 @@ func (h *Handler) previewStudyRemediation(w http.ResponseWriter, r *http.Request
 		writeLemmaDecisionError(w, r, err)
 		return
 	}
-	view.Preview, view.Recovery = &step.Preview, step.Review.Recovery
+	view.Preview = &step.Preview
 	for _, book := range view.Books {
 		if len(ticked[book.ID]) == 0 {
 			continue

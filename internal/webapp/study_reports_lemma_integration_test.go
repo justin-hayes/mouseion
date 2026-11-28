@@ -105,6 +105,21 @@ func TestStudyLemmaCorrectionOfTheReportedOccurrenceEndsTheReportAndReintroduces
 	assert.Equal(t, word.ID, s.currentCard().ID)
 }
 
+func TestStudyRemediationRepairsAnOccurrenceInTheCurrentReadingBook(t *testing.T) {
+	s := newStudyHarness(t)
+	bookID, word, _ := s.reportedHaus(3)
+	id := s.openReports()[0].ID
+	_, err := s.store.StartCurrentReading(s.ctx, s.owner.ID, "de", bookID)
+	require.NoError(t, err)
+
+	opened := getAs(t, s.h, "/study/reports/"+id+"/remediation", s.cookies).Body.String()
+	assert.Contains(t, opened, "Preview correction", "the Current reading's Book can be corrected")
+	assert.NotContains(t, opened, "End current reading")
+
+	s.remediate(id, "correct", "hof")
+	s.requireReleased(id, word, domain.StudyReportEndCorrected)
+}
+
 func TestStudyOccurrenceExclusionEndsTheReportAndWithdrawsAWordWithNoOtherOccurrence(t *testing.T) {
 	s := newStudyHarness(t)
 	_, word, _ := s.reportedHaus(1)

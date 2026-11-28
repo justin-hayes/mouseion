@@ -161,5 +161,4 @@ func TestCorpusMatchesLeavesOutTheReportedAndTheAlreadyDecidedOccurrences(t *tes
 	require.NoError(t, err)
 	require.Len(t, matches, 1, "a match is an occurrence that still awaits a decision")
 	assert.Equal(t, other.ID(), matches[0].Occurrence.ID())
-	assert.True(t, matches[0].CanCorrect)
 }
