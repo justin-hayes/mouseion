@@ -55,12 +55,13 @@ templ prototypeHeroA(v prototypeHeroView, csrf string) {
 			<a href={ templ.SafeURL(v.BookURL()) } tabindex="-1" aria-hidden="true">@prototypeHeroCover(v)</a>
 		</div>
 		<div class="phero-a__body">
-			<p class="phero-eyebrow">Currently reading · @prototypeHeroSince(v)</p>
+			<p class="phero-eyebrow">Currently reading</p>
 			<h2 id="phero-title" class="phero-a__title"><a href={ templ.SafeURL(v.BookURL()) }>{ v.Title }</a></h2>
 			@prototypeHeroOriginal(v)
 			if v.Author != "" {
 				<p class="phero-a__author">{ v.Author }</p>
 			}
+			<p class="phero-a__since">@prototypeHeroSince(v)</p>
 			@prototypeHeroStatus(v)
 			<div class="phero-a__stats" role="group" aria-label="Coverage of this Book">
 				if v.HasCoverage {
@@ -72,9 +73,9 @@ templ prototypeHeroA(v prototypeHeroView, csrf string) {
 					</div>
 					<p class="phero-a__detail numeric">{ v.MatureCount } of { v.Analyzable } word occurrences are Mature. { v.TargetText }</p>
 				} else {
-					<div class="phero-a__stat"><span class="phero-a__figure phero-a__figure--none">—</span><span class="phero-a__caption">Mature</span></div>
-					<div class="phero-a__stat"><span class="phero-a__figure phero-a__figure--none">—</span><span class="phero-a__caption">With words in study</span></div>
-					<p class="phero-a__detail">{ v.CoverageNote }.</p>
+					<div class="phero-a__stat"><span class="phero-a__figure phero-a__figure--none">{ v.UnavailableWord() }</span><span class="phero-a__caption">Mature</span></div>
+					<div class="phero-a__stat"><span class="phero-a__figure phero-a__figure--none">{ v.UnavailableWord() }</span><span class="phero-a__caption">With words in study</span></div>
+					<p class="phero-a__detail">Coverage returns when the counts are ready.</p>
 				}
 			</div>
 			<div class="phero-a__actions">
@@ -262,7 +263,7 @@ templ prototypeHeroStyles() {
 	<style>
 	/* PROTOTYPE (#2843) styles: design tokens only. */
 	.phero { margin: 0 0 var(--mouseion-space-7); }
-	.phero a { color: inherit; }
+	.phero a:not(.button) { color: inherit; }
 	.phero-eyebrow { margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
 	.phero-eyebrow span { text-transform: none; letter-spacing: 0; font-weight: 400; }
 	.phero-original { margin: 0; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-section-title); color: var(--mouseion-color-text-muted); }
@@ -288,7 +289,8 @@ templ prototypeHeroStyles() {
 	.phero-a__stat { display: grid; }
 	.phero-a__figure { font-family: var(--mouseion-font-reading); font-size: 2.5rem; line-height: 1; font-weight: 500; color: var(--mouseion-color-success); }
 	.phero-a__figure--quiet { color: var(--mouseion-color-accent); }
-	.phero-a__figure--none { color: var(--mouseion-color-text-muted); }
+	.phero-a__figure--none { color: var(--mouseion-color-text-muted); font-style: italic; font-size: 1.75rem; }
+	.phero-a__since { margin: var(--mouseion-space-2) 0 0; color: var(--mouseion-color-text-muted); font-family: var(--mouseion-font-reading); font-style: italic; font-size: var(--mouseion-font-size-metadata); }
 	.phero-a__caption { margin-top: var(--mouseion-space-1); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
 	.phero-a__bar { grid-column: 1 / -1; }
 	.phero-a__detail { grid-column: 1 / -1; margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }
@@ -297,8 +299,8 @@ templ prototypeHeroStyles() {
 		.phero-a { grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--mouseion-space-2) var(--mouseion-space-4); padding: var(--mouseion-space-4); }
 		.phero-a__body { display: contents; }
 		.phero-a__body > * { grid-column: 1 / -1; }
-		.phero-a__cover { grid-row: 1 / span 4; }
-		.phero-a__body > .phero-eyebrow, .phero-a__body > .phero-a__title, .phero-a__body > .phero-original, .phero-a__body > .phero-a__author { grid-column: 2; }
+		.phero-a__cover { grid-row: 1 / span 5; }
+		.phero-a__body > .phero-eyebrow, .phero-a__body > .phero-a__title, .phero-a__body > .phero-original, .phero-a__body > .phero-a__author, .phero-a__body > .phero-a__since { grid-column: 2; }
 		.phero-a__title { font-size: 1.625rem; margin-top: 0; }
 		.phero-a__author { font-size: 1rem; }
 		.phero-a__figure { font-size: 1.75rem; }

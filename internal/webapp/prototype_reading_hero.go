@@ -122,3 +122,11 @@ func (v prototypeHeroView) InStudyExtraPct() float64 {
 }
 
 func (v prototypeHeroView) BookURL() string { return bookDetailURL(readingBookID(v.Item)) }
+
+// UnavailableWord names why coverage is missing, so it never reads as zero.
+func (v prototypeHeroView) UnavailableWord() string {
+	if v.Item.CountsUpdating {
+		return "Updating"
+	}
+	return "Unavailable"
+}

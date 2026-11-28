@@ -339,15 +339,7 @@ func prototypeHeroA(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</a></div><div class=\"phero-a__body\"><p class=\"phero-eyebrow\">Currently reading · ")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = prototypeHeroSince(v).Render(ctx, templ_7745c5c3_Buffer)
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "</p><h2 id=\"phero-title\" class=\"phero-a__title\"><a href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "</a></div><div class=\"phero-a__body\"><p class=\"phero-eyebrow\">Currently reading</p><h2 id=\"phero-title\" class=\"phero-a__title\"><a href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -360,7 +352,7 @@ func prototypeHeroA(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -373,7 +365,7 @@ func prototypeHeroA(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "</a></h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</a></h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -382,7 +374,7 @@ func prototypeHeroA(v prototypeHeroView, csrf string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if v.Author != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "<p class=\"phero-a__author\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<p class=\"phero-a__author\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -395,148 +387,173 @@ func prototypeHeroA(v prototypeHeroView, csrf string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "<p class=\"phero-a__since\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = prototypeHeroSince(v).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "</p>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = prototypeHeroStatus(v).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<div class=\"phero-a__stats\" role=\"group\" aria-label=\"Coverage of this Book\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"phero-a__stats\" role=\"group\" aria-label=\"Coverage of this Book\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if v.HasCoverage {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "<div class=\"phero-a__stat\"><span class=\"phero-a__figure numeric\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "<div class=\"phero-a__stat\"><span class=\"phero-a__figure numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(v.MatureText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 67, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 68, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</span><span class=\"phero-a__caption\">Mature</span></div><div class=\"phero-a__stat\"><span class=\"phero-a__figure phero-a__figure--quiet numeric\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span><span class=\"phero-a__caption\">Mature</span></div><div class=\"phero-a__stat\"><span class=\"phero-a__figure phero-a__figure--quiet numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(v.InStudyText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 68, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 69, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "</span><span class=\"phero-a__caption\">With words in study</span></div><div class=\"phero-bar phero-a__bar\" aria-hidden=\"true\"><span class=\"phero-bar__mature\" style=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</span><span class=\"phero-a__caption\">With words in study</span></div><div class=\"phero-bar phero-a__bar\" aria-hidden=\"true\"><span class=\"phero-bar__mature\" style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS(fmt.Sprintf("width:%.1f%%", v.MaturePct)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 70, Col: 101}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 71, Col: 101}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "\"></span> <span class=\"phero-bar__study\" style=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"></span> <span class=\"phero-bar__study\" style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS(fmt.Sprintf("width:%.1f%%", v.InStudyExtraPct())))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 71, Col: 108}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 72, Col: 108}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "\"></span></div><p class=\"phero-a__detail numeric\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\"></span></div><p class=\"phero-a__detail numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(v.MatureCount)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 73, Col: 55}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 74, Col: 55}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, " of ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, " of ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var23 string
 			templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(v.Analyzable)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 73, Col: 75}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 74, Col: 75}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, " word occurrences are Mature. ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, " word occurrences are Mature. ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var24 string
 			templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(v.TargetText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 73, Col: 121}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 74, Col: 121}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "<div class=\"phero-a__stat\"><span class=\"phero-a__figure phero-a__figure--none\">—</span><span class=\"phero-a__caption\">Mature</span></div><div class=\"phero-a__stat\"><span class=\"phero-a__figure phero-a__figure--none\">—</span><span class=\"phero-a__caption\">With words in study</span></div><p class=\"phero-a__detail\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, "<div class=\"phero-a__stat\"><span class=\"phero-a__figure phero-a__figure--none\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var25 string
-			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(v.CoverageNote)
+			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(v.UnavailableWord())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 77, Col: 48}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 76, Col: 105}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, ".</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</span><span class=\"phero-a__caption\">Mature</span></div><div class=\"phero-a__stat\"><span class=\"phero-a__figure phero-a__figure--none\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var26 string
+			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(v.UnavailableWord())
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 77, Col: 105}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "</span><span class=\"phero-a__caption\">With words in study</span></div><p class=\"phero-a__detail\">Coverage returns when the counts are ready.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "</div><div class=\"phero-a__actions\"><a class=\"button phero-a__open\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</div><div class=\"phero-a__actions\"><a class=\"button phero-a__open\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var26 templ.SafeURL
-		templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
+		var templ_7745c5c3_Var27 templ.SafeURL
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 81, Col: 69}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 82, Col: 69}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, "\">Open Book</a>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "\">Open Book</a>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -544,7 +561,7 @@ func prototypeHeroA(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "</div></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "</div></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -572,48 +589,48 @@ func prototypeHeroB(v prototypeHeroView, csrf string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var27 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var27 == nil {
-			templ_7745c5c3_Var27 = templ.NopComponent
+		templ_7745c5c3_Var28 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var28 == nil {
+			templ_7745c5c3_Var28 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "<section id=\"primary-goal-section\" class=\"phero phero-b\" aria-labelledby=\"phero-title\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<section id=\"primary-goal-section\" class=\"phero phero-b\" aria-labelledby=\"phero-title\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if v.StatusLabel != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, "<p class=\"phero-b__alert\" data-needs-action><strong>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var28 string
-			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(v.StatusLabel)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 95, Col: 70}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, ".</strong> ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "<p class=\"phero-b__alert\" data-needs-action><strong>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var29 string
-			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(v.StatusDesc)
+			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(v.StatusLabel)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 95, Col: 97}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 96, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, ".</strong> ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var30 string
+			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(v.StatusDesc)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 96, Col: 97}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, "<div class=\"phero-b__band\"><div class=\"phero-b__cover\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<div class=\"phero-b__band\"><div class=\"phero-b__cover\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -621,33 +638,33 @@ func prototypeHeroB(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "</div><div class=\"phero-b__identity\"><p class=\"phero-eyebrow\">Currently reading</p><h2 id=\"phero-title\" class=\"phero-b__title\"><a href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</div><div class=\"phero-b__identity\"><p class=\"phero-eyebrow\">Currently reading</p><h2 id=\"phero-title\" class=\"phero-b__title\"><a href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var30 templ.SafeURL
-		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
+		var templ_7745c5c3_Var31 templ.SafeURL
+		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 101, Col: 84}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var31 string
-		templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(v.Title)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 101, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 102, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "</a></h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var32 string
+		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(v.Title)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 102, Col: 96}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</a></h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -656,25 +673,25 @@ func prototypeHeroB(v prototypeHeroView, csrf string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		if v.Author != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, "<p class=\"phero-b__author\">By ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<p class=\"phero-b__author\">By ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var32 string
-			templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs(v.Author)
+			var templ_7745c5c3_Var33 string
+			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(v.Author)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 104, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 105, Col: 45}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, "<p class=\"phero-b__since\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "<p class=\"phero-b__since\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -682,48 +699,28 @@ func prototypeHeroB(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, "</p><p><a class=\"phero-b__link\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "</p><p><a class=\"phero-b__link\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var33 templ.SafeURL
-		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
+		var templ_7745c5c3_Var34 templ.SafeURL
+		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 107, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 108, Col: 65}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "\">Words and analysis <span aria-hidden=\"true\">→</span></a></p></div><aside class=\"phero-b__ledger\" aria-label=\"Coverage of this Book\"><dl><div><dt>Mature coverage</dt><dd class=\"numeric\">")
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if v.HasCoverage {
-			var templ_7745c5c3_Var34 string
-			templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(v.MatureText)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 115, Col: 22}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, "<span class=\"phero-none\">Unavailable</span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "</dd></div><div><dt>With words in study</dt><dd class=\"numeric\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, "\">Words and analysis <span aria-hidden=\"true\">→</span></a></p></div><aside class=\"phero-b__ledger\" aria-label=\"Coverage of this Book\"><dl><div><dt>Mature coverage</dt><dd class=\"numeric\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if v.HasCoverage {
 			var templ_7745c5c3_Var35 string
-			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(v.InStudyText)
+			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(v.MatureText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 125, Col: 23}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 116, Col: 22}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 			if templ_7745c5c3_Err != nil {
@@ -735,71 +732,91 @@ func prototypeHeroB(v prototypeHeroView, csrf string) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</dd></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "</dd></div><div><dt>With words in study</dt><dd class=\"numeric\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if v.HasCoverage {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<div><dt>Word occurrences</dt><dd class=\"numeric\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
 			var templ_7745c5c3_Var36 string
-			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(v.Analyzable)
+			templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinStringErrs(v.InStudyText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 132, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 126, Col: 23}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</dd></div>")
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "<span class=\"phero-none\">Unavailable</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "</dl>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "</dd></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if v.HasCoverage {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "<p class=\"phero-b__target numeric\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, "<div><dt>Word occurrences</dt><dd class=\"numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var37 string
-			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(v.TargetText)
+			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(v.Analyzable)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 136, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 133, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, "</dd></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<p class=\"phero-b__target\">")
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "</dl>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if v.HasCoverage {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 54, "<p class=\"phero-b__target numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var38 string
-			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(v.CoverageNote)
+			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(v.TargetText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 138, Col: 48}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 137, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "; figures return when it settles.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 55, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<p class=\"phero-b__target\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var39 string
+			templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.JoinStringErrs(v.CoverageNote)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 139, Col: 48}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var39))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "; figures return when it settles.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<div class=\"phero-b__actions\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<div class=\"phero-b__actions\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -807,7 +824,7 @@ func prototypeHeroB(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 57, "</div></aside></div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</div></aside></div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -836,12 +853,12 @@ func prototypeHeroC(v prototypeHeroView, csrf string) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var39 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var39 == nil {
-			templ_7745c5c3_Var39 = templ.NopComponent
+		templ_7745c5c3_Var40 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var40 == nil {
+			templ_7745c5c3_Var40 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 58, "<section id=\"primary-goal-section\" class=\"phero phero-c\" aria-labelledby=\"phero-title\"><div class=\"phero-c__spread\"><div class=\"phero-c__verso\"><div class=\"phero-c__cover\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<section id=\"primary-goal-section\" class=\"phero phero-c\" aria-labelledby=\"phero-title\"><div class=\"phero-c__spread\"><div class=\"phero-c__verso\"><div class=\"phero-c__cover\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -849,56 +866,56 @@ func prototypeHeroC(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 59, "</div></div><div class=\"phero-c__recto\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</div></div><div class=\"phero-c__recto\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if v.Author != "" {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 60, "<p class=\"phero-c__author\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<p class=\"phero-c__author\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var40 string
-			templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(v.Author)
+			var templ_7745c5c3_Var41 string
+			templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinStringErrs(v.Author)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 159, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 160, Col: 42}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 61, "</p>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 62, "<h2 id=\"phero-title\" class=\"phero-c__title\"><a href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "<h2 id=\"phero-title\" class=\"phero-c__title\"><a href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var41 templ.SafeURL
-		templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
+		var templ_7745c5c3_Var42 templ.SafeURL
+		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 161, Col: 84}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var41))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 63, "\">")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var42 string
-		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.JoinStringErrs(v.Title)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 161, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 162, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var42))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 64, "</a></h2>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var43 string
+		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(v.Title)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 162, Col: 96}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</a></h2>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -906,7 +923,7 @@ func prototypeHeroC(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 65, "<p class=\"phero-c__rule\" aria-hidden=\"true\">❦</p><p class=\"phero-c__since\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<p class=\"phero-c__rule\" aria-hidden=\"true\">❦</p><p class=\"phero-c__since\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -914,7 +931,7 @@ func prototypeHeroC(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -922,7 +939,7 @@ func prototypeHeroC(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 67, "<div class=\"phero-c__meters\" role=\"group\" aria-label=\"Coverage of this Book\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<div class=\"phero-c__meters\" role=\"group\" aria-label=\"Coverage of this Book\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -934,61 +951,61 @@ func prototypeHeroC(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 68, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if v.HasCoverage {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 69, "<p class=\"phero-c__target numeric\">")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var43 string
-			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(v.TargetText)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 171, Col: 54}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 70, "</p>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<p class=\"phero-c__target\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 71, "<p class=\"phero-c__target numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var44 string
-			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(v.CoverageNote)
+			templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.JoinStringErrs(v.TargetText)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 173, Col: 48}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 172, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, ".</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 72, "</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<p class=\"phero-c__target\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var45 string
+			templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(v.CoverageNote)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 174, Col: 48}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, ".</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 73, "<p><a class=\"button button--outline phero-c__open\" href=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "<p><a class=\"button button--outline phero-c__open\" href=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var45 templ.SafeURL
-		templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
+		var templ_7745c5c3_Var46 templ.SafeURL
+		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(v.BookURL()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 175, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 176, Col: 88}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 74, "\">Go to this Book</a></p></div></div><div class=\"phero-c__footer\"><span class=\"phero-eyebrow\">Your Current reading</span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "\">Go to this Book</a></p></div></div><div class=\"phero-c__footer\"><span class=\"phero-eyebrow\">Your Current reading</span>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -996,7 +1013,7 @@ func prototypeHeroC(v prototypeHeroView, csrf string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 75, "</div></section>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "</div></section>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1020,110 +1037,110 @@ func prototypeHeroRing(label string, pct float64, text string, ok bool, tone str
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var46 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var46 == nil {
-			templ_7745c5c3_Var46 = templ.NopComponent
+		templ_7745c5c3_Var47 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var47 == nil {
+			templ_7745c5c3_Var47 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		var templ_7745c5c3_Var47 = []any{"phero-ring", "phero-ring--" + tone}
-		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var47...)
+		var templ_7745c5c3_Var48 = []any{"phero-ring", "phero-ring--" + tone}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var48...)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<div class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<div class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var48 string
-		templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var47).String())
+		var templ_7745c5c3_Var49 string
+		templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.CSSClasses(templ_7745c5c3_Var48).String())
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 1, Col: 0}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var48)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var49)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 77, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		if ok {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 78, "<div class=\"phero-ring__dial\" style=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var49 string
-			templ_7745c5c3_Var49, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS(fmt.Sprintf("--pct:%.1f", pct)))
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 188, Col: 86}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "\" aria-hidden=\"true\"><span class=\"numeric\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<div class=\"phero-ring__dial\" style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var50 string
-			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(text)
+			templ_7745c5c3_Var50, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS(fmt.Sprintf("--pct:%.1f", pct)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 188, Col: 136}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 189, Col: 86}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</span></div><span class=\"phero-ring__label\"><span class=\"sr-only\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "\" aria-hidden=\"true\"><span class=\"numeric\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var51 string
 			templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 189, Col: 63}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 189, Col: 136}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var51))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</span></div><span class=\"phero-ring__label\"><span class=\"sr-only\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var52 string
-			templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+			templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 189, Col: 80}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 190, Col: 63}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</span>")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		} else {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "<div class=\"phero-ring__dial phero-ring__dial--none\" aria-hidden=\"true\"><span>—</span></div><span class=\"phero-ring__label\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var53 string
 			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 192, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 190, Col: 80}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, ": unavailable</span>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</span>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		} else {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<div class=\"phero-ring__dial phero-ring__dial--none\" aria-hidden=\"true\"><span>—</span></div><span class=\"phero-ring__label\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var54 string
+			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(label)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 193, Col: 42}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, ": unavailable</span>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1150,105 +1167,105 @@ func prototypeHeroSwitcher(v prototypeHeroView) templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var54 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var54 == nil {
-			templ_7745c5c3_Var54 = templ.NopComponent
+		templ_7745c5c3_Var55 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var55 == nil {
+			templ_7745c5c3_Var55 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "<div class=\"phero-switcher\" role=\"toolbar\" aria-label=\"Prototype switcher\"><button type=\"button\" data-phero-step=\"-1\" aria-label=\"Previous variant\">←</button> <span class=\"phero-switcher__label\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<div class=\"phero-switcher\" role=\"toolbar\" aria-label=\"Prototype switcher\"><button type=\"button\" data-phero-step=\"-1\" aria-label=\"Previous variant\">←</button> <span class=\"phero-switcher__label\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, info := range prototypeHeroVariants {
 			if info.Key == v.Variant {
-				var templ_7745c5c3_Var55 string
-				templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(info.Key)
-				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 206, Col: 15}
-				}
-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, " (")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
 				var templ_7745c5c3_Var56 string
-				templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(info.Name)
+				templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.JoinStringErrs(info.Key)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 206, Col: 30}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 207, Col: 15}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var56))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, ")")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, " (")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				var templ_7745c5c3_Var57 string
+				templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(info.Name)
+				if templ_7745c5c3_Err != nil {
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 207, Col: 30}
+				}
+				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, ")")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</span> <button type=\"button\" data-phero-step=\"1\" aria-label=\"Next variant\">→</button> <label><span>state</span> <select data-phero-state>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</span> <button type=\"button\" data-phero-step=\"1\" aria-label=\"Next variant\">→</button> <label><span>state</span> <select data-phero-state>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		for _, s := range prototypeHeroStates {
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<option value=\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			var templ_7745c5c3_Var57 string
-			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.ResolveAttributeValue(s)
-			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 213, Col: 21}
-			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var57)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "\"")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			if s == v.State {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, " selected")
-				if templ_7745c5c3_Err != nil {
-					return templ_7745c5c3_Err
-				}
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, ">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<option value=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var58 string
-			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(s)
+			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.ResolveAttributeValue(s)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 213, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 214, Col: 21}
 			}
-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</option>")
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var58)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			if s == v.State {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, " selected")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, ">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var59 string
+			templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs(s)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 214, Col: 54}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</option>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "</select></label> <button type=\"button\" data-phero-theme>theme</button></div><script data-variants=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "</select></label> <button type=\"button\" data-phero-theme>theme</button></div><script data-variants=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var59 string
-		templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.ResolveAttributeValue(prototypeHeroVariantKeys())
+		var templ_7745c5c3_Var60 string
+		templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.ResolveAttributeValue(prototypeHeroVariantKeys())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 218, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `prototype_reading_hero.templ`, Line: 219, Col: 51}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var59)
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var60)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "\">\n\t(function () {\n\t\tvar keys = document.currentScript.dataset.variants.split(',');\n\t\tvar params = new URLSearchParams(location.search);\n\t\tvar theme = params.get('theme');\n\t\tif (theme) document.documentElement.setAttribute('data-theme', theme);\n\t\tfunction go(mutate) { mutate(params); location.replace(location.pathname + '?' + params.toString()); }\n\t\tfunction step(d) {\n\t\t\tvar i = keys.indexOf(params.get('variant') || keys[0]);\n\t\t\tgo(function (p) { p.set('variant', keys[(i + d + keys.length) % keys.length]); });\n\t\t}\n\t\tdocument.querySelectorAll('[data-phero-step]').forEach(function (b) {\n\t\t\tb.addEventListener('click', function () { step(Number(b.dataset.pheroStep)); });\n\t\t});\n\t\tdocument.querySelector('[data-phero-state]').addEventListener('change', function (e) {\n\t\t\tgo(function (p) { p.set('hero_state', e.target.value); });\n\t\t});\n\t\tdocument.querySelector('[data-phero-theme]').addEventListener('click', function () {\n\t\t\tvar dark = document.documentElement.getAttribute('data-theme') === 'dark' ||\n\t\t\t\t(!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);\n\t\t\tgo(function (p) { p.set('theme', dark ? 'light' : 'dark'); });\n\t\t});\n\t\tdocument.addEventListener('keydown', function (e) {\n\t\t\tvar t = e.target;\n\t\t\tif (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;\n\t\t\tif (e.key === 'ArrowLeft') step(-1);\n\t\t\tif (e.key === 'ArrowRight') step(1);\n\t\t});\n\t})();\n\t</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "\">\n\t(function () {\n\t\tvar keys = document.currentScript.dataset.variants.split(',');\n\t\tvar params = new URLSearchParams(location.search);\n\t\tvar theme = params.get('theme');\n\t\tif (theme) document.documentElement.setAttribute('data-theme', theme);\n\t\tfunction go(mutate) { mutate(params); location.replace(location.pathname + '?' + params.toString()); }\n\t\tfunction step(d) {\n\t\t\tvar i = keys.indexOf(params.get('variant') || keys[0]);\n\t\t\tgo(function (p) { p.set('variant', keys[(i + d + keys.length) % keys.length]); });\n\t\t}\n\t\tdocument.querySelectorAll('[data-phero-step]').forEach(function (b) {\n\t\t\tb.addEventListener('click', function () { step(Number(b.dataset.pheroStep)); });\n\t\t});\n\t\tdocument.querySelector('[data-phero-state]').addEventListener('change', function (e) {\n\t\t\tgo(function (p) { p.set('hero_state', e.target.value); });\n\t\t});\n\t\tdocument.querySelector('[data-phero-theme]').addEventListener('click', function () {\n\t\t\tvar dark = document.documentElement.getAttribute('data-theme') === 'dark' ||\n\t\t\t\t(!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);\n\t\t\tgo(function (p) { p.set('theme', dark ? 'light' : 'dark'); });\n\t\t});\n\t\tdocument.addEventListener('keydown', function (e) {\n\t\t\tvar t = e.target;\n\t\t\tif (t.closest && t.closest('input, textarea, select, [contenteditable]')) return;\n\t\t\tif (e.key === 'ArrowLeft') step(-1);\n\t\t\tif (e.key === 'ArrowRight') step(1);\n\t\t});\n\t})();\n\t</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1283,12 +1300,12 @@ func prototypeHeroStyles() templ.Component {
 			}()
 		}
 		ctx = templ.InitializeContext(ctx)
-		templ_7745c5c3_Var60 := templ.GetChildren(ctx)
-		if templ_7745c5c3_Var60 == nil {
-			templ_7745c5c3_Var60 = templ.NopComponent
+		templ_7745c5c3_Var61 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var61 == nil {
+			templ_7745c5c3_Var61 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<style>\n\t/* PROTOTYPE (#2843) styles: design tokens only. */\n\t.phero { margin: 0 0 var(--mouseion-space-7); }\n\t.phero a { color: inherit; }\n\t.phero-eyebrow { margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }\n\t.phero-eyebrow span { text-transform: none; letter-spacing: 0; font-weight: 400; }\n\t.phero-original { margin: 0; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-section-title); color: var(--mouseion-color-text-muted); }\n\t.phero-status { margin: var(--mouseion-space-3) 0 0; padding: var(--mouseion-space-2) var(--mouseion-space-3); border-left: 3px solid var(--mouseion-color-warning); background: color-mix(in srgb, var(--mouseion-color-warning) 10%, transparent); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-status strong { color: var(--mouseion-color-warning); }\n\t.phero-bar { display: flex; height: 0.5rem; overflow: hidden; border-radius: 999px; background: var(--mouseion-color-surface-quiet); }\n\t.phero-bar__mature { background: var(--mouseion-color-success); }\n\t.phero-bar__study { background: color-mix(in srgb, var(--mouseion-color-accent) 55%, transparent); }\n\t.phero-none { color: var(--mouseion-color-text-muted); font-style: italic; }\n\t.phero .journey-book__lifecycle { margin-top: 0; }\n\t.phero .book-cover-media__label { display: block; }\n\t.phero .book-cover-media { box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 8px 24px rgb(0 0 0 / 0.14); border-radius: 2px; }\n\t.phero .title-plate__title { font-size: 1.25rem; }\n\n\t/* A: Frontispiece */\n\t.phero-a { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); gap: var(--mouseion-space-6); align-items: start; padding: var(--mouseion-space-6); border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); }\n\t.phero-a__cover a { display: block; }\n\t.phero-a__title { margin: var(--mouseion-space-2) 0 var(--mouseion-space-1); font-family: var(--mouseion-font-reading); font-size: clamp(2rem, 4.5vw, 3.25rem); font-weight: 520; line-height: 1.08; text-wrap: balance; overflow-wrap: anywhere; }\n\t.phero-a__title a { text-decoration: none; }\n\t.phero-a__title a:hover, .phero-a__title a:focus-visible { text-decoration: underline; }\n\t.phero-a__author { margin: 0; font-family: var(--mouseion-font-reading); font-style: italic; font-size: var(--mouseion-font-size-section-title); color: var(--mouseion-color-text-muted); }\n\t.phero-a__stats { display: grid; grid-template-columns: auto auto 1fr; gap: var(--mouseion-space-2) var(--mouseion-space-6); margin-top: var(--mouseion-space-5); align-items: end; }\n\t.phero-a__stat { display: grid; }\n\t.phero-a__figure { font-family: var(--mouseion-font-reading); font-size: 2.5rem; line-height: 1; font-weight: 500; color: var(--mouseion-color-success); }\n\t.phero-a__figure--quiet { color: var(--mouseion-color-accent); }\n\t.phero-a__figure--none { color: var(--mouseion-color-text-muted); }\n\t.phero-a__caption { margin-top: var(--mouseion-space-1); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-a__bar { grid-column: 1 / -1; }\n\t.phero-a__detail { grid-column: 1 / -1; margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-a__actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--mouseion-space-3) var(--mouseion-space-4); margin-top: var(--mouseion-space-5); }\n\t@media (max-width: 40rem) {\n\t\t.phero-a { grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--mouseion-space-2) var(--mouseion-space-4); padding: var(--mouseion-space-4); }\n\t\t.phero-a__body { display: contents; }\n\t\t.phero-a__body > * { grid-column: 1 / -1; }\n\t\t.phero-a__cover { grid-row: 1 / span 4; }\n\t\t.phero-a__body > .phero-eyebrow, .phero-a__body > .phero-a__title, .phero-a__body > .phero-original, .phero-a__body > .phero-a__author { grid-column: 2; }\n\t\t.phero-a__title { font-size: 1.625rem; margin-top: 0; }\n\t\t.phero-a__author { font-size: 1rem; }\n\t\t.phero-a__figure { font-size: 1.75rem; }\n\t\t.phero-a__stats { margin-top: var(--mouseion-space-3); gap: var(--mouseion-space-2) var(--mouseion-space-5); }\n\t\t.phero .title-plate__title { font-size: 0.8125rem; }\n\t\t.phero-a .book-cover-media__label { display: none; }\n\t}\n\n\t/* B: Banner & ledger */\n\t.phero-b { margin-inline: calc(-1 * var(--mouseion-page-gutter)); }\n\t.phero-b__alert { margin: 0; padding: var(--mouseion-space-2) var(--mouseion-page-gutter); background: color-mix(in srgb, var(--mouseion-color-warning) 14%, var(--mouseion-color-surface)); border-block: 1px solid color-mix(in srgb, var(--mouseion-color-warning) 40%, transparent); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-b__alert strong { color: var(--mouseion-color-warning); }\n\t.phero-b__band { display: grid; grid-template-columns: 10rem minmax(0, 1fr) minmax(15rem, 20rem); gap: var(--mouseion-space-6); align-items: center; padding: var(--mouseion-space-6) var(--mouseion-page-gutter); background: var(--mouseion-color-surface-quiet); border-block: 1px solid var(--mouseion-color-border); }\n\t.phero-b__cover { transform: rotate(-2deg); }\n\t.phero-b__title { margin: var(--mouseion-space-1) 0; font-family: var(--mouseion-font-reading); font-size: clamp(1.75rem, 3.5vw, 2.75rem); font-weight: 520; line-height: 1.1; text-wrap: balance; overflow-wrap: anywhere; }\n\t.phero-b__title a { text-decoration: none; }\n\t.phero-b__title a:hover, .phero-b__title a:focus-visible { text-decoration: underline; }\n\t.phero-b__author { margin: 0; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-section-title); }\n\t.phero-b__since { margin: var(--mouseion-space-2) 0 var(--mouseion-space-3); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-b__link { color: var(--mouseion-color-accent) !important; font-weight: 600; }\n\t.phero-b__ledger { align-self: stretch; padding: var(--mouseion-space-4); border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); }\n\t.phero-b__ledger dl { margin: 0; }\n\t.phero-b__ledger dl > div { display: flex; justify-content: space-between; gap: var(--mouseion-space-3); padding: var(--mouseion-space-2) 0; border-bottom: 1px dotted var(--mouseion-color-border); }\n\t.phero-b__ledger dt { color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-b__ledger dd { margin: 0; font-size: var(--mouseion-font-size-stat); font-weight: 600; }\n\t.phero-b__target { margin: var(--mouseion-space-3) 0; font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); }\n\t.phero-b__actions .journey-book__lifecycle { flex-direction: column; align-items: stretch; gap: var(--mouseion-space-2); }\n\t@media (max-width: 56rem) {\n\t\t.phero-b__band { grid-template-columns: 6rem minmax(0, 1fr); gap: var(--mouseion-space-4); padding: var(--mouseion-space-5) var(--mouseion-page-gutter); }\n\t\t.phero-b__ledger { grid-column: 1 / -1; }\n\t\t.phero-b__cover { transform: none; align-self: start; }\n\t\t.phero-b__title { font-size: 1.5rem; }\n\t\t.phero .phero-b__cover .title-plate__title { font-size: 0.8125rem; }\n\t\t.phero-b .book-cover-media__label { display: none; }\n\t}\n\n\t/* C: Bookmark spread */\n\t.phero-c { border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); overflow: hidden; }\n\t.phero-c__spread { display: grid; grid-template-columns: 1fr 1fr; position: relative; }\n\t.phero-c__spread::after { content: \"\"; position: absolute; inset-block: 0; left: 50%; width: 2.5rem; transform: translateX(-50%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mouseion-color-text) 7%, transparent) 48%, color-mix(in srgb, var(--mouseion-color-text) 12%, transparent) 50%, color-mix(in srgb, var(--mouseion-color-text) 7%, transparent) 52%, transparent); pointer-events: none; }\n\t.phero-c__verso { display: grid; place-items: center; padding: var(--mouseion-space-7) var(--mouseion-space-6); background: var(--mouseion-color-surface-quiet); }\n\t.phero-c__cover { width: min(15rem, 100%); }\n\t.phero-c__recto { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: var(--mouseion-space-7) var(--mouseion-space-6); }\n\t.phero-c__author { margin: 0; font-variant: small-caps; letter-spacing: 0.08em; font-size: var(--mouseion-font-size-section-title); font-family: var(--mouseion-font-reading); }\n\t.phero-c__title { margin: var(--mouseion-space-2) 0; font-family: var(--mouseion-font-reading); font-size: clamp(1.75rem, 3.5vw, 2.75rem); font-weight: 520; line-height: 1.12; text-wrap: balance; overflow-wrap: anywhere; }\n\t.phero-c__title a { text-decoration: none; }\n\t.phero-c__title a:hover, .phero-c__title a:focus-visible { text-decoration: underline; }\n\t.phero-c__rule { margin: var(--mouseion-space-2) 0; color: var(--mouseion-color-text-muted); font-size: 1.25rem; }\n\t.phero-c__since { margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); font-style: italic; }\n\t.phero-c__meters { display: flex; gap: var(--mouseion-space-6); margin-top: var(--mouseion-space-5); }\n\t.phero-c__target { margin: var(--mouseion-space-3) 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); max-width: 22rem; }\n\t.phero-c__footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--mouseion-space-3); padding: var(--mouseion-space-3) var(--mouseion-space-5); border-top: 1px solid var(--mouseion-color-border); background: var(--mouseion-color-surface); }\n\t.phero-ring { display: grid; justify-items: center; gap: var(--mouseion-space-2); }\n\t.phero-ring__dial { --pct: 0; --tone: var(--mouseion-color-success); display: grid; place-items: center; width: 6.5rem; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, var(--mouseion-color-surface-raised) 80%, transparent 81%), conic-gradient(var(--tone) calc(var(--pct) * 1%), var(--mouseion-color-surface-quiet) 0); font-weight: 650; font-size: 1.0625rem; }\n\t.phero-ring--study .phero-ring__dial { --tone: var(--mouseion-color-accent); }\n\t.phero-ring__dial--none { color: var(--mouseion-color-text-muted); }\n\t.phero-ring__label { font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); }\n\t@media (max-width: 48rem) {\n\t\t.phero-c__spread { grid-template-columns: 1fr; }\n\t\t.phero-c__spread::after { display: none; }\n\t\t.phero-c__verso { padding: var(--mouseion-space-5) var(--mouseion-space-4) var(--mouseion-space-3); }\n\t\t.phero-c__cover { width: 8rem; }\n\t\t.phero-c__recto { padding: var(--mouseion-space-3) var(--mouseion-space-4) var(--mouseion-space-5); }\n\t\t.phero-c__meters { gap: var(--mouseion-space-4); }\n\t\t.phero-ring__dial { width: 5rem; font-size: 0.9375rem; }\n\t\t.phero .phero-c__cover .title-plate__title { font-size: 0.875rem; }\n\t}\n\n\t/* Switcher (not part of the design) */\n\t.phero-switcher { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem; border-radius: 999px; background: #111; color: #fff; font: 600 0.8125rem/1 system-ui, sans-serif; box-shadow: 0 6px 24px rgb(0 0 0 / 0.35); white-space: nowrap; max-width: calc(100vw - 1rem); flex-wrap: wrap; justify-content: center; }\n\t@media (max-width: 40rem) { .phero-switcher { left: 0.5rem; right: 0.5rem; transform: none; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; gap: 0.3rem; font-size: 0.75rem; } .phero-switcher__label { min-width: 0; } .phero-switcher label span { display: none; } }\n\t.phero-switcher button, .phero-switcher select { min-height: 0; padding: 0.3rem 0.6rem; border: 1px solid #555; border-radius: 999px; background: #222; color: #fff; font: inherit; cursor: pointer; }\n\t.phero-switcher label { display: flex; align-items: center; gap: 0.3rem; color: #bbb; font-weight: 400; }\n\t.phero-switcher__label { min-width: 9rem; text-align: center; }\n\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<style>\n\t/* PROTOTYPE (#2843) styles: design tokens only. */\n\t.phero { margin: 0 0 var(--mouseion-space-7); }\n\t.phero a:not(.button) { color: inherit; }\n\t.phero-eyebrow { margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }\n\t.phero-eyebrow span { text-transform: none; letter-spacing: 0; font-weight: 400; }\n\t.phero-original { margin: 0; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-section-title); color: var(--mouseion-color-text-muted); }\n\t.phero-status { margin: var(--mouseion-space-3) 0 0; padding: var(--mouseion-space-2) var(--mouseion-space-3); border-left: 3px solid var(--mouseion-color-warning); background: color-mix(in srgb, var(--mouseion-color-warning) 10%, transparent); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-status strong { color: var(--mouseion-color-warning); }\n\t.phero-bar { display: flex; height: 0.5rem; overflow: hidden; border-radius: 999px; background: var(--mouseion-color-surface-quiet); }\n\t.phero-bar__mature { background: var(--mouseion-color-success); }\n\t.phero-bar__study { background: color-mix(in srgb, var(--mouseion-color-accent) 55%, transparent); }\n\t.phero-none { color: var(--mouseion-color-text-muted); font-style: italic; }\n\t.phero .journey-book__lifecycle { margin-top: 0; }\n\t.phero .book-cover-media__label { display: block; }\n\t.phero .book-cover-media { box-shadow: 0 1px 2px rgb(0 0 0 / 0.12), 0 8px 24px rgb(0 0 0 / 0.14); border-radius: 2px; }\n\t.phero .title-plate__title { font-size: 1.25rem; }\n\n\t/* A: Frontispiece */\n\t.phero-a { display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); gap: var(--mouseion-space-6); align-items: start; padding: var(--mouseion-space-6); border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); }\n\t.phero-a__cover a { display: block; }\n\t.phero-a__title { margin: var(--mouseion-space-2) 0 var(--mouseion-space-1); font-family: var(--mouseion-font-reading); font-size: clamp(2rem, 4.5vw, 3.25rem); font-weight: 520; line-height: 1.08; text-wrap: balance; overflow-wrap: anywhere; }\n\t.phero-a__title a { text-decoration: none; }\n\t.phero-a__title a:hover, .phero-a__title a:focus-visible { text-decoration: underline; }\n\t.phero-a__author { margin: 0; font-family: var(--mouseion-font-reading); font-style: italic; font-size: var(--mouseion-font-size-section-title); color: var(--mouseion-color-text-muted); }\n\t.phero-a__stats { display: grid; grid-template-columns: auto auto 1fr; gap: var(--mouseion-space-2) var(--mouseion-space-6); margin-top: var(--mouseion-space-5); align-items: end; }\n\t.phero-a__stat { display: grid; }\n\t.phero-a__figure { font-family: var(--mouseion-font-reading); font-size: 2.5rem; line-height: 1; font-weight: 500; color: var(--mouseion-color-success); }\n\t.phero-a__figure--quiet { color: var(--mouseion-color-accent); }\n\t.phero-a__figure--none { color: var(--mouseion-color-text-muted); font-style: italic; font-size: 1.75rem; }\n\t.phero-a__since { margin: var(--mouseion-space-2) 0 0; color: var(--mouseion-color-text-muted); font-family: var(--mouseion-font-reading); font-style: italic; font-size: var(--mouseion-font-size-metadata); }\n\t.phero-a__caption { margin-top: var(--mouseion-space-1); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-a__bar { grid-column: 1 / -1; }\n\t.phero-a__detail { grid-column: 1 / -1; margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-a__actions { display: flex; flex-wrap: wrap; align-items: start; gap: var(--mouseion-space-3) var(--mouseion-space-4); margin-top: var(--mouseion-space-5); }\n\t@media (max-width: 40rem) {\n\t\t.phero-a { grid-template-columns: 6.5rem minmax(0, 1fr); gap: var(--mouseion-space-2) var(--mouseion-space-4); padding: var(--mouseion-space-4); }\n\t\t.phero-a__body { display: contents; }\n\t\t.phero-a__body > * { grid-column: 1 / -1; }\n\t\t.phero-a__cover { grid-row: 1 / span 5; }\n\t\t.phero-a__body > .phero-eyebrow, .phero-a__body > .phero-a__title, .phero-a__body > .phero-original, .phero-a__body > .phero-a__author, .phero-a__body > .phero-a__since { grid-column: 2; }\n\t\t.phero-a__title { font-size: 1.625rem; margin-top: 0; }\n\t\t.phero-a__author { font-size: 1rem; }\n\t\t.phero-a__figure { font-size: 1.75rem; }\n\t\t.phero-a__stats { margin-top: var(--mouseion-space-3); gap: var(--mouseion-space-2) var(--mouseion-space-5); }\n\t\t.phero .title-plate__title { font-size: 0.8125rem; }\n\t\t.phero-a .book-cover-media__label { display: none; }\n\t}\n\n\t/* B: Banner & ledger */\n\t.phero-b { margin-inline: calc(-1 * var(--mouseion-page-gutter)); }\n\t.phero-b__alert { margin: 0; padding: var(--mouseion-space-2) var(--mouseion-page-gutter); background: color-mix(in srgb, var(--mouseion-color-warning) 14%, var(--mouseion-color-surface)); border-block: 1px solid color-mix(in srgb, var(--mouseion-color-warning) 40%, transparent); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-b__alert strong { color: var(--mouseion-color-warning); }\n\t.phero-b__band { display: grid; grid-template-columns: 10rem minmax(0, 1fr) minmax(15rem, 20rem); gap: var(--mouseion-space-6); align-items: center; padding: var(--mouseion-space-6) var(--mouseion-page-gutter); background: var(--mouseion-color-surface-quiet); border-block: 1px solid var(--mouseion-color-border); }\n\t.phero-b__cover { transform: rotate(-2deg); }\n\t.phero-b__title { margin: var(--mouseion-space-1) 0; font-family: var(--mouseion-font-reading); font-size: clamp(1.75rem, 3.5vw, 2.75rem); font-weight: 520; line-height: 1.1; text-wrap: balance; overflow-wrap: anywhere; }\n\t.phero-b__title a { text-decoration: none; }\n\t.phero-b__title a:hover, .phero-b__title a:focus-visible { text-decoration: underline; }\n\t.phero-b__author { margin: 0; font-family: var(--mouseion-font-reading); font-size: var(--mouseion-font-size-section-title); }\n\t.phero-b__since { margin: var(--mouseion-space-2) 0 var(--mouseion-space-3); color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-b__link { color: var(--mouseion-color-accent) !important; font-weight: 600; }\n\t.phero-b__ledger { align-self: stretch; padding: var(--mouseion-space-4); border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); }\n\t.phero-b__ledger dl { margin: 0; }\n\t.phero-b__ledger dl > div { display: flex; justify-content: space-between; gap: var(--mouseion-space-3); padding: var(--mouseion-space-2) 0; border-bottom: 1px dotted var(--mouseion-color-border); }\n\t.phero-b__ledger dt { color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); }\n\t.phero-b__ledger dd { margin: 0; font-size: var(--mouseion-font-size-stat); font-weight: 600; }\n\t.phero-b__target { margin: var(--mouseion-space-3) 0; font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); }\n\t.phero-b__actions .journey-book__lifecycle { flex-direction: column; align-items: stretch; gap: var(--mouseion-space-2); }\n\t@media (max-width: 56rem) {\n\t\t.phero-b__band { grid-template-columns: 6rem minmax(0, 1fr); gap: var(--mouseion-space-4); padding: var(--mouseion-space-5) var(--mouseion-page-gutter); }\n\t\t.phero-b__ledger { grid-column: 1 / -1; }\n\t\t.phero-b__cover { transform: none; align-self: start; }\n\t\t.phero-b__title { font-size: 1.5rem; }\n\t\t.phero .phero-b__cover .title-plate__title { font-size: 0.8125rem; }\n\t\t.phero-b .book-cover-media__label { display: none; }\n\t}\n\n\t/* C: Bookmark spread */\n\t.phero-c { border: 1px solid var(--mouseion-color-border); border-radius: var(--mouseion-radius); background: var(--mouseion-color-surface-raised); overflow: hidden; }\n\t.phero-c__spread { display: grid; grid-template-columns: 1fr 1fr; position: relative; }\n\t.phero-c__spread::after { content: \"\"; position: absolute; inset-block: 0; left: 50%; width: 2.5rem; transform: translateX(-50%); background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--mouseion-color-text) 7%, transparent) 48%, color-mix(in srgb, var(--mouseion-color-text) 12%, transparent) 50%, color-mix(in srgb, var(--mouseion-color-text) 7%, transparent) 52%, transparent); pointer-events: none; }\n\t.phero-c__verso { display: grid; place-items: center; padding: var(--mouseion-space-7) var(--mouseion-space-6); background: var(--mouseion-color-surface-quiet); }\n\t.phero-c__cover { width: min(15rem, 100%); }\n\t.phero-c__recto { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: var(--mouseion-space-7) var(--mouseion-space-6); }\n\t.phero-c__author { margin: 0; font-variant: small-caps; letter-spacing: 0.08em; font-size: var(--mouseion-font-size-section-title); font-family: var(--mouseion-font-reading); }\n\t.phero-c__title { margin: var(--mouseion-space-2) 0; font-family: var(--mouseion-font-reading); font-size: clamp(1.75rem, 3.5vw, 2.75rem); font-weight: 520; line-height: 1.12; text-wrap: balance; overflow-wrap: anywhere; }\n\t.phero-c__title a { text-decoration: none; }\n\t.phero-c__title a:hover, .phero-c__title a:focus-visible { text-decoration: underline; }\n\t.phero-c__rule { margin: var(--mouseion-space-2) 0; color: var(--mouseion-color-text-muted); font-size: 1.25rem; }\n\t.phero-c__since { margin: 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); font-style: italic; }\n\t.phero-c__meters { display: flex; gap: var(--mouseion-space-6); margin-top: var(--mouseion-space-5); }\n\t.phero-c__target { margin: var(--mouseion-space-3) 0; color: var(--mouseion-color-text-muted); font-size: var(--mouseion-font-size-metadata); max-width: 22rem; }\n\t.phero-c__footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--mouseion-space-3); padding: var(--mouseion-space-3) var(--mouseion-space-5); border-top: 1px solid var(--mouseion-color-border); background: var(--mouseion-color-surface); }\n\t.phero-ring { display: grid; justify-items: center; gap: var(--mouseion-space-2); }\n\t.phero-ring__dial { --pct: 0; --tone: var(--mouseion-color-success); display: grid; place-items: center; width: 6.5rem; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(closest-side, var(--mouseion-color-surface-raised) 80%, transparent 81%), conic-gradient(var(--tone) calc(var(--pct) * 1%), var(--mouseion-color-surface-quiet) 0); font-weight: 650; font-size: 1.0625rem; }\n\t.phero-ring--study .phero-ring__dial { --tone: var(--mouseion-color-accent); }\n\t.phero-ring__dial--none { color: var(--mouseion-color-text-muted); }\n\t.phero-ring__label { font-size: var(--mouseion-font-size-metadata); color: var(--mouseion-color-text-muted); }\n\t@media (max-width: 48rem) {\n\t\t.phero-c__spread { grid-template-columns: 1fr; }\n\t\t.phero-c__spread::after { display: none; }\n\t\t.phero-c__verso { padding: var(--mouseion-space-5) var(--mouseion-space-4) var(--mouseion-space-3); }\n\t\t.phero-c__cover { width: 8rem; }\n\t\t.phero-c__recto { padding: var(--mouseion-space-3) var(--mouseion-space-4) var(--mouseion-space-5); }\n\t\t.phero-c__meters { gap: var(--mouseion-space-4); }\n\t\t.phero-ring__dial { width: 5rem; font-size: 0.9375rem; }\n\t\t.phero .phero-c__cover .title-plate__title { font-size: 0.875rem; }\n\t}\n\n\t/* Switcher (not part of the design) */\n\t.phero-switcher { position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%); z-index: 1000; display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.75rem; border-radius: 999px; background: #111; color: #fff; font: 600 0.8125rem/1 system-ui, sans-serif; box-shadow: 0 6px 24px rgb(0 0 0 / 0.35); white-space: nowrap; max-width: calc(100vw - 1rem); flex-wrap: wrap; justify-content: center; }\n\t@media (max-width: 40rem) { .phero-switcher { left: 0.5rem; right: 0.5rem; transform: none; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; gap: 0.3rem; font-size: 0.75rem; } .phero-switcher__label { min-width: 0; } .phero-switcher label span { display: none; } }\n\t.phero-switcher button, .phero-switcher select { min-height: 0; padding: 0.3rem 0.6rem; border: 1px solid #555; border-radius: 999px; background: #222; color: #fff; font: inherit; cursor: pointer; }\n\t.phero-switcher label { display: flex; align-items: center; gap: 0.3rem; color: #bbb; font-weight: 400; }\n\t.phero-switcher__label { min-width: 9rem; text-align: center; }\n\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
