@@ -48,19 +48,26 @@ func (s *Store) ListStudyProgress(_ context.Context, owner, language string) ([]
 	return progress, nil
 }
 
-// SeedDueStudyReview puts a word in study whose review fell due the day before
-// now and was not answered since, for a browser fixture that needs a due count.
-func (s *Store) SeedDueStudyReview(owner string, identity domain.StudyItem, content domain.StudyMaterialReadyContent, now time.Time) string {
-	id := s.SeedMatureStudyWord(owner, identity, content, now)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.studyProgress {
-		if s.studyProgress[i].ID == id {
-			s.studyProgress[i].Memory.Due = now.Add(-24 * time.Hour)
-			s.studyProgress[i].Memory.LastReview = now.Add(-72 * time.Hour)
+// SeedDueStudyReviews puts count German words in study whose reviews fell due
+// the day before now and were not answered since, for a browser fixture that
+// needs a due count.
+func (s *Store) SeedDueStudyReviews(owner string, count int, now time.Time) {
+	for i := range count {
+		identity := domain.StudyItem{Language: "de", CanonicalLemma: fmt.Sprintf("fixture-due-%d", i), UPOS: "NOUN"}
+		id := s.SeedMatureStudyWord(owner, identity, domain.StudyMaterialReadyContent{
+			BookID: BookID, AnalysisRunID: ResultRunID, CorpusID: "fixture-corpus",
+			SentenceOrdinal: 1, TokenOrdinal: 1, Sentence: "Hier steht ein Wort.", TargetWord: "Wort",
+			Gloss: "word", SentenceTranslation: "A word is here.", SentenceTranslationTargets: []string{"word"},
+		}, now)
+		s.mu.Lock()
+		for j := range s.studyProgress {
+			if s.studyProgress[j].ID == id {
+				s.studyProgress[j].Memory.Due = now.Add(-24 * time.Hour)
+				s.studyProgress[j].Memory.LastReview = now.Add(-72 * time.Hour)
+			}
 		}
+		s.mu.Unlock()
 	}
-	return id
 }
 
 // CountStudyReviewsDue counts the reviews still due on the Study day containing

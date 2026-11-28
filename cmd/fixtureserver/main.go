@@ -149,17 +149,8 @@ func seedFluencyWordIfRequested(store *fixtures.Store) {
 // browser spec asks for them (MOUSEION_FIXTURE_STUDY_DUE is their number), so
 // every other spec keeps its usual Study state and an empty due chip.
 func seedDueReviewsIfRequested(store *fixtures.Store) {
-	count, err := strconv.Atoi(os.Getenv("MOUSEION_FIXTURE_STUDY_DUE"))
-	if err != nil || count <= 0 {
-		return
-	}
-	for i := range count {
-		identity := domain.StudyItem{Language: "de", CanonicalLemma: fmt.Sprintf("fixture-due-%d", i), UPOS: "NOUN"}
-		store.SeedDueStudyReview(fixtures.OwnerID, identity, domain.StudyMaterialReadyContent{
-			BookID: fixtures.BookID, AnalysisRunID: fixtures.ResultRunID, CorpusID: "fixture-corpus",
-			SentenceOrdinal: 1, TokenOrdinal: 1, Sentence: "Hier steht ein Wort.", TargetWord: "Wort",
-			Gloss: "word", SentenceTranslation: "A word is here.", SentenceTranslationTargets: []string{"word"},
-		}, time.Now())
+	if count, err := strconv.Atoi(os.Getenv("MOUSEION_FIXTURE_STUDY_DUE")); err == nil {
+		store.SeedDueStudyReviews(fixtures.OwnerID, count, time.Now())
 	}
 }
 

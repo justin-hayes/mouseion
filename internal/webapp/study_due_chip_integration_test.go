@@ -3,6 +3,7 @@
 package webapp
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -154,4 +155,12 @@ func TestStudyDueChipFollowsTheActiveStudyLanguage(t *testing.T) {
 	german, ok = dueChip(t, getAs(t, s.h, "/de/library", s.cookies).Body.String())
 	require.True(t, ok)
 	assert.Equal(t, 3, german)
+}
+
+func TestStudyDueCountReportsADatabaseFailure(t *testing.T) {
+	s := newStudyHarness(t)
+	ctx, cancel := context.WithCancel(s.ctx)
+	cancel()
+	_, err := s.store.CountStudyReviewsDue(ctx, s.owner.ID, "de", s.clock.Now())
+	require.Error(t, err)
 }
