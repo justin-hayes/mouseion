@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
@@ -37,7 +36,6 @@ func (w *blockingWorker) Work(ctx context.Context, _ *river.Job[blockingArgs]) e
 func TestShutdownLeavesNoJobRunning(t *testing.T) {
 	ctx := context.Background()
 	_, pool := testutil.Postgres(t, ctx, persistence.Migrate)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 	worker := &blockingWorker{started: make(chan struct{})}
 	workers := river.NewWorkers()
 	river.AddWorker(workers, worker)

@@ -44,7 +44,6 @@ func newShutdownFixture(t *testing.T, name string) shutdownFixture {
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "analysis store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, name+"-alice", false)
 	require.NoError(t, err)
 	source, err := putAnalysisSource(ctx, store, owner.ID, name+"-source", name, "Hallo Berlin.", "sha256:"+name)
@@ -162,7 +161,6 @@ func TestSharedClientRefundsAnyJobKindStoppedByShutdown(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	t.Cleanup(cancel)
 	_, pool := testutil.Postgres(t, ctx, persistence.Migrate)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	worker := &interruptedDownloadWorker{started: make(chan struct{})}
 	workers := river.NewWorkers()
 	river.AddWorker(workers, worker)
@@ -213,7 +211,6 @@ func TestJobContextCauseOnStopAndCancel(t *testing.T) {
 		t.Helper()
 		// Each case gets its own database, so a job left by one is not picked up by the next.
 		_, pool := testutil.Postgres(t, ctx, persistence.Migrate)
-		require.NoError(t, MigrateRiver(ctx, pool))
 		worker := &causeWorker{started: make(chan struct{}), seen: make(chan context.Context, 1)}
 		workers := river.NewWorkers()
 		river.AddWorker(workers, worker)
