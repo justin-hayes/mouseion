@@ -182,14 +182,6 @@ func (r StudyOccurrenceRef) sameSentence(o StudyOccurrenceRef) bool {
 	return r.BookID == o.BookID && r.AnalysisRunID == o.AnalysisRunID && r.CorpusID == o.CorpusID && r.SentenceOrdinal == o.SentenceOrdinal
 }
 
-// WithoutRetiredStudyOccurrences drops the retired occurrences from the list.
-func WithoutRetiredStudyOccurrences(refs, retired []StudyOccurrenceRef) []StudyOccurrenceRef {
-	if len(retired) == 0 {
-		return refs
-	}
-	return slices.DeleteFunc(slices.Clone(refs), func(ref StudyOccurrenceRef) bool { return RetiredStudyOccurrence(retired, ref) })
-}
-
 // StudyRef is the occurrence a concordance result names, with its locator.
 func (o ConcordanceResultOccurrence) StudyRef() StudyOccurrenceRef {
 	return StudyOccurrenceRef{

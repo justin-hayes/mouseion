@@ -74,9 +74,25 @@ func (frequencyStub) Frequency(context.Context, Identity) (float64, bool, error)
 	return .75, true, nil
 }
 
+type morphologyStub struct{}
+
+func (morphologyStub) Name() string    { return "Stanza" }
+func (morphologyStub) Version() string { return "1.8" }
+func (morphologyStub) Morphology(_ context.Context, c Candidate) (map[string]string, bool, error) {
+	return c.Morphology, len(c.Morphology) > 0, nil
+}
+
+type pronunciationStub struct{}
+
+func (pronunciationStub) Name() string    { return "rules" }
+func (pronunciationStub) Version() string { return "1" }
+func (pronunciationStub) Pronunciation(context.Context, Identity) (string, bool, error) {
+	return "/haʊ̯s/", true, nil
+}
+
 func TestServiceLocalPipelineNeedsNoExternalProvider(t *testing.T) {
 	c := Candidate{Identity: Identity{"de", "haus", "NOUN"}, Morphology: map[string]string{"Number": "Sing"}}
-	r := NewService(Config{}, frequencyStub{}, NewStanzaMorphology("1.8"), GermanIPA{}, DisabledTranslationProvider{}, nil).Enrich(context.Background(), []Candidate{c})[0]
+	r := NewService(Config{}, frequencyStub{}, morphologyStub{}, pronunciationStub{}, DisabledTranslationProvider{}, nil).Enrich(context.Background(), []Candidate{c})[0]
 	assert.True(t, r.Frequency.Available)
 	assert.True(t, r.Morphology.Available)
 	assert.True(t, r.Pronunciation.Available)
@@ -333,24 +349,6 @@ func TestProviderVersionInvalidatesCache(t *testing.T) {
 	assert.Len(t, p1.requests, 1)
 	assert.Len(t, p2.requests, 1)
 	assert.Len(t, cache.values, 2)
-}
-
-func TestDeterministicLocalProviders(t *testing.T) {
-	c := Candidate{Identity: Identity{"de", "Straße", "NOUN"}, Morphology: map[string]string{"Case": "Nom"}}
-	ip := GermanIPA{}
-	a, ok, err := ip.Pronunciation(context.Background(), c.Identity)
-	require.NoError(t, err)
-	b, _, err := ip.Pronunciation(context.Background(), c.Identity)
-	require.NoError(t, err)
-	assert.True(t, ok)
-	assert.Equal(t, a, b)
-	assert.Equal(t, "/ʃtrase/", a)
-	m := NewStanzaMorphology("1")
-	got, ok, err := m.Morphology(context.Background(), c)
-	require.NoError(t, err)
-	got["Case"] = "Acc"
-	assert.True(t, ok)
-	assert.NotEqual(t, c.Morphology, got, "morphology was not copied")
 }
 
 // errorCache is an ExternalCache whose Get and Put can be made to fail so the

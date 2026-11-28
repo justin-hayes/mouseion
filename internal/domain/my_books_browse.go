@@ -25,19 +25,3 @@ type MyBooksBrowseResult struct {
 	AllCount          int
 	ReadCount         int
 }
-
-// MyBookWorkOrderLess orders two Books of one Work by reviewed constituent
-// number, then Book identity.
-func MyBookWorkOrderLess(a, b MyBook) bool {
-	an, bn := 0, 0
-	if a.ReadingUnit != nil {
-		an = a.ReadingUnit.ConstituentBook
-	}
-	if b.ReadingUnit != nil {
-		bn = b.ReadingUnit.ConstituentBook
-	}
-	if an != bn {
-		return an < bn
-	}
-	return a.Book.ID < b.Book.ID
-}

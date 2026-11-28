@@ -38,7 +38,6 @@ func newBrowseRebuildQueue(t *testing.T, name string) browseRebuildQueue {
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "analysis store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, name, false)
 	require.NoError(t, err)
 	book, _ := makeCurrentAnalyzedBook(t, ctx, store, owner.ID)

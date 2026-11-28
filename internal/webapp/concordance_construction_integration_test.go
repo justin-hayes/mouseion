@@ -86,7 +86,7 @@ func importConstructionBook(t *testing.T, ctx context.Context, store *persistenc
 		_, err = pool.Exec(ctx, `UPDATE reading_units SET constituent_book=$2, constituent_books=5 WHERE definition_key=$1`, book.key, book.constituent)
 		require.NoError(t, err)
 	}
-	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	_, err = importGreekSource(ctx, greekImportRequest{
 		OwnerID: owner, BookID: registration.BookID, SourcePath: path, Definition: definition,
 	}, analysis.NewGreekImportWriter(store))
 	require.NoError(t, err)

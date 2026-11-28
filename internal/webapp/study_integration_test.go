@@ -177,11 +177,10 @@ func newStudyHarnessWith(t *testing.T, options studyHarnessOptions) *studyHarnes
 	t.Setenv("MOUSEION_SECRET", "study-integration-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
-	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	provider := &studyProvider{FakeTranslationProvider: testutil.NewFakeTranslationProvider(), failures: map[string]int{"tisch": 1}, disagree: map[string]bool{}}
 	enricher := enrichment.NewService(enrichment.Config{ExternalEnabled: true, UserOptIn: true, MaxAttempts: 1}, nil, nil, nil, provider, nil)

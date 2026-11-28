@@ -108,7 +108,6 @@ func newClassicalLoopHarness(t *testing.T) *classicalLoopHarness {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	logs := &lockedBuffer{}
 	previous := log.Writer()

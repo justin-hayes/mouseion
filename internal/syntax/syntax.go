@@ -107,21 +107,6 @@ func (t Tree) EffectiveChildren(n int, categories ...Category) []int {
 	return kept
 }
 
-// EffectiveHead returns the head of n looking up through coordination groups,
-// or Root. A cycle ends as Root.
-func (t Tree) EffectiveHead(n int) int {
-	seen := map[int]bool{n: true}
-	head := t.Nodes[n].Head
-	for head != Root && t.Nodes[head].Category == CategoryCoordination {
-		if seen[head] {
-			return Root
-		}
-		seen[head] = true
-		head = t.Nodes[head].Head
-	}
-	return head
-}
-
 // PrintedSubtree returns the printed nodes in n's subtree, n included when it
 // is printed, in token order.
 func (t Tree) PrintedSubtree(n int) []int {

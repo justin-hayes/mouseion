@@ -259,7 +259,7 @@ func TestCatalogWithoutConnectionsOffersConnectAnOPDSCatalog(t *testing.T) {
 
 	var catalog bytes.Buffer
 	classicalCatalog := catalogFixture(t)
-	cards := classicalCatalogCards(classicalCatalog.Authors(), "", classicalCatalogView{})
+	cards := classicalCatalogCardsIn(classicalCatalog.Authors(), "", "", classicalCatalogView{})
 	browse := catalogBrowseView{Classical: catalogSection{ID: catalogClassicalSectionID, Title: "Classical catalog", Page: 1, PageCount: 1, Total: len(cards), Cards: cards}, HasClassical: true}
 	require.NoError(t, CatalogPage(domain.User{Username: "learner"}, "csrf", nil, "", "", nil, browse).Render(t.Context(), &catalog))
 	for _, want := range []string{
@@ -1223,7 +1223,7 @@ func TestCatalogLanguageFilterCoversEachClassicalLanguagePresent(t *testing.T) {
 	same.Key, same.WorkKey, same.EditionKey, same.WorkTitle, same.OriginalTitle = "x-la", "x-la", "x-la-test", "Aeneis", "Aeneis"
 	sameCatalog, err := classical.NewCatalog([]classical.Definition{same})
 	require.NoError(t, err)
-	cards := classicalCatalogCards(sameCatalog.Authors(), "", classicalCatalogView{})
+	cards := classicalCatalogCardsIn(sameCatalog.Authors(), "", "", classicalCatalogView{})
 	require.Len(t, cards, 1)
 	assert.Empty(t, cards[0].OriginalTitle)
 }

@@ -201,7 +201,7 @@ func TestSearchUnavailableIsTypedAndDiscoverable(t *testing.T) {
 	client := NewClient(server.Client(), Auth{})
 	feed, err := client.ListRoot(context.Background(), server.URL)
 	require.NoError(t, err)
-	assert.False(t, SupportsSearch(feed), "feed without a search link reported search support")
+	assert.Empty(t, linkByRel(feed.Links, "search"), "feed without a search link advertised search")
 	_, err = client.Search(context.Background(), server.URL, "book")
 	assert.ErrorIs(t, err, ErrSearchUnavailable)
 }
@@ -317,26 +317,27 @@ func TestLanguageIDMatchesISO639PeriodQualifiedGreekNames(t *testing.T) {
 	}
 }
 
-// TestLanguageIDsDeriveIdentifiersFromLanguageLinks pins each way a language
+// TestLanguageIDDerivesIdentifiersFromLanguageLinks pins each way a language
 // navigation entry can advertise its identifier, through the public language
 // seam, so splitting identification into private steps cannot change it.
-func TestLanguageIDsDeriveIdentifiersFromLanguageLinks(t *testing.T) {
+func TestLanguageIDDerivesIdentifiersFromLanguageLinks(t *testing.T) {
 	acquired := Link{Rel: AcquisitionRel, Type: EPUBMediaType, Href: "/one.epub"}
 	tests := []struct {
 		name  string
 		entry Entry
-		want  []string
+		want  string
 	}{
-		{name: "subsection link with a trailing slash", entry: Entry{Links: []Link{{Rel: "subsection", Href: "/language/7/"}}}, want: []string{"7"}},
-		{name: "alternate link whose whole path is numeric", entry: Entry{Links: []Link{{Rel: "alternate", Href: "/8"}}}, want: []string{"8"}},
-		{name: "atom link without an EPUB acquisition", entry: Entry{Links: []Link{{Type: "application/atom+xml", Href: "/language/9"}}}, want: []string{"9"}},
-		{name: "atom link alongside an EPUB acquisition", entry: Entry{Links: []Link{{Type: "application/atom+xml", Href: "/language/10"}, acquired}}, want: []string{}},
-		{name: "unparseable link target", entry: Entry{Links: []Link{{Rel: "subsection", Href: "%"}}}, want: []string{}},
-		{name: "non-numeric language path", entry: Entry{Links: []Link{{Rel: "subsection", Href: "/language/german"}}}, want: []string{}},
+		{name: "subsection link with a trailing slash", entry: Entry{Links: []Link{{Rel: "subsection", Href: "/language/7/"}}}, want: "7"},
+		{name: "alternate link whose whole path is numeric", entry: Entry{Links: []Link{{Rel: "alternate", Href: "/8"}}}, want: "8"},
+		{name: "atom link without an EPUB acquisition", entry: Entry{Links: []Link{{Type: "application/atom+xml", Href: "/language/9"}}}, want: "9"},
+		{name: "atom link alongside an EPUB acquisition", entry: Entry{Links: []Link{{Type: "application/atom+xml", Href: "/language/10"}, acquired}}, want: ""},
+		{name: "unparseable link target", entry: Entry{Links: []Link{{Rel: "subsection", Href: "%"}}}, want: ""},
+		{name: "non-numeric language path", entry: Entry{Links: []Link{{Rel: "subsection", Href: "/language/german"}}}, want: ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, LanguageIDs(Feed{Entries: []Entry{tt.entry}}))
+			tt.entry.Title = "German"
+			require.Equal(t, tt.want, LanguageID(Feed{Entries: []Entry{tt.entry}}, "de", "German"))
 		})
 	}
 }

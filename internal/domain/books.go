@@ -326,14 +326,6 @@ func (d BookDisposition) Validate() error {
 	}
 }
 
-func NewBook(ownerID, title, metadataProvenance, languageState, languageTag string) (Book, error) {
-	if languageState == LanguageChosen {
-		languageTag = canonicalization.NormalizeLanguage(languageTag)
-	}
-	b := Book{OwnerID: ownerID, Title: title, MetadataProvenance: metadataProvenance, LanguageState: languageState, LanguageTag: languageTag}
-	return b, b.Validate()
-}
-
 func (b Book) Validate() error {
 	if strings.TrimSpace(b.OwnerID) == "" {
 		return errors.New("domain: book owner is required")

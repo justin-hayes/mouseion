@@ -26,7 +26,6 @@ func TestImportedMainTextFixtureAnalysisExcludesAncillaryText(t *testing.T) {
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "analysis store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "main-text-e2e", false)
 	require.NoError(t, err)
 
@@ -125,7 +124,6 @@ func TestImportedGutenbergFixtureAnalysisExcludesDistributorText(t *testing.T) {
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "analysis store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "gutenberg-e2e", false)
 	require.NoError(t, err)
 

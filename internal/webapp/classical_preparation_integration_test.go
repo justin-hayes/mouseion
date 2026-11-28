@@ -94,7 +94,6 @@ func preparationHarnessForSource(t *testing.T, source preparationSource, transla
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	data, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", source.file))
 	require.NoError(t, err)

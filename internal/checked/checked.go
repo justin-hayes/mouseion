@@ -4,7 +4,6 @@ package checked
 import (
 	"errors"
 	"math"
-	"strconv"
 )
 
 var ErrOverflow = errors.New("integer conversion overflow")
@@ -30,21 +29,6 @@ func IntFromInt64(value int64) (int, error) {
 		return 0, ErrOverflow
 	}
 	// The range check above makes this narrowing conversion safe.
-	return int(value), nil
-}
-
-// IntFromFloat64 accepts only finite, integral values representable by int.
-func IntFromFloat64(value float64) (int, error) {
-	if math.IsNaN(value) || math.IsInf(value, 0) || math.Trunc(value) != value || value < float64(math.MinInt) {
-		return 0, ErrOverflow
-	}
-	if strconv.IntSize == 32 && value > float64(math.MaxInt32) {
-		return 0, ErrOverflow
-	}
-	// float64(math.MaxInt64) rounds up to 2^63, which is not representable by int.
-	if strconv.IntSize == 64 && value >= float64(math.MaxInt64) {
-		return 0, ErrOverflow
-	}
 	return int(value), nil
 }
 

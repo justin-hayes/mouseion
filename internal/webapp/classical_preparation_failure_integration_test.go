@@ -105,7 +105,6 @@ func newClassicalFailureHarness(t *testing.T, opts classicalFailureOptions) *cla
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	data := opts.data
 	if data == nil {

@@ -111,16 +111,6 @@ func openProvider() (enrichment.LLMConfig, *enrichment.TranslationCodec, *enrich
 	return cfg, codec, client, nil
 }
 
-// runWithEnvironment is run for the contextual Gloss review with an injectable
-// environment for tests.
-func runWithEnvironment(ctx context.Context, args []string, output io.Writer, open reviewEnvironmentOpener) error {
-	options, err := parseReviewCommand(args)
-	if err != nil {
-		return err
-	}
-	return executeGlossCommand(ctx, options, output, open)
-}
-
 // parseReviewCommand parses the shared flags and resolves the dated report
 // header. An explicit date keeps a re-rendered report reproducible; otherwise
 // the command uses UTC today.

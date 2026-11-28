@@ -126,11 +126,6 @@ const (
 	FeedbackError   FeedbackKind = "error"
 )
 
-type MetadataItem struct {
-	Term        string
-	Description string
-}
-
 type catalogueSyncConnectionView struct {
 	HasStatus       bool
 	State           string
@@ -259,18 +254,6 @@ func confirmationClass(tone StatusTone) string {
 		return "confirmation confirmation--danger"
 	}
 	return "confirmation"
-}
-
-func legacyMyBooks(books []domain.SourceMaterialSummary) []domain.MyBook {
-	out := make([]domain.MyBook, 0, len(books))
-	for _, source := range books {
-		bookID := source.BookID
-		if bookID == "" {
-			bookID = source.Source.ID
-		}
-		out = append(out, domain.MyBook{Book: domain.Book{ID: bookID, OwnerID: source.Source.OwnerID, Title: canonicalBookTitle(source), Author: source.BookAuthor, LanguageState: domain.LanguageChosen, LanguageTag: source.Source.Language}, Acquired: &source})
-	}
-	return out
 }
 
 type bookLifecycleAction struct {

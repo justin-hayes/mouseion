@@ -53,7 +53,6 @@ func newAcquisitionHandlerFixture(t *testing.T) acquisitionHandlerFixture {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 	authService := auth.New(store, time.Hour)
 	owner := createAccount(t, ctx, store, "acquisition-handler-owner", "owner-password")
 

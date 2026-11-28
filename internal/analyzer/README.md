@@ -3,8 +3,8 @@
 `Analyzer` accepts one complete source document per call and returns
 project-owned sentences, tokens, provenance, normalization metadata, and source
 locations. Core packages use these types; generated Protobuf types are confined
-to `ToProto` and `FromProto`, which bridge analysis results to the versioned
-normalized-corpus artifact.
+to `FromProto`, which bridges the versioned normalized-corpus artifact to
+analysis results.
 
 Every token supplies the ADR 0005 identity inputs: the result language, a
 canonical lemma derived under the declared normalization profile, and a coarse

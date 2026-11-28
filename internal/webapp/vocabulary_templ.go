@@ -8,30 +8,6 @@ package webapp
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import (
-	"github.com/justin-hayes/mouseion/internal/domain"
-)
-
-func vocabularyBrowseState(row domain.VocabularyBrowseRow) string {
-	switch row.StudyState {
-	case domain.VocabularyStudyMature:
-		return "Mature"
-	case domain.VocabularyStudyInStudy:
-		return "In study"
-	}
-	return "Not yet introduced"
-}
-
-func vocabularyBookEvidenceState(book domain.VocabularyBrowseBook) string {
-	if book.HasVocabularyEvidence {
-		return "Contributes current eligible vocabulary evidence"
-	}
-	if book.HasCurrentAnalysis {
-		return "Current analysis; no eligible vocabulary occurrences"
-	}
-	return "No current completed analysis"
-}
-
 // VocabularyPageHeader titles the single Vocabulary destination. Concordance is
 // the only view left, so there is no peer-view navigation.
 func VocabularyPageHeader() templ.Component {

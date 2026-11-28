@@ -56,7 +56,7 @@ func TestAncientGreekSentenceStudyShowsConstructions(t *testing.T) {
 	registration, err := registerGreekDefinition(t, ctx, store, learner.ID, greekTestDefinition())
 	require.NoError(t, err)
 	definition, sourcePath := fixtureImportFrom(t, "oga-src-constructions.conllu")
-	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	_, err = importGreekSource(ctx, greekImportRequest{
 		OwnerID: learner.ID, BookID: registration.BookID, SourcePath: sourcePath, Definition: definition,
 	}, analysis.NewGreekImportWriter(store))
 	require.NoError(t, err)
@@ -159,7 +159,7 @@ func TestImportedAbsentRunGetsNoConstructions(t *testing.T) {
 	definition, sourcePath := fixtureImportFrom(t, "oga-src-constructions.conllu")
 	legacy := &legacyGreekWriter{next: analysis.NewGreekImportWriter(store)}
 	legacy.legacy.Store(true)
-	_, err = ancientgreek.Import(ctx, ancientgreek.ImportRequest{
+	_, err = importGreekSource(ctx, greekImportRequest{
 		OwnerID: learner.ID, BookID: registration.BookID, SourcePath: sourcePath, Definition: definition,
 	}, legacy)
 	require.NoError(t, err)

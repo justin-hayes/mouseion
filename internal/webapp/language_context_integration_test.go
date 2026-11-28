@@ -26,11 +26,10 @@ func languageContextHandler(t *testing.T) (*Handler, []*http.Cookie, string, *pe
 	t.Setenv("MOUSEION_SECRET", "language-context-secret-0123456789")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)
-	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	owner := createAccount(t, ctx, store, "language-context", "learner-password")
 	book, _, _ := seedMigrationAnalyzedBook(t, ctx, store, owner.ID, "language-context", "Language context", []domain.LemmaOccurrence{{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN", OccurrenceCount: 3}})

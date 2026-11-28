@@ -3,23 +3,34 @@ package domain
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBookValidationLanguageState(t *testing.T) {
-	_, err := NewBook("owner", "Metadata only", MetadataProvenanceCatalogueSync, LanguageUnknown, "")
-	require.NoError(t, err, "unknown language book")
-	_, err = NewBook("owner", "Chosen language", MetadataProvenanceCatalogueSync, LanguageChosen, "de")
-	require.NoError(t, err, "chosen language book")
-	book, err := NewBook("owner", "Regional language", MetadataProvenanceCatalogueSync, LanguageChosen, "de_DE")
-	require.NoError(t, err)
-	assert.Equal(t, "de", book.LanguageTag)
-	for _, book := range []Book{
-		{OwnerID: "owner", Title: "Missing tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageChosen},
-		{OwnerID: "owner", Title: "Unexpected tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageUnknown, LanguageTag: "de"},
-		{OwnerID: "owner", Title: "Non-canonical tag", MetadataProvenance: MetadataProvenanceCatalogueSync, LanguageState: LanguageChosen, LanguageTag: "de-DE"},
-	} {
-		assert.Error(t, book.Validate(), "invalid book accepted: %+v", book)
+	const provenance = MetadataProvenanceCatalogueSync
+	valid := []struct {
+		name string
+		book Book
+	}{
+		{"unknown language", Book{OwnerID: "owner", Title: "Metadata only", MetadataProvenance: provenance, LanguageState: LanguageUnknown}},
+		{"chosen language", Book{OwnerID: "owner", Title: "Chosen language", MetadataProvenance: provenance, LanguageState: LanguageChosen, LanguageTag: "de"}},
+	}
+	for _, tt := range valid {
+		t.Run("accepts "+tt.name, func(t *testing.T) {
+			require.NoError(t, tt.book.Validate())
+		})
+	}
+	invalid := []struct {
+		name string
+		book Book
+	}{
+		{"missing tag", Book{OwnerID: "owner", Title: "Missing tag", MetadataProvenance: provenance, LanguageState: LanguageChosen}},
+		{"unexpected tag", Book{OwnerID: "owner", Title: "Unexpected tag", MetadataProvenance: provenance, LanguageState: LanguageUnknown, LanguageTag: "de"}},
+		{"non-canonical tag", Book{OwnerID: "owner", Title: "Non-canonical tag", MetadataProvenance: provenance, LanguageState: LanguageChosen, LanguageTag: "de-DE"}},
+	}
+	for _, tt := range invalid {
+		t.Run("rejects "+tt.name, func(t *testing.T) {
+			require.Error(t, tt.book.Validate())
+		})
 	}
 }

@@ -48,7 +48,6 @@ func newLatinFailureHarness(t *testing.T, behaviour *atomic.Pointer[latinServerB
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	build := buildLatinLoopArchive(t, "ola-failure-layer")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -97,7 +97,6 @@ func newAnalysisUpdateHarness(t *testing.T, ctx context.Context, name string) an
 	store, err := persistence.Open(ctx, url)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "analysis store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, name, false)
 	require.NoError(t, err)
 	pipeline := &pipelineFixture{reported: "1", produced: "1"}

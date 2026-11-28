@@ -161,7 +161,6 @@ func For(language string) (Profile, error) { return defaultRegistry.For(language
 func Lookup(language, version string) (Profile, error) {
 	return defaultRegistry.Lookup(language, version)
 }
-func Register(profile Profile, active bool) error { return defaultRegistry.Register(profile, active) }
 
 // Normalize derives a canonical lemma using the active language profile while
 // preserving the raw analyzer value and applied profile metadata.

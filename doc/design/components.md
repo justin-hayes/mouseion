@@ -45,19 +45,17 @@ markup.
 | Pattern           | Purpose                                                                    | Variants or states                                | Adopted surfaces                                           |
 | ----------------- | -------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------------- |
 | Application shell | Consistent landmarks, primary navigation, and skip navigation              | Authenticated and anonymous                       | Every full page                                            |
-| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Reading, Catalog, Jobs, Vocabulary |
-| `NextAction`      | Explain the current learner-facing lifecycle state and its next action      | State-specific description                         | My Books, Reading Journey |
-| `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the focused-task/Job workflow | Focused deck preparation and analysis status |
-| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, Goal and artifact surfaces            |
-| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, Jobs, Vocabulary                         |
-| `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
-| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Vocabulary           |
-| `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and Goal completion                            |
-| `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Book and job facts                                         |
-| `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and import rejection details                          |
-| `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis, catalog-sync, enrichment, and prepared-deck status |
-| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Goal completion and catalog connections                  |
-| Study language picker | Open the same kind of page in another study language (ADR 0131) | Current, newly arrived, no books/read-only | Per-language pages only: My Books, Reading, Vocabulary |
+| `PageHeader`      | Establish the page goal, context, and highest-priority action              | Optional description, status, and actions         | My Books, Catalog, Jobs, Study, Vocabulary |
+| `Breadcrumb`      | Return from a nested resource to its parent context                        | One parent link in the focused-task/Job workflow | Catalog source management and Classical catalog work |
+| `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Book detail, My Books, Catalog, and Jobs                  |
+| `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Book detail, My Books, Catalog, Jobs, Vocabulary         |
+| `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | My Books, Catalog, Jobs, Vocabulary                      |
+| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | Book detail summary and My Books' current Book (page markup using the `resource-card` class) |
+| `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Jobs, Catalog, and Classical catalog                     |
+| `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Book detail, Classical catalog, Vocabulary, and Jobs     |
+| `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis and catalog-sync status on Jobs                  |
+| `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | My Books, Catalog connections, and analysis or source-structure updates |
+| Study language picker | Open the same kind of page in another study language (ADR 0131) | Current, newly arrived, no books/read-only | Per-language pages only: My Books, Study, Vocabulary |
 
 ### Vocabulary Browse controls
 
@@ -601,7 +599,6 @@ At the compact breakpoint:
   adjacent to the affected book;
 - labeled forecast values stack in document order rather than compressing into
   unreadable columns;
-- metadata lists use a single column;
 - buttons remain native controls and may occupy the available width where the
   surrounding workflow requires it.
 
@@ -652,20 +649,6 @@ Use one concise title, an optional task-oriented description, an optional
 non-interactive status, and at most one primary action group. Status belongs
 with page identity rather than in the action slot. Do not place long metadata,
 warnings, progress, or multiple resource actions in the header.
-
-### `NextAction`
-
-Use a concise state description to make the learner-facing lifecycle state
-explicit. The action itself remains a native link or form button owned by the
-screen; the summary must not introduce a second competing route. My Books rows
-keep metadata-only actions local to the row. Reading Journey names the
-intent-triggered ensure-once analysis consequence and owns **Re-analyze** for
-stale members.
-
-On Journey surfaces, `NextAction` must not turn the first provisional book or a
-forecast value into a recommendation. Use plain relationship copy such as
-**First in your current order** and learner-controlled actions such as **Choose
-as Primary Goal**.
 
 ### `Breadcrumb`
 
@@ -726,10 +709,12 @@ Group actions that affect the same resource or transition. The primary action
 comes first in document order. Destructive or abandonment actions are visually
 secondary and use `Confirmation` when the consequence is material.
 
-### `MetadataList`
+### Metadata list (pattern)
 
-Use native `dl`, `dt`, and `dd` for stable term-value facts. Do not use it for a
-sequence of actions or for unrelated paragraph content.
+Use native `dl`, `dt`, and `dd` for stable term-value facts. Jobs renders it via
+`OperationalJobMetadata` (`.operational-metadata`). It is a markup pattern, not a
+shared component. Do not use it for a sequence of actions or for unrelated
+paragraph content.
 
 ### `ResponsiveTable`
 

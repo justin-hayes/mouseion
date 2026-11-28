@@ -28,7 +28,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
-	"github.com/riverqueue/river/rivermigrate"
 	"github.com/riverqueue/river/rivertype"
 )
 
@@ -119,10 +118,6 @@ const (
 	// mainTextDistributorConfigIdentity identifies a run where landmark and
 	// Distributor rules both exclude something.
 	mainTextDistributorConfigIdentity = "selection-maintext-landmarks-distributor-gutenberg-v1"
-	// Version 2 identifies the current ordinary analysis contract, including
-	// lemma-boundary cleanup. Bump it whenever ordinary normalization or
-	// analyzer output semantics change.
-	ordinaryAnalysisContractVersion = "2"
 )
 
 type Service struct {
@@ -2105,10 +2100,6 @@ func requireDependencyParsing(ctx context.Context, provider analyzer.CapabilityP
 	return fmt.Errorf("%w for language %q", ErrDependencyParsingUnavailable, language)
 }
 
-func ordinaryAnalysisIdentity(contentHash string) string {
-	return fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(contentHash+"\x00"+ordinaryAnalysisContractVersion)))
-}
-
 func normalizedArtifactHash(contentHash, scopeID, analysisIdentity, analyzerName, analyzerVersion, configIdentity string, result analyzer.Result) string {
 	identity := strings.Join([]string{
 		contentHash,
@@ -2202,16 +2193,4 @@ func configuredJobTimeout() (time.Duration, error) {
 		return 0, fmt.Errorf("%s must be a positive Go duration: %q", jobTimeoutEnv, value)
 	}
 	return timeout, nil
-}
-
-func MigrateRiver(ctx context.Context, pool *pgxpool.Pool) error {
-	m, err := rivermigrate.New(riverpgxv5.New(pool), nil)
-	if err != nil {
-		return fmt.Errorf("initialize River migrations: %w", err)
-	}
-	_, err = m.Migrate(ctx, rivermigrate.DirectionUp, nil)
-	if err != nil {
-		return fmt.Errorf("apply River migrations: %w", err)
-	}
-	return nil
 }

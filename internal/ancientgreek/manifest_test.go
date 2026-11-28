@@ -13,7 +13,7 @@ import (
 func TestProposeUnitsSplitsByTopLevelCitation(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "oga-src-book1.conllu"))
 	require.NoError(t, err)
-	units, err := ProposeUnits(data)
+	units, err := mustManifestSource(t, data).ProposeUnits()
 	require.NoError(t, err)
 	require.Len(t, units, 2)
 	assert.Equal(t, UnitRange{Start: "1.1.1", End: "1.1.2"}, units[0])
@@ -23,7 +23,7 @@ func TestProposeUnitsSplitsByTopLevelCitation(t *testing.T) {
 func TestSummarizeUnitDerivesPrintedWordsAndTheOpening(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "oga-src-book1.conllu"))
 	require.NoError(t, err)
-	summary, err := SummarizeUnit(data, "1.1.1", "1.1.2")
+	summary, err := mustManifestSource(t, data).SummarizeUnit("1.1.1", "1.1.2")
 	require.NoError(t, err)
 	assert.Equal(t, 8, summary.WordCount, "punctuation and ellipsis tokens are not words")
 	assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", summary.Opening, "the Opening uses the importer's reconstruction")
@@ -32,7 +32,7 @@ func TestSummarizeUnitDerivesPrintedWordsAndTheOpening(t *testing.T) {
 func TestSummarizeUnitRefusesAnEmptyRange(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "oga-src-book1.conllu"))
 	require.NoError(t, err)
-	_, err = SummarizeUnit(data, "3.1.1", "3.1.2")
+	_, err = mustManifestSource(t, data).SummarizeUnit("3.1.1", "3.1.2")
 	var refusal *ImportError
 	require.ErrorAs(t, err, &refusal)
 	assert.Equal(t, CodeEmptyCitationRange, refusal.Code)
@@ -53,7 +53,7 @@ func TestSummarizeUnitSkipsASpeakerLabel(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			labeled := append(sourceSentenceBytes(test.surface, test.lemma, test.elliptical), data...)
-			summary, err := SummarizeUnit(labeled, "1.1.1", "1.1.2")
+			summary, err := mustManifestSource(t, labeled).SummarizeUnit("1.1.1", "1.1.2")
 			require.NoError(t, err)
 			assert.Equal(t, "λέγει Κῦρος· καὶ λέγουσι;", summary.Opening)
 		})
@@ -61,7 +61,7 @@ func TestSummarizeUnitSkipsASpeakerLabel(t *testing.T) {
 }
 
 func TestSummarizeUnitRefusesASpeakerLabelOnlyUnit(t *testing.T) {
-	_, err := SummarizeUnit(sourceSentenceBytes("ΜΕΝ", "μεν", true), "1.1.1", "1.1.1")
+	_, err := mustManifestSource(t, sourceSentenceBytes("ΜΕΝ", "μεν", true)).SummarizeUnit("1.1.1", "1.1.1")
 	var refusal *ImportError
 	require.ErrorAs(t, err, &refusal)
 	assert.Equal(t, CodeOpeningMissing, refusal.Code)
@@ -71,17 +71,17 @@ func TestSummarizeUnitRefusesInvalidInputs(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join("testdata", "oga-src-book1.conllu"))
 	require.NoError(t, err)
 	t.Run("malformed source", func(t *testing.T) {
-		_, err := SummarizeUnit([]byte("not a source\n"), "1.1.1", "1.1.2")
+		_, err := ParseManifestSource([]byte("not a source\n"))
 		require.Error(t, err)
 	})
 	t.Run("invalid boundary", func(t *testing.T) {
-		_, err := SummarizeUnit(data, "not-a-citation", "1.1.2")
+		_, err := mustManifestSource(t, data).SummarizeUnit("not-a-citation", "1.1.2")
 		require.Error(t, err)
 	})
 	t.Run("no printed words", func(t *testing.T) {
 		ellipsisOnly := []byte("# source = Xenophon, Xen. Anab._1.1.1\n# text = [0]\n# sent_id = 1\n" +
 			"1\t[0]\t[0]\t-\t---------\t_\t0\tPRED\t_\te_1|0|ref=Xen. Anab._1.1.1\n\n")
-		_, err := SummarizeUnit(ellipsisOnly, "1.1.1", "1.1.1")
+		_, err := mustManifestSource(t, ellipsisOnly).SummarizeUnit("1.1.1", "1.1.1")
 		var refusal *ImportError
 		require.ErrorAs(t, err, &refusal)
 		assert.Equal(t, CodeEmptyCitationRange, refusal.Code)
@@ -122,4 +122,11 @@ func TestInspectTranslationAlignsTheWholeRange(t *testing.T) {
 	var refusal *ImportError
 	require.ErrorAs(t, err, &refusal)
 	assert.Equal(t, CodeMalformed, refusal.Code)
+}
+
+func mustManifestSource(t *testing.T, data []byte) *ManifestSource {
+	t.Helper()
+	source, err := ParseManifestSource(data)
+	require.NoError(t, err)
+	return source
 }

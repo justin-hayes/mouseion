@@ -101,7 +101,7 @@ func TestAdaptTreatsDanglingAndCyclicHeadsAsRoot(t *testing.T) {
 	})
 }
 
-func TestTreeLooksThroughCoordinationInBothDirections(t *testing.T) {
+func TestTreeLooksDownThroughCoordination(t *testing.T) {
 	tree := coordinated()
 	t.Run("children look down through the coordination", func(t *testing.T) {
 		assert.Equal(t, []int{2, 3, 4}, tree.EffectiveChildren(0, syntax.CategoryObject, syntax.CategorySubordinatingConjunction))
@@ -110,15 +110,8 @@ func TestTreeLooksThroughCoordinationInBothDirections(t *testing.T) {
 	t.Run("the coordination node itself is never an effective child", func(t *testing.T) {
 		assert.NotContains(t, tree.EffectiveChildren(0), 1)
 	})
-	t.Run("head looks up through the coordination", func(t *testing.T) {
-		assert.Equal(t, 0, tree.EffectiveHead(2))
-		assert.Equal(t, 0, tree.EffectiveHead(3))
-	})
 	t.Run("the stored head is unchanged", func(t *testing.T) {
 		assert.Equal(t, 1, tree.Nodes[2].Head)
-	})
-	t.Run("the root has no effective head", func(t *testing.T) {
-		assert.Equal(t, syntax.Root, tree.EffectiveHead(0))
 	})
 }
 

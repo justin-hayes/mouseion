@@ -282,14 +282,6 @@ type Handler struct {
 	languagePages map[string]languagePrefixed
 }
 
-func New(s Services) *Handler {
-	h, err := NewWithError(s)
-	if err != nil {
-		panic(err)
-	}
-	return h
-}
-
 func NewWithError(s Services) (*Handler, error) {
 	if err := deploysecret.ValidateSecret(os.Getenv("MOUSEION_SECRET")); err != nil {
 		return nil, fmt.Errorf("webapp: validate MOUSEION_SECRET: %w", err)

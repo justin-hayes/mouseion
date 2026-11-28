@@ -475,12 +475,6 @@ var contextualGlossPayloadFields = []string{
 	"target_word", "example_sentence", "candidate_senses",
 }
 
-// ContextualGlossPayloadFields returns a copy of the ordered field set a
-// contextual Gloss request transmits.
-func ContextualGlossPayloadFields() []string {
-	return slices.Clone(contextualGlossPayloadFields)
-}
-
 // latinEvidenceAssistedPassPayloadFields is the exact ordered field set a
 // Classical Latin evidence-assisted pass request transmits. Its candidate_senses
 // carry a short entry handle beside each short evidence handle. It is the

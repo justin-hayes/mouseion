@@ -439,10 +439,9 @@ overflow.
   separate surfaces. Run-specific result URLs redirect to the canonical Book
   anchor for members or return 404 otherwise; deck work follows the focused
   preparation task and its retained analysis provenance.
-- Scope review is a calm native checklist: reliable top-level TOC choices or a
-  flat readable-unit fallback, all checked initially, with explicit bulk
-  check/uncheck controls and a selected-scope summary. It is not an evidence
-  dashboard.
+- Scope review is a calm native checklist of readable units, all checked
+  initially, with explicit bulk check/uncheck controls and a selected-scope
+  summary. It is not an evidence dashboard.
 - Starting, switching, ending, and finishing current reading
   retain distinct consequential confirmations; snapshot and completion behavior
   remains governed by the applicable ADRs.

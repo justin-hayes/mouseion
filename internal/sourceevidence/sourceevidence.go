@@ -260,27 +260,6 @@ func lsjEntryPassSenses(entry Entry) []enrichment.LexicalSense {
 	return senses
 }
 
-// LatinCitedSenseIDs returns the native sense IDs a Latin pass answer cited, in
-// order. It reports false when a cited ID names no entry, or a sense the named
-// entry does not hold.
-func LatinCitedSenseIDs(entries []Entry, citedIDs []string) ([]string, bool) {
-	native := make([]string, 0, len(citedIDs))
-	for _, id := range citedIDs {
-		entryID, senseID, ok := enrichment.SplitEntryEvidenceID(id)
-		if !ok {
-			return nil, false
-		}
-		held := slices.ContainsFunc(entries, func(entry Entry) bool {
-			return entry.ID == entryID && slices.ContainsFunc(entry.Senses, func(sense Sense) bool { return sense.ID == senseID })
-		})
-		if !held {
-			return nil, false
-		}
-		native = append(native, senseID)
-	}
-	return native, true
-}
-
 // HasOwnSense reports whether a Lewis & Short entry has a sense of its own: any
 // sense below the level-0 pseudo-sense that carries only its citations and
 // redirects.
@@ -423,9 +402,6 @@ type Passage struct {
 	// Pin is the pinned translation the text came from.
 	Pin string
 }
-
-// Empty reports whether no passage resolved.
-func (p Passage) Empty() bool { return p.Text == "" }
 
 // TranslationStore is the resolver's seam to the installation's imported
 // passage translations. A Book's reading unit names the translation file it was

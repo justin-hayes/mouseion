@@ -147,5 +147,4 @@ func TestRetiredStudyOccurrenceRetiresTheWholeSentence(t *testing.T) {
 	assert.False(t, RetiredStudyOccurrence(retired, otherSentence), "another sentence is not retired")
 	assert.False(t, RetiredStudyOccurrence(retired, otherBook))
 	assert.False(t, RetiredStudyOccurrence(nil, reported))
-	assert.Equal(t, []StudyOccurrenceRef{otherSentence}, WithoutRetiredStudyOccurrences([]StudyOccurrenceRef{reported, otherToken, relocated, otherSentence}, retired))
 }
