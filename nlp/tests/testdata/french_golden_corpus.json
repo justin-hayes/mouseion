@@ -2,7 +2,7 @@
   "description": "Pinned-model golden corpus for French: the 47-string French regression corpus made of the #2152 probe's 17 approved inputs, 5 typographic-apostrophe copies and 25 extended inputs; the last five extended inputs add en-dash, horizontal-bar and lone-opening-guillemet dialogue. Expected sentences, tokens, lemmas and target anchors are the reviewed observations. Sentence boundaries include the ADR 0102 dialogue repairs that keep each string one complete sentence. Spans and sentence offsets are document-absolute Unicode code points. The 116 targets are the probe's eligible content tokens (NOUN/VERB/ADJ/ADV), including the ADV negation the product now excludes from vocabulary. 'word_bounded' and 'lemma_bounded' record whether the unchanged FoldedWordSpan matcher reached the target; 19 rely on the persisted-token anchor instead.",
   "model": {
     "model_version": "stanza-1.15.0-fr-combined",
-    "stanza_version": "1.15.0",
+    "stanza_version": "1.15.1",
     "processors": "tokenize,mwt,pos,lemma,depparse",
     "package": {"tokenize": "combined_nocharlm", "mwt": "combined", "pos": "combined_charlm", "lemma": "combined_nocharlm", "depparse": "combined_charlm"}
   },

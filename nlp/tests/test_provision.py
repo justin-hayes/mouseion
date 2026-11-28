@@ -4,13 +4,18 @@ import json
 from unittest.mock import patch
 
 import pytest
+import stanza
 from huggingface_hub.errors import LocalEntryNotFoundError
 
 from mouseion_nlp import provision as provision_module
 from mouseion_nlp.model_config import (
     GREEK_BERT_MODEL,
+    STANZA_MODEL_REVISIONS,
+    STANZA_RESOURCES_COMMIT,
+    STANZA_RESOURCES_URL,
     LanguageModelConfig,
     model_config_for_language,
+    stanza_model_url,
     stanza_pretrain_path,
 )
 from mouseion_nlp.provision import (
@@ -22,6 +27,7 @@ from mouseion_nlp.provision import (
     ensure_external_dependency,
     main,
     provision,
+    provisioned_stanza_version,
     read_marker,
     wipe_resources,
 )
@@ -75,11 +81,13 @@ def test_empty_directory_provisions_every_configured_language(tmp_path) -> None:
     provision(tmp_path, ["de", "it"], stanza_version=STANZA_VERSION, download=download)
 
     assert download.languages == ["de", "it"]
-    for _language, kwargs in download.calls:
+    for language, kwargs in download.calls:
         assert kwargs == {
             "model_dir": str(tmp_path),
             "processors": "tokenize,pos,lemma,depparse",
             "verbose": False,
+            "resources_url": STANZA_RESOURCES_URL,
+            "model_url": stanza_model_url(language),
         }
     marker = read_marker(tmp_path)
     assert (marker.stanza_version, marker.languages) == (STANZA_VERSION, ("de", "it"))
@@ -226,6 +234,8 @@ def test_greek_provisions_stanza_package_and_greekbert(tmp_path) -> None:
                 "model_dir": str(tmp_path),
                 "processors": "tokenize,mwt,pos,lemma,depparse",
                 "verbose": False,
+                "resources_url": STANZA_RESOURCES_URL,
+                "model_url": stanza_model_url("el"),
                 "package": {
                     "tokenize": "gdt",
                     "mwt": "gdt",
@@ -758,3 +768,32 @@ def test_read_marker_ignores_an_invalid_language_or_processor_shape(
     )
 
     assert read_marker(tmp_path) is None
+
+
+def test_languages_are_fetched_from_pinned_manifest_and_model_revision(tmp_path) -> None:
+    download = RecordingDownload()
+
+    provision(tmp_path, ["de", "it"], stanza_version=STANZA_VERSION, download=download)
+
+    for language, kwargs in download.calls:
+        assert kwargs["resources_url"].endswith(f"/stanza-resources/{STANZA_RESOURCES_COMMIT}")
+        assert kwargs["model_url"] == stanza_model_url(language)
+
+
+@pytest.mark.parametrize("language", ["de", "it", "el", "fr"])
+def test_model_url_pins_each_language_to_a_full_commit(language: str) -> None:
+    revision = STANZA_MODEL_REVISIONS[language]
+
+    assert len(revision) == 40
+    assert stanza_model_url(language) == (
+        f"https://huggingface.co/stanfordnlp/stanza-{language}/resolve/{revision}"
+        "/models/{filename}"
+    )
+    assert stanza_model_url("xx") is None
+
+
+def test_provisioned_version_changes_with_the_stanza_or_manifest_pin() -> None:
+    version = provisioned_stanza_version()
+
+    assert version.startswith(f"{stanza.__version__}+resources.")
+    assert version.endswith(STANZA_RESOURCES_COMMIT[:7])

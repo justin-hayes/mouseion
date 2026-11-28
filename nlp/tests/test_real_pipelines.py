@@ -57,3 +57,41 @@ def test_configured_pipeline_builds_and_analyzes_offline(language: str, sentence
     tokens = [token for analyzed in artifact.sentences for token in analyzed.tokens]
     assert tokens
     assert all(token.canonical_lemma for token in tokens)
+
+
+# A dialogue dash the Greek tagger labels SYM, followed by the pronoun `του`,
+# which Stanza's contextual lemma classifier disambiguates. Stanza 1.15.0 raised
+# ``KeyError: 'SYM'`` for this sentence because the classifier's UPOS table has
+# no SYM entry; 1.15.1 maps an unseen tag to the padding index.
+GREEK_SYM_WITH_CLASSIFIER_PRONOUN = (
+    "— Εσύ όλο μεγιστάνες και βασιλιάδες ονειρεύεσαι, είπε με παραξενιά ο Βασιλιάς, "
+    "που συλλογίζουνταν τα καράβια του και τον θείο του τον Βασιλιά και το γράμμα "
+    "του Λαγόκαρδου, και ήταν στις κακές του."
+)
+
+
+@requires_provisioned_models
+def test_greek_lemma_classifier_pronoun_with_sym_tagged_dash_does_not_fail() -> None:
+    from mouseion_nlp import producer as producer_module
+
+    environment = {"STANZA_RESOURCES_DIR": os.environ[STANZA_RESOURCES_ENV]}
+    producer_module._stanza_pipeline.cache_clear()
+    try:
+        with patch.dict(os.environ, environment, clear=False):
+            producer = Producer()
+            artifact = producer.analyze(GREEK_SYM_WITH_CLASSIFIER_PRONOUN, "el")
+            pipeline = producer_module._stanza_pipeline("el")
+            words = [
+                word
+                for sentence in pipeline(GREEK_SYM_WITH_CLASSIFIER_PRONOUN).sentences
+                for word in sentence.words
+            ]
+    finally:
+        producer_module._stanza_pipeline.cache_clear()
+
+    # Guard the premise: the dash is tagged SYM and a classifier pronoun is present.
+    assert any(word.upos == "SYM" for word in words)
+    assert any(word.text == "του" for word in words)
+    tokens = [token for analyzed in artifact.sentences for token in analyzed.tokens]
+    assert tokens
+    assert all(token.canonical_lemma for token in tokens)
