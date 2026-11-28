@@ -84,6 +84,7 @@ func TestAuthenticatedShellAccountDisclosureNamesLearnerAndKeepsLogoutNative(t *
 	assert.Contains(t, navigation, `<span class="site-header__account-compact">Account</span>`)
 	assert.Contains(t, navigation, `Signed in as <strong>learner</strong>`)
 	assert.Contains(t, navigation, `<summary`)
+	assert.Contains(t, navigation, `<a class="button button--outline button--quiet" href="/devices">Devices</a>`)
 	assert.Contains(t, navigation, `<form method="post" action="/logout"`)
 	assert.Contains(t, navigation, `<button class="button button--outline button--quiet" type="submit">Log out</button>`)
 }

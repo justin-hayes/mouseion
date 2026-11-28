@@ -631,6 +631,17 @@ type DeckPreparationVocabulary struct {
 	Headword             string
 }
 
+type Device struct {
+	ID         string
+	OwnerID    string
+	Name       string
+	Username   string
+	KeyHash    string
+	CreatedAt  time.Time
+	LastSeenAt pgtype.Timestamptz
+	RevokedAt  pgtype.Timestamptz
+}
+
 type Edition struct {
 	ID            string
 	WorkID        string

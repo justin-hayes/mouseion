@@ -127,6 +127,13 @@ type CatalogueReadStore interface {
 	MarkClassicalReadingUnitPreviouslyRead(context.Context, string, string) (domain.CatalogueReadResult, error)
 }
 
+// DevicesStore issues and lists the learner's Devices; *auth.DeviceService
+// satisfies it.
+type DevicesStore interface {
+	IssueDevice(context.Context, string, string) (auth.DeviceCredential, error)
+	ListDevices(context.Context, string) ([]domain.Device, error)
+}
+
 // JobsStore provides the one Book preparation list the jobs surface shows.
 type JobsStore interface {
 	ListBookPreparationJobs(context.Context, string) ([]domain.BookPreparationJob, error)
@@ -146,6 +153,7 @@ type StoreDependencies struct {
 	CatalogueRead CatalogueReadStore
 	Jobs          JobsStore
 	Study         StudyStore
+	Devices       DevicesStore
 }
 
 type csrfFailureContextKey struct{}
@@ -339,6 +347,8 @@ func NewWithError(s Services) (*Handler, error) {
 	h.mux.Handle("GET /settings", h.user(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/reading")
 	})))
+	h.mux.Handle("GET /devices", h.user(http.HandlerFunc(h.devices)))
+	h.mux.Handle("POST /devices", h.user(http.HandlerFunc(h.addDevice)))
 	h.mux.Handle("GET /catalogs", h.user(http.HandlerFunc(h.connections)))
 	h.mux.Handle("GET /catalogs/sources", h.user(http.HandlerFunc(h.manageSources)))
 	h.mux.Handle("POST /catalogs/sources", h.user(http.HandlerFunc(h.createConnection)))
