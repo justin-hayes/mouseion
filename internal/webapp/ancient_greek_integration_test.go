@@ -104,7 +104,6 @@ func ancientGreekHarness(t *testing.T) (context.Context, *persistence.PostgresSt
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 	authService := auth.New(store, time.Hour)
 	h := New(Services{
 		Auth:            authService,

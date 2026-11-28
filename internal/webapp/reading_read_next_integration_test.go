@@ -38,11 +38,10 @@ func newReadNextHarness(t *testing.T) *readNextHarness {
 	t.Setenv("MOUSEION_SECRET", "reading-read-next-secret-0123456789abcdef")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	t.Cleanup(cancel)
-	databaseURL, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	databaseURL, _ := testutil.Postgres(t, ctx, persistence.Migrate)
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 	owner := createAccount(t, ctx, store, "reading-read-next", "learner-password")
 	authService := auth.New(store, time.Hour)
 	h := New(Services{

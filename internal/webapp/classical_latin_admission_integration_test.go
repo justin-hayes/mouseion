@@ -73,7 +73,6 @@ func TestClassicalLatinAdmissionKeepsTokensOutOfVocabulary(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 
 	build := buildLatinLoopArchiveFrom(t, "ola-admission-layer", latinAdmissionConllu, latinAdmissionPaula())
 	server := &rangeServer{archive: build.archive}

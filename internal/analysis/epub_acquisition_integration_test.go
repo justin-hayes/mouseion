@@ -80,7 +80,6 @@ func newAcquisitionWorkerHarness(t *testing.T, serveEPUB bool) *acquisitionWorke
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "acquisition store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "acquisition-worker-"+time.Now().Format("150405.000000000"), false)
 	require.NoError(t, err)
 
@@ -424,7 +423,6 @@ func TestSubmitEPUBAcquisitionKeepsOneLiveJobPerBook(t *testing.T) {
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "acquisition submission store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "acquisition-submission", false)
 	require.NoError(t, err)
 	book, err := store.CreateBook(ctx, domain.Book{

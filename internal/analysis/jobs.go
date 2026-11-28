@@ -28,7 +28,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/txcleanup"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
-	"github.com/riverqueue/river/rivermigrate"
 	"github.com/riverqueue/river/rivertype"
 )
 
@@ -2202,16 +2201,4 @@ func configuredJobTimeout() (time.Duration, error) {
 		return 0, fmt.Errorf("%s must be a positive Go duration: %q", jobTimeoutEnv, value)
 	}
 	return timeout, nil
-}
-
-func MigrateRiver(ctx context.Context, pool *pgxpool.Pool) error {
-	m, err := rivermigrate.New(riverpgxv5.New(pool), nil)
-	if err != nil {
-		return fmt.Errorf("initialize River migrations: %w", err)
-	}
-	_, err = m.Migrate(ctx, rivermigrate.DirectionUp, nil)
-	if err != nil {
-		return fmt.Errorf("apply River migrations: %w", err)
-	}
-	return nil
 }
