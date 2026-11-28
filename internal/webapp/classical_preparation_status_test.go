@@ -76,25 +76,6 @@ func TestClassicalPreparationIgnoresPublishedAnalysis(t *testing.T) {
 	assert.False(t, ok, "a published analysis is ordinary evidence, not a preparation failure")
 }
 
-func TestClassicalPreparationReadingActionAndLabel(t *testing.T) {
-	t.Parallel()
-	book := classicalStatusBook(domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageFetch, CurrentRevision: 1})
-	item := readingBookView{Book: domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "greek", Title: "Anabasis"}}, BookID: "greek", ReadingUnit: book.ReadingUnit, ClassicalPreparation: book.ClassicalPreparation}
-	assert.Equal(t, classicalAssessmentUnavailable, readingEvidenceLabel(item))
-	assert.Contains(t, readingEvidenceDescription(item), "Retry acquisition")
-	action := readingAnalysisAction(item)
-	assert.Equal(t, classicalAssessmentUnavailable, action.Status)
-	assert.Equal(t, classicalRetryAcquisitionLabel, action.Label)
-	assert.Equal(t, "/reading/books/greek/reanalyze", action.URL)
-	assert.True(t, action.Submit)
-
-	terminal := readingBookView{Book: item.Book, BookID: "greek", ReadingUnit: book.ReadingUnit, ClassicalPreparation: &domain.ClassicalPreparationStatus{Stage: domain.BookPreparationStageSource, CurrentRevision: 1}}
-	action = readingAnalysisAction(terminal)
-	assert.Equal(t, classicalSourceMismatchLabel, action.Status)
-	assert.Empty(t, action.Label, "a terminal source failure offers no retry")
-	assert.False(t, action.Submit)
-}
-
 func TestClassicalPreparationRecoveryAfterCompletionOffersReadingAgain(t *testing.T) {
 	t.Parallel()
 	book := classicalStatusBook(domain.ClassicalPreparationStatus{Cleared: true, FailureRevision: 1, CurrentRevision: 2})
@@ -126,8 +107,6 @@ func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 		ReadingUnit: &domain.BookReadingUnit{ReadingUnitKey: "greek-1", Revision: 2, Withdrawn: true},
 	}
 	assert.Equal(t, domain.PreparationWithdrawn, withdrawn.classification().Preparation.State)
-	assert.Equal(t, classicalWithdrawnLabel, readingEvidenceLabel(withdrawn))
-	assert.Equal(t, readingEvidenceFailed, readingEvidenceState(withdrawn))
 
 	catalog := readingBookView{
 		Book:   domain.SourceMaterialSummary{Source: domain.SourceMaterial{ID: "greek"}},
@@ -136,6 +115,5 @@ func TestReadingClassicalWithdrawnFallbackAndCatalogState(t *testing.T) {
 			Stage: domain.BookPreparationStageCatalog, CurrentRevision: 1,
 		},
 	}
-	assert.Equal(t, readingEvidenceUnavailable, readingEvidenceState(catalog))
-	assert.Empty(t, readingAnalysisAction(catalog).Label)
+	assert.Equal(t, domain.PreparationCatalogUnavailable, catalog.classification().Preparation.State)
 }

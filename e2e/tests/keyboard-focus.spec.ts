@@ -25,7 +25,7 @@ async function openGermanReading(page: Page) {
 
 async function switchToRouteMatch(page: Page) {
   await openGermanReading(page);
-  const current = page.locator('.journey-book--goal');
+  const current = page.locator('.current-hero');
   const currentID = await current.count() ? await current.getAttribute('id') : null;
   if (!currentID) {
     await readNext(page, 'Route match: familiar German');
@@ -39,7 +39,7 @@ async function switchToRouteMatch(page: Page) {
 
 async function restoreFixtureBookCurrent(page: Page) {
   await openGermanReading(page);
-  const current = page.locator('.journey-book--goal');
+  const current = page.locator('.current-hero');
   const currentID = await current.count() ? await current.getAttribute('id') : null;
   if (currentID === 'journey-book-fixture-book') return;
   if (currentID) {
@@ -134,14 +134,28 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
   test('Reading keeps the pinned Current reading first and announces feedback', async ({ page }) => {
     await signIn(page);
     await page.goto('/de/reading?message=Journey%20updated');
-    const goalHeading = page.locator('.journey-book__title');
+    const goalHeading = page.locator('.current-hero__title');
     await expect(goalHeading).toBeVisible();
     await expect(page.getByRole('status').first()).toContainText('Journey updated');
     // The pinned Current reading precedes the To Read list.
     expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#library-results')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
-    const goalLink = page.locator('.journey-book--goal a').first();
-    await goalLink.focus();
-    await expect(goalLink).toBeFocused();
+    // Real Tab order in the hero: the title link, Open Book, then Finish and End.
+    // The cover link is aria-hidden and stays out of the tab order.
+    const titleLink = page.locator('.current-hero__title a');
+    await titleLink.focus();
+    await expect(titleLink).toBeFocused();
+    const focused = () => page.evaluate(() => {
+      const node = document.activeElement as HTMLElement;
+      return node.closest('.current-hero') ? node.textContent?.trim() : `outside: ${node.tagName}`;
+    });
+    expect(await focused()).toBe('Der lange Weg nach Hause');
+    const order: Array<string | undefined> = [];
+    for (let stop = 0; stop < 3; stop++) {
+      await page.keyboard.press('Tab');
+      order.push(await focused());
+    }
+    expect(order).toEqual(['Open Book', 'Mark reading finished', 'End current reading']);
+    await expect(page.locator('.current-hero__cover a')).toHaveAttribute('tabindex', '-1');
   });
 
   test('unassessed books offer no standalone analysis action on their detail page', async ({ page }) => {

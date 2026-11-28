@@ -849,8 +849,8 @@ test('Concordance disclosures, study return, and paging work across the 25-resul
     const retiredCampaignResponse = await page.goto('/campaigns?message=legacy-bookmark');
     expect(retiredCampaignResponse?.status()).toBe(404);
     await page.goto('/de/reading');
-    await expect(page.locator('.journey-book__title')).toBeVisible();
-    await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-label', 'Current reading');
+    await expect(page.locator('.current-hero__title')).toBeVisible();
+    await expect(page.locator('#primary-goal-section')).toHaveAttribute('aria-labelledby', 'current-reading-title');
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
     await expect(page.locator('#campaign-operations-heading')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Start learning' })).toHaveCount(0);

@@ -25,6 +25,8 @@ type readingBookView struct {
 	Coverage                *domain.AnalysisCoverage
 	StatisticsUnavailable   bool
 	CountsUpdating          bool
+	// LanguageMissing is true when the Book has no chosen Book language.
+	LanguageMissing bool
 }
 
 func readingBookAnchorID(bookID string) string {
@@ -85,134 +87,6 @@ func (item readingBookView) classification() domain.BookEvidenceClassification {
 		domain.ClassicalPreparationSignalFor(item.ClassicalPreparation, item.ReadingUnit))
 }
 
-// readingEvidenceState combines the Book's evidence classification with whether
-// its coverage statistics are available to present.
-func readingEvidenceState(item readingBookView) readingEvidenceStatus {
-	classification := item.classification()
-	if classification.Preparation.Applies() {
-		return readingEvidenceStatusFor(classification, false)
-	}
-	if item.CountsUpdating && classification.Evidence == domain.BookAnalyzed {
-		return readingEvidenceUpdating
-	}
-	return readingEvidenceStatusFor(classification, item.Coverage != nil && !item.StatisticsUnavailable)
-}
-
-func readingEvidenceLabel(item readingBookView) string {
-	classification := item.classification()
-	if classification.Preparation.Applies() {
-		return classicalPreparationViewFor(classification).Label
-	}
-	switch readingEvidenceState(item) {
-	case readingEvidenceStale:
-		return "Stale evidence"
-	case readingEvidenceIncomplete:
-		return "Incomplete evidence"
-	case readingEvidenceFailed:
-		return "Analysis failed"
-	case readingEvidenceUnavailable:
-		return "Evidence unavailable"
-	case readingEvidencePublishing:
-		return analysisPublicationPendingLabel
-	case readingEvidenceUpdating:
-		return "Updating"
-	case readingEvidenceCurrent:
-		return ""
-	default:
-		return ""
-	}
-}
-
-func readingEvidenceDescription(item readingBookView) string {
-	classification := item.classification()
-	if classification.Preparation.Applies() {
-		return classicalPreparationViewFor(classification).Description
-	}
-	switch readingEvidenceState(item) {
-	case readingEvidenceStale:
-		return "The current content no longer matches this analysis. Re-analyze the book to refresh its evidence."
-	case readingEvidenceIncomplete:
-		if item.Book.EvidenceClassification().RunFinished() {
-			return analysisPublicationPendingDescription
-		}
-		return "A completed analysis has not produced usable coverage for this book yet."
-	case readingEvidenceFailed:
-		return "The last analysis failed. Retry analysis to produce current evidence."
-	case readingEvidenceUnavailable:
-		return "Current book content is unavailable, so coverage cannot be calculated."
-	case readingEvidencePublishing:
-		return analysisPublicationPendingDescription
-	case readingEvidenceUpdating:
-		return vocabularyCountsUpdatingDescription
-	case readingEvidenceCurrent:
-		return ""
-	default:
-		return ""
-	}
-}
-
-func readingAnalysisAction(item readingBookView) bookLifecycleAction {
-	bookID := readingBookID(item)
-	classification := item.classification()
-	if classification.Preparation.Applies() {
-		view := classicalPreparationViewFor(classification)
-		action := bookLifecycleAction{Status: view.Label, Description: view.Description, Tone: classicalPreparationTone(classification)}
-		if view.Actionable {
-			action.Label = view.Recovery
-			action.URL = readingReanalyzeURL(bookID)
-			action.Submit = true
-		}
-		return action
-	}
-	if !classification.Content.IsCurrentContent() {
-		return bookLifecycleAction{
-			Status:      "Assessment unavailable",
-			Description: "No current EPUB content is available for this book in Reading. Retry acquisition when the catalog can provide it.",
-			Label:       "Retry acquisition",
-			URL:         readingReanalyzeURL(bookID),
-			Submit:      true,
-			Tone:        StatusWarning,
-		}
-	}
-	action := bookLifecycleActionFor(item.Book)
-	switch readingEvidenceState(item) {
-	case readingEvidencePublishing:
-		// A finished run awaiting publication has no recovery action; retrying
-		// would only rerun analysis the publisher is already completing.
-		return bookLifecycleAction{Status: analysisPublicationPendingLabel, Description: analysisPublicationPendingDescription, Tone: StatusInfo}
-	case readingEvidenceFailed:
-		action.Status = "Analysis failed"
-		action.Description = readingEvidenceDescription(item)
-		action.Label = "Retry analysis"
-		action.URL = readingReanalyzeURL(bookID)
-		action.Submit = true
-		action.Tone = StatusDanger
-		return action
-	case readingEvidenceIncomplete:
-		// A newer run shadowed by a published analysis is secondary information;
-		// it keeps its own status and Retry rather than the coverage message.
-		if action.Status != "Analysis queued" && action.Status != "Analysis running" && !classification.ReAnalysisShadowed() {
-			action.Status = "Analysis incomplete"
-			action.Description = readingEvidenceDescription(item)
-			action.Label = "Retry analysis"
-			action.URL = readingReanalyzeURL(bookID)
-			action.Submit = true
-			action.Tone = StatusWarning
-			return action
-		}
-	case readingEvidenceCurrent, readingEvidenceStale, readingEvidenceUnavailable, readingEvidenceUpdating:
-	}
-	if action.Status == "Analysis not started" {
-		action.Label = "Retry analysis"
-		action.URL = readingReanalyzeURL(bookID)
-		action.Submit = true
-	} else if action.Status == "Analysis result ready" && analysisReadyForReading(item.Book) {
-		action.URL = readingBookURL(item.Book.Source.Language, bookID)
-		action.Label = "View in Reading"
-	}
-	return action
-}
-
 type readingPageView struct {
 	Language       string
 	LanguageLabel  string
@@ -267,6 +141,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 	coverByBookID := make(map[string]domain.BookCover)
 	readingUnitByID := make(map[string]*domain.BookReadingUnit, len(books))
 	classicalPreparationByID := make(map[string]*domain.ClassicalPreparationStatus, len(books))
+	languageMissingByID := make(map[string]bool, len(books))
 	for _, book := range books {
 		bookByID[book.Source.ID] = book
 	}
@@ -278,6 +153,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		coverByBookID[myBook.Book.ID] = myBook.Cover
 		readingUnitByID[myBook.Book.ID] = myBook.ReadingUnit
 		classicalPreparationByID[myBook.Book.ID] = myBook.ClassicalPreparation
+		languageMissingByID[myBook.Book.ID] = myBook.Book.LanguageState != domain.LanguageChosen
 		if myBook.Acquired != nil {
 			book := *myBook.Acquired
 			book.BookTitle = myBook.Book.Title
@@ -306,6 +182,7 @@ func (h *Handler) buildReadingView(ctx context.Context, owner, language string) 
 		book.ReadingUnit = readingUnitByID[currentReading.BookID]
 		book.ClassicalPreparation = classicalPreparationByID[currentReading.BookID]
 		book.Cover = coverByBookID[currentReading.BookID]
+		book.LanguageMissing = languageMissingByID[currentReading.BookID]
 		book.ReadingSince = currentReading.CreatedAt
 		if err := h.addReadingEvidence(ctx, owner, &book); err != nil {
 			return readingPageView{}, err

@@ -353,7 +353,7 @@ Book adds its Work title, Edition label, position and Classical catalog
 provenance, and two Editions of one Work are two rows told apart by their
 Edition labels. Each row carries the ordinary per-Book Analysis update notice;
 there is no Work-level move, removal or update. Filters count Books.
-Reading pins the Current reading at the top with its progress toward Target
+Reading opens with the Current reading hero, with its progress toward Target
 coverage, then lists To Read and Read; analysis evidence beyond coverage bands
 lives on the Book detail page and `/jobs`.
 
@@ -366,8 +366,9 @@ Reading answers questions in this order:
 3. What current coverage evidence is available for each candidate?
 4. What happens to my modeled vocabulary when I finish the current Book?
 
-Current reading is visually distinct but remains book-led rather than a large
-metric card. The between-Books chooser lists candidates in neutral title order
+Current reading is visually distinct and book-led: a cover-led hero whose two
+coverage figures are the one oversized-metric exception (`components.md`, Hero
+figure). The between-Books chooser lists candidates in neutral title order
 with one ordinary entry per Book; incomplete evidence stays distinct in that
 Book's margin, and each Book carries the ordinary per-Book Analysis update
 notice. No learner order,

@@ -101,7 +101,7 @@ func TestMyBooksPinsTheCurrentReadingAboveItsBooks(t *testing.T) {
 	pinned, other := strings.Index(html, `id="primary-goal-section"`), strings.Index(html, `aria-labelledby="book-title-other-book"`)
 	require.True(t, pinned >= 0 && other > pinned, "the Current reading is pinned above the Books: %s", html)
 	for _, want := range []string{
-		"data-current-reading-mature>92.5%</span>", "data-current-reading-in-study>95.0%</span>",
+		"data-current-reading-mature>92.5%</span>", "data-current-reading-in-study>95.0%</span>", "925 of 1,000 word occurrences are Mature.",
 		"About 1,234 more words to reach Target coverage (98%).",
 		`action="/reading/finish"`, `action="/reading/end"`,
 	} {

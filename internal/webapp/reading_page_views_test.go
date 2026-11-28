@@ -3,7 +3,6 @@ package webapp
 import (
 	"bytes"
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -40,11 +39,8 @@ func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 	assert.Contains(t, html, "Reading since")
 	assert.Contains(t, html, `<time datetime="2026-01-03">January 3, 2026</time>`)
 	assert.Contains(t, html, "Der lange Weg nach Hause")
-	sinceIndex := strings.Index(html, `<p class="journey-book__since">`)
-	titleIndex := strings.Index(html, `<h2 class="journey-book__title">`)
-	assert.True(t, sinceIndex >= 0 && sinceIndex < titleIndex, "Reading since must remain outside the Book title heading: %s", html)
-	assert.Contains(t, html, "By A. Reader")
-	assert.Contains(t, html, `class="journey-book__title-page journey-book__title-page--current"`)
+	assert.NotContains(t, html, "By A. Reader", "the hero shows the author without a byline")
+	assert.Contains(t, html, `<p class="current-hero__author">A. Reader</p>`)
 	assert.Contains(t, html, `class="journey-book__lifecycle"`)
 	assert.Contains(t, html, "Mark reading finished")
 	assert.NotContains(t, html, "Switch current reading", "Read next on Reading replaces Switch")
@@ -66,72 +62,8 @@ func TestIsCurrentReadingShowsNoReservedVocabularyOrDeck(t *testing.T) {
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	currentReading := testReadingBook("goal-state", "Goal state book", testAnalyzed)
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "Analysis</h2>")
+	assert.Contains(t, html, `class="current-hero"`)
 	assert.NotContains(t, html, "Book deck</h2>")
-}
-
-func TestReadingEvidenceActionsRemainAvailable(t *testing.T) {
-	stale := testReadingBook("stale", "Stale book", testStale)
-	stale.Book.Source.MediaType = "application/epub+zip"
-	stale.Book.Source.ContentRevisionID = "current-revision"
-	stale.Book.Source.ContentSnapshotID = "current-snapshot"
-	stale.Book.AnalysisRunID = "old-run"
-	stale.Book.CorpusID = "old-corpus"
-	action := readingAnalysisAction(stale)
-	assert.Equal(t, "Stale analysis", action.Status)
-	assert.Equal(t, "Re-analyze", action.Label)
-	assert.Equal(t, "/reading/books/stale/reanalyze", action.URL)
-	assert.True(t, action.Submit)
-	unassessed := testReadingBook("unassessed", "Unassessed book", testNotAnalyzed)
-	unassessed.Book.Source.MediaType = "application/epub+zip"
-	unassessed.Book.Source.ContentRevisionID = "revision"
-	unassessed.Book.Source.ContentSnapshotID = "snapshot"
-	action = readingAnalysisAction(unassessed)
-	assert.Equal(t, "Analysis incomplete", action.Status)
-	assert.Equal(t, "Retry analysis", action.Label)
-	assert.Equal(t, "/reading/books/unassessed/reanalyze", action.URL)
-	assert.True(t, action.Submit)
-
-	missingSnapshot := testReadingBook("missing-snapshot", "Missing snapshot", testNoContent)
-	missingSnapshot.Book.Source.MediaType = "application/epub+zip"
-	missingSnapshot.Book.Source.ContentRevisionID = "current-revision"
-	action = readingAnalysisAction(missingSnapshot)
-	assert.Equal(t, "Assessment unavailable", action.Status)
-	assert.Equal(t, "Retry acquisition", action.Label)
-
-	for _, test := range []struct {
-		name, wantStatus string
-		signals          domain.AnalysisSignals
-	}{
-		{name: "analysis queued", signals: testQueued, wantStatus: "Analysis queued"},
-		{name: "analysis running", signals: testRunning, wantStatus: "Analysis running"},
-	} {
-		item := testReadingBook(test.name, test.name, test.signals)
-		item.Book.Source.MediaType = "application/epub+zip"
-		item.Book.Source.ContentRevisionID = "revision"
-		item.Book.Source.ContentSnapshotID = "snapshot"
-		item.Book.AnalysisJobID = 42
-		queuedAction := readingAnalysisAction(item)
-		assert.Equal(t, test.wantStatus, queuedAction.Status)
-		assert.Equal(t, "View analysis status", queuedAction.Label)
-		assert.False(t, queuedAction.Submit)
-	}
-}
-
-func TestReadingIncompleteAnalyzedEvidenceOffersReanalysis(t *testing.T) {
-	item := testReadingBook("incomplete", "Incomplete analyzed book", testAnalyzed)
-	item.Book.Source.MediaType = "application/epub+zip"
-	item.Book.Source.ContentRevisionID = "revision"
-	item.Book.Source.ContentSnapshotID = "snapshot"
-	item.Book.AnalysisRunID = "run"
-	item.Book.CorpusID = "corpus"
-	item.StatisticsUnavailable = true
-
-	action := readingAnalysisAction(item)
-	assert.Equal(t, "Analysis incomplete", action.Status)
-	assert.Equal(t, "Retry analysis", action.Label)
-	assert.Equal(t, "/reading/books/incomplete/reanalyze", action.URL)
-	assert.True(t, action.Submit)
 }
 
 func TestReadingTreatsAnalyzedEvidenceAndEligibleCurrentReadingsAsCurrent(t *testing.T) {
@@ -143,6 +75,5 @@ func TestReadingTreatsAnalyzedEvidenceAndEligibleCurrentReadingsAsCurrent(t *tes
 	item.Book.CorpusID = "corpus"
 	item.Coverage = &domain.AnalysisCoverage{AnalyzableTokenCount: 10}
 
-	assert.Equal(t, readingEvidenceCurrent, readingEvidenceState(item))
 	assert.Equal(t, domain.CurrentReadingEligible, item.Book.EvidenceClassification().Eligibility, "eligibility is owned by the domain classification")
 }

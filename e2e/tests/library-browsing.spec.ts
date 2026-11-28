@@ -159,7 +159,7 @@ test.describe('Reading collection browsing', () => {
     const firstBook = page.locator('#primary-goal-section');
     await expect(firstBook).toBeVisible();
     const visibleIdentity = await firstBook.evaluate((item, height) => {
-      const title = item.querySelector('.journey-book__title')!.getBoundingClientRect();
+      const title = item.querySelector('.current-hero__title')!.getBoundingClientRect();
       const cover = item.querySelector('.book-cover-media')!.getBoundingClientRect();
       const intersects = (rect: DOMRect) => rect.top < height && rect.bottom > 0;
       return { title: intersects(title), cover: intersects(cover) };

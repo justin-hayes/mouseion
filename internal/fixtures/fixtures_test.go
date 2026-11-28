@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/cataloguesync"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -792,4 +793,37 @@ func TestStoreReadingCompletionHistoryAllowsFutureCompletionOfSameBook(t *testin
 	require.NoError(t, err)
 	assert.False(t, second.Completion.CompletedAt.Before(first.Completion.CompletedAt))
 	assert.Len(t, store.readingHistory, 2, "every Finish appends a completion")
+}
+
+// A Classical Book has no source material of its own; Read next accepts it the
+// way the Reading list presents it, as an analysed To Read Book.
+func TestStartCurrentReadingAcceptsAProjectedClassicalBook(t *testing.T) {
+	store := NewStore()
+	store.SeedWithdrawnClassicalBooks()
+	ctx := t.Context()
+	bookID := fixtureClassicalBookID(OwnerID, "fixture-iliad-1")
+	start, err := store.StartCurrentReadingResult(ctx, OwnerID, "grc", bookID)
+	require.NoError(t, err)
+	assert.Equal(t, bookID, start.Reading.BookID)
+	assert.False(t, start.Replayed)
+
+	replay, err := store.StartCurrentReadingResult(ctx, OwnerID, "grc", bookID)
+	require.NoError(t, err)
+	assert.True(t, replay.Replayed)
+}
+
+func TestInsightsCoverageHasDegradedStatesForTwoBooks(t *testing.T) {
+	t.Run("counts updating", func(t *testing.T) {
+		_, err := Insights{}.Coverage(t.Context(), OwnerID, CountsUpdatingCorpusID)
+		require.ErrorIs(t, err, analysisinsights.ErrCountsUpdating)
+	})
+	t.Run("statistics unavailable", func(t *testing.T) {
+		_, err := Insights{}.Coverage(t.Context(), OwnerID, StatisticsUnavailableCorpusID)
+		require.ErrorIs(t, err, analysisinsights.ErrStatisticsUnavailable)
+	})
+	t.Run("ordinary Book", func(t *testing.T) {
+		coverage, err := Insights{}.Coverage(t.Context(), OwnerID, "fixture-corpus")
+		require.NoError(t, err)
+		assert.Equal(t, int64(123456), coverage.AnalyzableTokenCount)
+	})
 }

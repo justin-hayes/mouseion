@@ -55,6 +55,7 @@ markup.
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Book detail, Classical catalog, Vocabulary, and Jobs     |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis and catalog-sync status on Jobs                  |
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | My Books, Catalog connections, and analysis or source-structure updates |
+| `CoverageBar` | Show the Mature share and the further share with words in study of one Book as one two-segment bar | Ready only; updating and unavailable counts show no bar | Current reading hero on Reading |
 | Study language picker | Open the same kind of page in another study language (ADR 0131) | Current, newly arrived, no books/read-only | Per-language pages only: My Books, Study, Vocabulary |
 
 ### Vocabulary Browse controls
@@ -145,7 +146,7 @@ one-pattern/one-Templ-component implementation.
 | Pattern | Purpose | Required states | Canonical surfaces |
 |---|---|---|---|
 | `AnnotatedBookRow` | Keep title and author in a text column beside a cover, with status in a visibly edged margin and actions under the identity. | Current reading, To Read, Read; a classical Book as an ordinary row with its Work title, Edition label and position (none for a whole Work), two Editions of one Work as two rows; the ordinary per-Book Analysis update notice with current-Book End wording; per-Book preparation notes with their own recovery; long title/author; compact reflow | My Books; reusable by Reading and chooser |
-| `CurrentReadingTitlePage` | Identify the current Book and reading context first; keep lifecycle actions beneath its bibliographic identity and concise preparation/vocabulary evidence in a narrow adjacent margin. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
+| `CurrentReadingTitlePage` | Identify the current Book and reading context first; lead with the cover, then title and author, any action the Book needs, the two coverage figures with the Coverage bar, and the lifecycle actions. | Current date and title, long/missing cover, available/unavailable evidence, ready/busy/failed preparation, compact reflow | Reading |
 | `ToReadCandidates` | Present To Read Books as an unordered list with adjacent evidence and no ordinal or recommendation cues; shown only when no Book is current. | Empty, eligible, unavailable/stale evidence, compact reflow | Reading, between Books |
 | `ReadingChooser` | List neutral To Read candidates in title order; one ordinary entry per Book; require explicit confirmation to start or switch. | Empty chooser, no comparison, analysis in progress, not assessed, start/switch confirmation, the ordinary per-Book Analysis update notice | Between-Books Reading chooser |
 | `PrimaryGoalSummary` | Present the one current commitment and independent reading, preparation, and vocabulary facts without dashboard-card dominance. The Goal leads with Book identity, shows current and after-completion coverage only, and keeps deck actions snapshot-bound. | No evidence, analysis active/failed/complete, reading active, vocabulary work active/complete, deck missing/active/ready/failed/empty | Reading Journey |
@@ -616,8 +617,8 @@ Use native `header`, `nav`, and `main` landmarks. The navigation label is
 `Primary navigation`. The canonical authenticated destinations are exactly Reading,
 Study, Corpus, and Catalog. Catalog owns the Classical catalog section, every OPDS source section and source status at `/catalogs`;
 Manage sources owns catalogue setup and sync maintenance at `/catalogs/sources`.
-Reading is the page of the learner's chosen Books, with the Current reading
-pinned at the top; the Catalog owns per-book acquisition. The shipped shell
+Reading is the page of the learner's chosen Books, opening with the Current
+reading hero; the Catalog owns per-book acquisition. The shipped shell
 marks the current context while compatibility routes redirect without exposing
 Learning as a peer destination.
 
@@ -795,7 +796,49 @@ Lead with book identity and Goal role. Present reading, Reserved vocabulary,
 artifact, and modeled-vocabulary facts independently. Pair current,
 after-Goal, and on-arrival evidence only when each condition is written in full.
 Do not use a destination flag, progress trophy, oversized metric, or generic
-success card.
+success card. (This section is historical; the Current reading hero below is
+the one exception to the oversized-metric rule.)
+
+### Hero figure (Current reading hero)
+
+**Applies to:** the two coverage figures, Mature and With words in study, in the
+Current reading hero on Reading, and nowhere else. The hero is the page's one
+subject, and its coverage is the evidence the learner opens the page to see, so
+those two figures may be large; the exception exists for that surface only.
+
+- Size comes from `--mouseion-font-size-hero-stat` (2.5rem; 1.75rem on compact
+  screens), set in the reading serif. Other surfaces keep
+  `--mouseion-font-size-stat` and no oversized metrics.
+- Exactly two figures: Mature in `--mouseion-color-success`, With words in study
+  in `--mouseion-color-accent`. Each has a caption beneath it. The other
+  counts, the occurrences line and the Target coverage line, stay body-sized
+  below the Coverage bar.
+- A figure never reads zero or a dash for coverage it does not have: "Updating"
+  while the counts are updating, "Unavailable" otherwise, in the muted colour
+  and italic at 70% of the figure size, with "Coverage returns when the counts
+  are ready."
+- The figures never carry a trophy, delta arrow, band or recommendation.
+
+### `CoverageBar`
+
+**Answers:** How much of this Book's running text is Mature, and how much more
+has words in study?
+
+One two-segment bar under the hero figures. A native `<meter>` shows one value,
+so the bar is a `div` with `role="img"`.
+
+- Segments: Mature (`--mouseion-color-success`), then the share in study beyond
+  Mature (`--mouseion-color-accent` at 55% over the track). "With words in
+  study" includes Mature, so the second segment is the difference, never the
+  figure itself. The track is `--mouseion-color-surface-quiet`. All three tokens
+  have light and dark values in `mouseion.css`; segment widths are percentages
+  of the analyzable word occurrences, capped at 100.
+- Accessible name: both percentages, for example "Mature 37.0%; with words in
+  study 42.1%". The segments are `aria-hidden`; the figures and the occurrences
+  line repeat the values as text, so colour is never the only carrier.
+- States: shown only when coverage is ready. Updating and unavailable counts
+  show no bar.
+- Compact: the bar runs the full width of the hero beneath the figures.
 
 ### `JourneyOrder`
 

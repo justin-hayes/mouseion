@@ -92,6 +92,17 @@ func (s *Store) fixtureStartFacts(owner, language, bookID string) domain.StartFa
 		facts.IdentityPublished = true
 		return facts
 	}
+	// A Classical Book has no source material of its own: To Read, its analysis
+	// is projected the way ListMyBooksWithEvidence presents it.
+	for _, book := range s.myBooks {
+		if book.Book.OwnerID == owner && book.Book.ID == bookID && book.ReadingUnit != nil && book.ClassicalPreparation == nil &&
+			book.Book.LanguageState == domain.LanguageChosen {
+			facts.Signals = analyzedSignals
+			facts.BookLanguage = normalizeFixtureLanguage(book.Book.LanguageTag)
+			facts.IdentityPublished = true
+			break
+		}
+	}
 	return facts
 }
 

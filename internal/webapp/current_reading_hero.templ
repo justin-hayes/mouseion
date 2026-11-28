@@ -1,0 +1,39 @@
+package webapp
+
+// CurrentReadingHero is the Current reading at the top of Reading: a raised
+// card led by the cover, then the Book's identity, any action it needs, its
+// coverage and the lifecycle actions (#2843).
+templ CurrentReadingHero(item readingBookView, csrf string) {
+	{{ plate := newTitlePlate(currentReadingHeroTitle(item), readingUnitOriginalTitle(item.ReadingUnit), item.Book.Source.Language, canonicalBookAuthor(item.Book)) }}
+	{{ status, needsAction := currentReadingHeroStatusFor(item) }}
+	<article id={ readingBookAnchorID(readingBookID(item)) } tabindex="-1" data-focus-anchor class="current-hero">
+		<div class="current-hero__cover">
+			<a href={ templ.SafeURL(bookDetailURL(readingBookID(item))) } tabindex="-1" aria-hidden="true">@BookCoverMedia(readingBookID(item), plate, item.Cover)</a>
+		</div>
+		<div class="current-hero__body">
+			<p class="current-hero__label">Currently reading</p>
+			<h2 id={ currentReadingHeroTitleID() } class="current-hero__title">
+				<a href={ templ.SafeURL(bookDetailURL(readingBookID(item))) }>{ currentReadingHeroTitle(item) }</a>
+			</h2>
+			if plate.OriginalTitle != "" {
+				<p class="current-hero__original" lang={ plate.OriginalLang }>{ plate.OriginalTitle }</p>
+			}
+			if plate.Author != "" {
+				<p class="current-hero__author">{ plate.Author }</p>
+			}
+			if !item.ReadingSince.IsZero() {
+				<p class="current-hero__since">Reading since <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></p>
+			}
+			if needsAction {
+				<p class="current-hero__status" data-needs-action><strong>{ status.Label }</strong> { status.Description }</p>
+			}
+			<div class="current-hero__coverage">
+				@CurrentReadingCoverage(item)
+			</div>
+			<div class="current-hero__actions">
+				<a class="button current-hero__open" href={ templ.SafeURL(bookDetailURL(readingBookID(item))) }>Open Book</a>
+				@CurrentReadingLifecycleActions(item, csrf)
+			</div>
+		</div>
+	</article>
+}

@@ -55,7 +55,8 @@ index without changing document order.
 Avoid defaulting to generic SaaS aesthetics such as:
 
 - interchangeable dashboard cards;
-- oversized metric tiles or headings;
+- oversized metric tiles or headings (the Current reading hero's two coverage
+  figures are the one documented exception);
 - excessive rounded containers;
 - decorative gradients or shadows;
 - multiple competing navigation systems;

@@ -21,12 +21,13 @@ test.describe('Current reading over a failed re-analysis', () => {
 
     await page.goto('/de/reading');
     await expect(page.locator('#primary-goal-section').getByRole('heading', { name: 'Neue Analyse fehlgeschlagen' })).toBeVisible();
-    // The supporting details are a disclosure whose summary is hidden on desktop,
-    // where only Chromium keeps the closed content shown. Open it directly so the
-    // assertion checks the evidence wording rather than the disclosure control.
-    await page.locator('details.reading-supporting').evaluate((details: HTMLDetailsElement) => { details.open = true; });
-    await expect(page.locator('#primary-goal-section strong', { hasText: 'Re-analysis failed.' })).toBeVisible();
-    await expect(page.getByText('The current analysis stays in effect.')).toBeVisible();
+    // The hero names the failure and where recovery works; it offers no Retry,
+    // which the server refuses for the Current reading.
+    const status = page.locator('#primary-goal-section .current-hero__status');
+    await expect(status).toContainText('Re-analysis failed.');
+    await expect(status).toContainText('The current analysis stays in effect.');
+    await expect(status).toContainText('End this reading to retry it from To Read.');
+    await expect(page.locator('#primary-goal-section details.reading-supporting')).toHaveCount(0);
     await expect(page.locator('#primary-goal-section').getByRole('button', { name: /^Retry / })).toHaveCount(0);
   });
 });
