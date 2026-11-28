@@ -60,7 +60,10 @@ func TestShutdownLeavesNoJobRunning(t *testing.T) {
 	require.NoError(t, err)
 	done := make(chan error, 1)
 	go func() {
-		done <- serveUntilShutdown(signalCtx, newHTTPServer(listener.Addr().String(), http.NotFoundHandler()), listener, client)
+		// The sequence run follows: serve and drain, then the one staged stop.
+		err := serveUntilShutdown(signalCtx, newHTTPServer(listener.Addr().String(), http.NotFoundHandler()), listener)
+		stopRiverClient(client, &err)
+		done <- err
 	}()
 	signal()
 	select {

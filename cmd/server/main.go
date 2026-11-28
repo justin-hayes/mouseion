@@ -104,7 +104,9 @@ type serverDependencies struct {
 
 func run() (err error) {
 	// ctx outlives a shutdown signal: the River client starts on it, and
-	// cancelling it would cancel running jobs without the staged stop below.
+	// cancelling it would cancel running jobs without the staged stop in
+	// stopRiverClient. The startup steps before River, which keep no context
+	// beyond their call, run on signalCtx so a signal stops them.
 	ctx := context.Background()
 	signalCtx, stopSignals := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stopSignals()
@@ -112,16 +114,16 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	store, err := migrateAndOpenStore(ctx, cfg.databaseURL)
+	store, err := migrateAndOpenStore(signalCtx, cfg.databaseURL)
 	if err != nil {
 		return err
 	}
 	defer closeIntoResult("PostgreSQL store", store.Close, &err)
-	if err := classical.Reconcile(ctx, store, classical.ManifestJSONL); err != nil {
+	if err := classical.Reconcile(signalCtx, store, classical.ManifestJSONL); err != nil {
 		return fmt.Errorf("reconcile Classical catalog manifest: %w", err)
 	}
 	log.Print("classical catalog manifest reconciled")
-	conversion, err := analysis.ConvertLegacyClassicalBooks(ctx, store)
+	conversion, err := analysis.ConvertLegacyClassicalBooks(signalCtx, store)
 	if err != nil {
 		// Conversion is a fail-closed catalog precondition, not a startup gate:
 		// existing Books stay readable and Add/preparation remain unavailable
@@ -140,7 +142,7 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	dictionaryIndex, hasDictionaryIndex, err := openOptionalDictionaryIndex(ctx)
+	dictionaryIndex, hasDictionaryIndex, err := openOptionalDictionaryIndex(signalCtx)
 	if err != nil {
 		return err
 	}
@@ -149,7 +151,9 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
-	defer stopRiverClient(ctx, deps.riverClient, &err)
+	// The one River stop, for a signal shutdown and for a startup failure
+	// alike, so it is bounded once inside Compose's grace period.
+	defer stopRiverClient(deps.riverClient, &err)
 	mux := newServerMux()
 	mux.Handle("/static/", webapp.StaticHandler())
 	handler, err := buildWebHandler(ctx, cfg, store, dictionaryIndex, hasDictionaryIndex, deps)
@@ -162,7 +166,7 @@ func run() (err error) {
 		return err
 	}
 	log.Print("mouseion web server listening")
-	return serveUntilShutdown(signalCtx, newHTTPServer(cfg.addr, mux), listener, deps.riverClient)
+	return serveUntilShutdown(signalCtx, newHTTPServer(cfg.addr, mux), listener)
 }
 
 // workerStopper is the part of the River client the shutdown sequence uses.
@@ -172,10 +176,10 @@ type workerStopper interface {
 }
 
 // serveUntilShutdown serves on listener until it fails or ctx is cancelled.
-// On cancellation it stops accepting requests and drains the HTTP server, then
-// stops the workers, so no job is left running. A shutdown that ctx initiated
-// returns nil; http.ErrServerClosed is not an error.
-func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.Listener, workers workerStopper) error {
+// On cancellation it stops accepting requests and drains the HTTP server; the
+// caller stops the workers afterwards. A shutdown that ctx initiated returns
+// nil; http.ErrServerClosed is not an error.
+func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.Listener) error {
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(listener) }()
 	select {
@@ -196,8 +200,10 @@ func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.List
 		log.Printf("HTTP drain incomplete after %s; closing connections: %v", httpShutdownTimeout, err)
 		result = srv.Close()
 	}
-	<-serveErr
-	return errors.Join(result, stopWorkers(workers))
+	if err := <-serveErr; !errors.Is(err, http.ErrServerClosed) {
+		result = errors.Join(result, err)
+	}
+	return result
 }
 
 // stopWorkers lets running jobs finish for riverSoftStopTimeout, then cancels
@@ -540,18 +546,14 @@ func newServerMux() *http.ServeMux {
 	return mux
 }
 
-// stopRiverClient stops the analysis workers, joining a stop failure with any
-// in-flight result so a shutdown problem never masks a startup one.
-func stopRiverClient(ctx context.Context, client *river.Client[pgx.Tx], result *error) {
-	// Bounded: the shutdown sequence has already stopped the client, so this
-	// only matters when startup failed, and it must not outlast the grace period.
-	stopCtx, cancel := context.WithTimeout(ctx, riverHardStopTimeout)
-	defer cancel()
-	stopErr := client.Stop(stopCtx)
+// stopRiverClient stops the workers in stages (stopWorkers), joining a stop
+// failure with any in-flight result so a shutdown problem never masks a
+// startup one.
+func stopRiverClient(client workerStopper, result *error) {
+	stopErr := stopWorkers(client)
 	if stopErr == nil {
 		return
 	}
-	stopErr = fmt.Errorf("stop analysis workers: %w", stopErr)
 	if *result == nil {
 		*result = stopErr
 	} else {
