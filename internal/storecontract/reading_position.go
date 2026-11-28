@@ -123,5 +123,19 @@ func readingPositionScenarios() []Scenario {
 			require.NoError(t, err)
 			requirePosition(t, h, bookID, 0.45)
 		},
+	}, {
+		Name: "any Book in Reading takes a position whatever its state, analysis or language",
+		Run: func(t *testing.T, h Harness) {
+			owner := h.Seeds().Owner()
+			bare := seedBook(t, h, BookSeed{MetadataOnly: true, LanguageUnknown: true})
+			require.NoError(t, h.Positions().RecordManualPosition(owner, bare, 0.2, positionEpoch))
+			requirePosition(t, h, bare, 0.2)
+
+			read := seedBook(t, h, BookSeed{Vocabulary: defaultVocabulary})
+			_, err := h.BookState().ImportPreviouslyRead(owner, read)
+			require.NoError(t, err)
+			require.NoError(t, h.Positions().RecordManualPosition(owner, read, 0.8, positionEpoch))
+			requirePosition(t, h, read, 0.8)
+		},
 	}}
 }

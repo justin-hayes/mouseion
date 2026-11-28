@@ -13,7 +13,7 @@ import (
 const getLatestPositionReport = `-- name: GetLatestPositionReport :one
 SELECT fraction, source, recorded_at
 FROM reading_position_reports
-WHERE owner_id::text = $1 AND book_id::text = $2
+WHERE owner_id = $1::uuid AND book_id = $2::uuid
 ORDER BY recorded_at DESC, id DESC
 LIMIT 1
 `
@@ -43,7 +43,7 @@ INSERT INTO reading_position_reports (owner_id, book_id, source, fraction, recor
 SELECT d.owner_id, d.book_id, 'manual', $1::numeric(7,6), $2::timestamptz
 FROM book_dispositions d
 JOIN book_membership m ON m.owner_id = d.owner_id AND m.book_id = d.book_id AND m.state = 'active'
-WHERE d.owner_id::text = $3 AND d.book_id::text = $4
+WHERE d.owner_id = $3::uuid AND d.book_id = $4::uuid
 `
 
 type InsertManualPositionReportParams struct {
