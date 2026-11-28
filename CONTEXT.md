@@ -740,6 +740,18 @@ time is derived from them. Pages are layout units, so only the page's fraction
 of the page count compares across layouts.
 _Avoid_: session (a later grouping of visits), page view.
 
+**Reading time**:
+The time the learner spent reading a Book: the sum of the durations of the Page
+visits of its linked Document digests, in total and per Reading day. It counts
+only time a Device recorded, never paper reading.
+_Avoid_: read time, time spent, session length.
+
+**Reading day**:
+The day a Page visit counts towards. Like the Study day, it begins at a fixed
+early-morning hour rather than at midnight, so late-night reading counts towards
+the evening it began in. A visit counts for the day it started.
+_Avoid_: calendar day, Study day (the same boundary, but Study's own term).
+
 **Highlight**:
 A passage the learner marked while reading on a Device, with its text, any
 note, and its time. It resolves to the sentences it covers when its linked Book
