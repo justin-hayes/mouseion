@@ -384,9 +384,8 @@ func seedLoopPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persis
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, classical.Language))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, registration.BookID, domain.BookDispositionToRead))
-	started, err := store.StartCurrentReadingResult(ctx, owner.ID, classical.Language, registration.BookID)
+	_, err = store.StartCurrentReadingResult(ctx, owner.ID, classical.Language, registration.BookID)
 	require.NoError(t, err)
-	require.NotEmpty(t, started.Reading.SnapshotID)
 
 	return seed
 }

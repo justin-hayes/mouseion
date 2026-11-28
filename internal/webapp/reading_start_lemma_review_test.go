@@ -73,7 +73,7 @@ func startSessionOver(t *testing.T, reading threeWegReading, index lemmarisk.Alt
 	return h, cookies, findCSRFCookie(t, cookies).Value
 }
 
-func TestStartRunsLemmaRiskDetectionBeforeFreezingTheBook(t *testing.T) {
+func TestReadNextIsNeitherPausedNorFlaggedByLemmaRiskDetection(t *testing.T) {
 	store := fixtures.NewStore()
 	reading := newThreeWegReading(store)
 	endGermanFixtureReading(t, store)
@@ -81,14 +81,14 @@ func TestStartRunsLemmaRiskDetectionBeforeFreezingTheBook(t *testing.T) {
 
 	start := readingTestRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, start.Code)
-	assert.Equal(t, "/reading/books/fixture-route-match/lemma-review", start.Header().Get("Location"), "unresolved high-risk flags pause Start reading")
+	assert.Contains(t, start.Header().Get("Location"), "is+now+your+current+reading", "lemma review flags never gate the Current reading")
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	assert.False(t, current.IsActive(), "a paused Start freezes nothing")
-	flagged, err := reading.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, "fixture-route-match", "Weg")
+	assert.Equal(t, "fixture-route-match", current.BookID)
+	occurrences, err := reading.ListLemmaReviewOccurrences(context.Background(), fixtures.OwnerID, "fixture-route-match", "Weg")
 	require.NoError(t, err)
-	require.NotEmpty(t, flagged)
-	assert.NotEmpty(t, flagged[0].ReviewFlagReason, "detection saved the flag Start consulted")
+	require.NotEmpty(t, occurrences)
+	assert.Empty(t, occurrences[0].ReviewFlagReason, "Read next runs no lemma risk detection")
 }
 
 func TestStartWithoutLemmaRiskIndexStillStartsTheBook(t *testing.T) {

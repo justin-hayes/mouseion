@@ -50,9 +50,9 @@ type readingChooserEntryView struct {
 }
 
 type readingChooserPageView struct {
-	Language, LanguageLabel          string
-	CurrentBookID, CurrentSnapshotID string
-	Entries                          []readingChooserEntryView
+	Language, LanguageLabel string
+	CurrentBookID           string
+	Entries                 []readingChooserEntryView
 }
 
 func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
@@ -63,10 +63,10 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	// Back to book vocabulary names the commitment it left. Only that exact
-	// snapshot may restore controls; anything else is explained before any
-	// other reading context opens, and nothing is transferred to it.
-	if snapshot := strings.TrimSpace(r.URL.Query().Get("snapshot")); snapshot != "" && (!currentReading.IsActive() || currentReading.SnapshotID != snapshot || r.URL.Query().Get("reading") != currentReading.BookID) {
+	// Back to book vocabulary names the Book it left. Only that Book may restore
+	// controls; anything else is explained before any other reading context
+	// opens, and nothing is transferred to it.
+	if reading := strings.TrimSpace(r.URL.Query().Get("reading")); reading != "" && (!currentReading.IsActive() || reading != currentReading.BookID) {
 		h.renderReadingBrowseOriginExpired(w, r, owner, language, currentReading.IsActive())
 		return
 	}
@@ -81,7 +81,6 @@ func (h *Handler) reading(w http.ResponseWriter, r *http.Request) {
 		status := http.StatusOK
 		if readingView.CurrentReading != nil {
 			readingView.Browse, status = h.loadReadingBrowse(r.Context(), r, owner.ID, language, currentReading.BookID)
-			readingView.Browse.SnapshotID = currentReading.SnapshotID
 		}
 		renderStatus(w, r, status, ReadingPage(owner, h.csrf(w, r), readingView, r.URL.Query().Get("message"), r.URL.Query().Get("error")))
 		return
@@ -131,108 +130,40 @@ func (h *Handler) switchReadingPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view.CurrentBookID = current.BookID
-	view.CurrentSnapshotID = current.SnapshotID
 	render(w, r, ReadingChooserPage(user(r), h.csrf(w, r), view, "", ""))
 }
 
-// assessReadingActionFlags loads the Book a start or switch names and records
-// its lemma-review flags before the store transition. It writes the response
-// and reports false when the request cannot continue.
-func (h *Handler) assessReadingActionFlags(w http.ResponseWriter, r *http.Request, owner, bookID string) bool {
-	detail, err := h.services.Store.Reading.GetBookDetail(r.Context(), owner, bookID)
-	if errors.Is(err, domain.ErrNotFound) {
-		http.NotFound(w, r)
-		return false
-	}
-	if err != nil {
-		fail(w, err)
-		return false
-	}
-	// Flag detection is a write the freeze depends on, so it runs before the
-	// transition. Persistence decides everything else.
-	if _, err := h.services.LemmaReview.Assess(r.Context(), owner, detail.Book.ID); err != nil {
-		fail(w, err)
-		return false
-	}
-	return true
-}
-
-func (h *Handler) switchReading(w http.ResponseWriter, r *http.Request) {
-	if !h.checkCSRF(w, r) {
-		return
-	}
-	owner := user(r).ID
-	bookID := strings.TrimSpace(r.PathValue("id"))
-	if !h.adoptBookLanguageOrFail(w, r, owner, bookID) {
-		return
-	}
-	language, _ := activeStudyLanguageForContext(r.Context())
-	expectedBookID := strings.TrimSpace(r.FormValue("expected_current_book_id"))
-	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
-	if language == "" {
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Choose a study language and refresh Reading before switching books."))
-		return
-	}
-	if !h.assessReadingActionFlags(w, r, owner, bookID) {
-		return
-	}
-	_, err := h.services.Store.Reading.SwitchCurrentReading(r.Context(), owner, language, bookID, expectedBookID, expectedSnapshotID)
-	var ineligible domain.CurrentReadingIneligibleError
-	switch {
-	case errors.Is(err, domain.ErrCurrentReadingStale), errors.Is(err, domain.ErrNotFound):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("The current book changed while you were choosing. No changes were made; review Reading before trying again."))
-	case errors.As(err, &ineligible) && ineligible.Reason.IsBookChoiceRejection():
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("This book is no longer an eligible To Read choice. No changes were made; refresh Reading and try again."))
-	case errors.Is(err, domain.ErrCurrentReadingIneligible):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("This book no longer has current analyzed content or is no longer To Read. No changes were made; refresh Reading and try again."))
-	case errors.Is(err, domain.ErrUnresolvedLemmaReviewFlags):
-		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
-	case errors.Is(err, domain.ErrVocabularyBrowseCountsPending):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Across-book vocabulary counts are updating. No reading was changed; try switching again when the counts are ready."))
-	case errors.Is(err, domain.ErrVocabularyBrowseCountsUnavailable):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."))
-	case err != nil:
-		fail(w, err)
-	default:
-		redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
-	}
-}
-
-// endCurrentReading ends the exact expected commitment. It needs no live
+// endCurrentReading ends the language's current reading. It needs no live
 // analysis, so End stays available when the Book's analysis is missing or
-// stale. Replays are verified by the store against durable facts.
+// stale, and it takes no confirmation token (ADR 0136 §4).
 func (h *Handler) endCurrentReading(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
 	owner := user(r).ID
-	expectedBookID := strings.TrimSpace(r.FormValue("expected_current_book_id"))
-	expectedSnapshotID := strings.TrimSpace(r.FormValue("expected_current_snapshot_id"))
-	if !h.adoptBookLanguageOrFail(w, r, owner, expectedBookID) {
-		return
-	}
-	language, _ := activeStudyLanguageForContext(r.Context())
+	language := pageLanguage(r)
 	if language == "" {
 		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Choose a study language and refresh Reading before ending the current reading."))
 		return
 	}
-	if expectedBookID == "" || expectedSnapshotID == "" {
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(endCurrentReadingStaleMessage))
+	current, err := h.services.Store.Reading.GetCurrentReading(r.Context(), owner, language)
+	if err != nil {
+		fail(w, err)
 		return
 	}
-	err := h.services.Store.Reading.EndCurrentReading(r.Context(), owner, language, expectedBookID, expectedSnapshotID)
-	if errors.Is(err, domain.ErrCurrentReadingStale) || errors.Is(err, domain.ErrNotFound) {
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(endCurrentReadingStaleMessage))
+	err = h.services.Store.Reading.EndCurrentReading(r.Context(), owner, language)
+	if errors.Is(err, domain.ErrNotFound) {
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape(noCurrentReadingMessage))
 		return
 	}
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape("Reading ended. "+h.currentReadingBookTitle(r.Context(), owner, expectedBookID)+" stays in To Read; its analysis, decks, and history are preserved. Choose a Book when you are ready."))
+	redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape("Reading ended. "+h.currentReadingBookTitle(r.Context(), owner, current.BookID)+" stays in To Read; its analysis and history are preserved. Choose a Book when you are ready."))
 }
 
-const endCurrentReadingStaleMessage = "The current reading changed before this action. No changes were made; review Reading and try again."
+const noCurrentReadingMessage = "There is no current reading. Choose a book from Reading."
 
 func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
@@ -310,7 +241,11 @@ func retryMessage(outcome readingintent.Outcome) (message string, isError bool) 
 	}
 }
 
-func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
+// readNext makes a To Read Book the current reading, replacing any other. It
+// needs no confirmation and no commitment from the page; it is refused only
+// when the Book is not To Read, not analysed, or has no Book language
+// (ADR 0136 §4). Starting and switching are the same transition.
+func (h *Handler) readNext(w http.ResponseWriter, r *http.Request) {
 	if !h.checkCSRF(w, r) {
 		return
 	}
@@ -321,10 +256,7 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 	}
 	language, _ := activeStudyLanguageForContext(r.Context())
 	if language == "" {
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Choose a study language before starting a book."))
-		return
-	}
-	if !h.assessReadingActionFlags(w, r, owner, bookID) {
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Choose a study language before reading a book."))
 		return
 	}
 	start, err := h.services.Store.Reading.StartCurrentReadingResult(r.Context(), owner, language, bookID)
@@ -332,34 +264,19 @@ func (h *Handler) startReading(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		http.NotFound(w, r)
-		return
 	case err == nil && start.Replayed:
-		// Starting the Book that is already current is a repeat, not a conflict.
 		redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is already your current reading."))
-		return
-	case errors.Is(err, domain.ErrCurrentReadingExists):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("A current book is already set for this language. Review it in Reading before starting another."))
-		return
+	case errors.As(err, &ineligible) && ineligible.Reason == domain.CurrentReadingNoChosenLanguage:
+		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("This book has no language yet. Choose its language in My Books before reading it. No changes were made."))
 	case errors.As(err, &ineligible) && ineligible.Reason.IsBookChoiceRejection():
 		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("This book is no longer an eligible To Read candidate. Review Reading before trying again."))
-		return
 	case errors.Is(err, domain.ErrCurrentReadingIneligible):
 		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("This book no longer has trustworthy current analysis or is no longer To Read. No changes were made; refresh Reading and try again."))
-		return
-	case errors.Is(err, domain.ErrUnresolvedLemmaReviewFlags):
-		redirect(w, r, "/reading/books/"+url.PathEscape(bookID)+"/lemma-review")
-		return
-	case errors.Is(err, domain.ErrVocabularyBrowseCountsPending):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Across-book vocabulary counts are updating. No reading was changed; try starting again when the counts are ready."))
-		return
-	case errors.Is(err, domain.ErrVocabularyBrowseCountsUnavailable):
-		redirect(w, r, readingPagePath(r.Context())+"?error="+url.QueryEscape("Across-book vocabulary counts are unavailable after repeated rebuild failures. No reading was changed; ask the server operator to restart Mouseion, then retry."))
-		return
 	case err != nil:
 		fail(w, err)
-		return
+	default:
+		redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
 	}
-	redirect(w, r, readingPagePath(r.Context())+"?message="+url.QueryEscape(h.currentReadingBookTitle(r.Context(), owner, bookID)+" is now your current reading."))
 }
 
 // buildReadingChooser lists the active language's To Read candidates in neutral
@@ -665,4 +582,16 @@ func readingChooserCoveragePercent(coverage domain.AnalysisCoverage) (float64, b
 // The learner-facing interface is English; group evidence counts in that locale.
 func readingChooserCount(count int64) string {
 	return message.NewPrinter(language.English).Sprintf("%d", count)
+}
+
+// pageLanguage is the study language the Reading page that posted the form was
+// about, falling back to the active study language. It names a language, not a
+// commitment, so Finish and End act on the language the learner saw even when
+// another tab has moved the Last study language.
+func pageLanguage(r *http.Request) string {
+	if language := strings.TrimSpace(r.FormValue("language")); language != "" {
+		return language
+	}
+	language, _ := activeStudyLanguageForContext(r.Context())
+	return language
 }

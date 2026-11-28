@@ -32,13 +32,8 @@ func TestDecideStart(t *testing.T) {
 			StartAccepted, CurrentReadingEligible,
 		},
 		{
-			"another Book already current",
-			with(func(f *StartFacts) { f.AlreadyCurrent = true }),
-			StartRejectedAlreadyCurrent, CurrentReadingEligible,
-		},
-		{
 			"replay of the Book already current",
-			with(func(f *StartFacts) { f.AlreadyCurrent = true; f.CurrentIsBook = true }),
+			with(func(f *StartFacts) { f.CurrentIsBook = true }),
 			StartReplayed, CurrentReadingEligible,
 		},
 		{
@@ -94,28 +89,17 @@ func TestDecideStart(t *testing.T) {
 			StartRejectedIneligible, CurrentReadingNoCompletedAnalysis,
 		},
 		{
-			"unresolved lemma review flags",
-			with(func(f *StartFacts) { f.UnresolvedLemmaReviewFlags = true }),
-			StartRejectedUnresolvedFlags, CurrentReadingEligible,
-		},
-		{
-			"another Book current wins over ineligibility",
-			with(func(f *StartFacts) { f.AlreadyCurrent = true; f.Disposition = BookDispositionInbox }),
-			StartRejectedAlreadyCurrent, CurrentReadingEligible,
+			"another Book current is replaced",
+			with(func(f *StartFacts) { f.CurrentIsBook = false }),
+			StartAccepted, CurrentReadingEligible,
 		},
 		{
 			"replay wins over ineligibility",
 			with(func(f *StartFacts) {
-				f.AlreadyCurrent, f.CurrentIsBook = true, true
+				f.CurrentIsBook = true
 				f.Disposition = BookDispositionInbox
-				f.UnresolvedLemmaReviewFlags = true
 			}),
 			StartReplayed, CurrentReadingEligible,
-		},
-		{
-			"ineligibility wins over unresolved flags",
-			with(func(f *StartFacts) { f.Disposition = BookDispositionInbox; f.UnresolvedLemmaReviewFlags = true }),
-			StartRejectedIneligible, CurrentReadingNotToRead,
 		},
 	}
 	for _, tt := range tests {
@@ -123,7 +107,6 @@ func TestDecideStart(t *testing.T) {
 			got := DecideStart(tt.facts)
 			assert.Equal(t, tt.outcome, got.Outcome)
 			assert.Equal(t, tt.reason, got.Reason)
-			assert.Equal(t, tt.outcome == StartAccepted, got.Accepted())
 		})
 	}
 }

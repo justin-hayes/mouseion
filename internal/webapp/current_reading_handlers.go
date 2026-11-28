@@ -16,7 +16,6 @@ type currentReadingSectionView struct {
 }
 
 const (
-	currentReadingStaleMessage            = "This current reading changed since this page was loaded. No changes were made; review Reading before trying again."
 	currentReadingLanguageRequiredMessage = "Choose a study language before starting a book."
 )
 

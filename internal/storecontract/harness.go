@@ -242,17 +242,13 @@ type CatalogueEntrySeed struct {
 	BookID string
 }
 
-// Store is the Current reading surface under test.
+// Store is the Current reading surface under test. StartCurrentReading is Read
+// next: it replaces any current reading in the language.
 type Store interface {
 	GetCurrentReading(owner, language string) (domain.CurrentReading, error)
 	StartCurrentReading(owner, language, bookID string) (domain.CurrentReading, error)
-	SwitchCurrentReading(owner, language, bookID, expectedBookID, expectedSnapshotID string) (domain.CurrentReading, error)
-	EndCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) error
-	FinishCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishResult, error)
-	ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error)
-	// ListReservedVocabulary returns the vocabulary the owner's active reading
-	// reserves in language.
-	ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error)
+	EndCurrentReading(owner, language string) error
+	FinishCurrentReading(owner, language string) (domain.CurrentReadingFinishResult, error)
 }
 
 // LemmaReviewStore is the lemma review surface under test: occurrences, flags,
@@ -316,10 +312,6 @@ type Scenario struct {
 // Scenarios returns every store contract scenario.
 func Scenarios() []Scenario {
 	scenarios := lifecycleScenarios()
-	scenarios = append(scenarios, gateScenarios()...)
-	for _, tc := range finishCases() {
-		scenarios = append(scenarios, finishScenario(tc))
-	}
 	scenarios = append(scenarios, lemmaReviewScenarios()...)
 	scenarios = append(scenarios, greekScenarios()...)
 	scenarios = append(scenarios, classicalScenarios()...)

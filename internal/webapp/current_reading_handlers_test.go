@@ -43,34 +43,23 @@ func TestCurrentReadingSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
 	assert.True(t, strings.Contains(html, `role="alert"`) && strings.Contains(html, "This current reading changed since this page was loaded"), "Goal section did not render an accessible error: %s", html)
 }
 
-func TestCurrentReadingSectionRendersReadingOnlyAndResidualStates(t *testing.T) {
-	unassessed := testReadingBook("reading-only", "Reading-only book", testNoContent)
-	unassessed.ReadingOnly = true
-	unassessed.CurrentReadingUnassessed = true
-	readingOnlyHTML := renderCurrentReadingSection(t, &unassessed, "", "", "reading-only")
-	for _, want := range []string{"Reading only", "No analysis or recurring vocabulary exists yet", "Reading directly is the current path"} {
-		assert.Contains(t, readingOnlyHTML, want, "unassessed Goal missing %q: %s", want, readingOnlyHTML)
-	}
-
-	assessed := testReadingBook("assessed", "Assessed without deck", testAnalyzed)
-	assessed.ReadingOnly = true
-	assessed.CurrentReadingUnassessed = false
-	assessedHTML := renderCurrentReadingSection(t, &assessed, "", "", "assessed")
-	assert.Contains(t, assessedHTML, "Analysis evidence exists, but this Book has no recurring vocabulary", "assessed reading-only copy missing: %s", assessedHTML)
-
+func TestCurrentReadingSectionRendersWithoutReadingOnlyOrReservedCopy(t *testing.T) {
 	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
 	currentReadingHTML := renderCurrentReadingSection(t, &currentReading, "", "", "goal")
 	assert.NotContains(t, currentReadingHTML, "Clear Current reading", "retired Goal clear action remained visible: %s", currentReadingHTML)
+	assert.NotContains(t, currentReadingHTML, "Reading only", "the reading-only state needs a vocabulary snapshot, which no longer exists")
+	assert.NotContains(t, currentReadingHTML, "Reserved vocabulary", "nothing is reserved while reading")
+	assert.NotContains(t, currentReadingHTML, "set aside from vocabulary selection")
 }
 
-func TestIsCurrentReadingControlsUseExpectedStateAndStaySeparated(t *testing.T) {
+func TestIsCurrentReadingControlsCarryNoCommitmentAndStaySeparated(t *testing.T) {
 	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
-	currentReading.CurrentReadingSnapshotID = "goal-snapshot"
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
 	assert.NotContains(t, html, `action="/goal/books/`)
 	assert.Contains(t, html, `action="/reading/finish"`)
-	assert.Contains(t, html, `name="expected_current_book_id" value="goal"`, "finish form did not carry the current Book: %s", html)
-	assert.Contains(t, html, `name="expected_current_snapshot_id" value="goal-snapshot"`, "finish form did not carry the current Book snapshot: %s", html)
+	assert.Contains(t, html, `action="/reading/end"`)
+	assert.NotContains(t, html, `expected_current_book_id`, "Finish and End carry no commitment token")
+	assert.NotContains(t, html, `expected_current_snapshot_id`)
 	currentReadingStart := strings.Index(html, `id="journey-book-goal"`)
 	currentReadingEnd := strings.Index(html[currentReadingStart:], "</article>")
 	currentReadingCard := html[currentReadingStart : currentReadingStart+currentReadingEnd]
@@ -151,7 +140,7 @@ func readingTestRequest(t *testing.T, h http.Handler, path string, form url.Valu
 	return response
 }
 
-func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
+func TestCanonicalCurrentReadingReadNextAndEndNeedNoCommitment(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	idempotent := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{
 		"csrf_token": {csrf},
@@ -159,26 +148,19 @@ func TestCanonicalCurrentReadingStartSwitchAndStopAreIdempotent(t *testing.T) {
 	assert.Equal(t, http.StatusSeeOther, idempotent.Code)
 	assert.Contains(t, idempotent.Header().Get("Location"), "is+already+your+current+reading")
 
-	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	changed := readingTestRequest(t, h, "/reading/books/fixture-route-match/switch", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
-	}, cookies)
+	changed := readingTestRequest(t, h, "/reading/books/fixture-route-match/switch", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, changed.Code)
 	assert.Contains(t, changed.Header().Get("Location"), "is+now+your+current+reading")
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", currentReading.BookID)
 
-	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	cleared := readingTestRequest(t, h, "/reading/end", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID},
-	}, cookies)
+	cleared := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, cleared.Code)
-	clearedAgain := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}, "expected_current_book_id": {"fixture-route-match"}, "expected_current_snapshot_id": {current.SnapshotID}}, cookies)
+	assert.NotContains(t, cleared.Header().Get("Location"), "error=")
+	clearedAgain := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, clearedAgain.Code)
-	assert.NotContains(t, clearedAgain.Header().Get("Location"), "error=")
+	assert.Contains(t, clearedAgain.Header().Get("Location"), "error=", "a second End has no reading to end")
 }
 
 func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
@@ -198,7 +180,6 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	assert.NotContains(t, body, "Primary Goal")
 	for _, want := range []string{
 		"Italiano",
-		"0 lemmas are set aside from vocabulary selection while you read this Book.",
 	} {
 		assert.Contains(t, body, want, "Italian Journey page missing %q: %s", want, body)
 	}
@@ -213,16 +194,17 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	assert.Equal(t, http.StatusOK, response.Code)
 	body = response.Body.String()
 	assert.True(t, strings.Contains(body, "Deutsch") && strings.Contains(body, `id="journey-book-fixture-book"`) && !strings.Contains(body, `id="journey-book-fixture-empty"`), "German Reading did not remain isolated after Italian move: %s", body)
-	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
+	assert.NotContains(t, body, "set aside from vocabulary selection", "a reading reserves nothing")
 }
 
-func TestReadingPageShowsReservedCountAndOffersNoDeck(t *testing.T) {
+func TestReadingPageReservesNothingAndOffersNoDeck(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 
 	page := performReadingRequest(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
-	assert.Contains(t, body, "2 lemmas are set aside from vocabulary selection while you read this Book.")
+	assert.NotContains(t, body, "set aside from vocabulary selection")
+	assert.NotContains(t, body, "Reserved vocabulary")
 	assert.NotContains(t, body, "Prepare deck")
 	assert.NotContains(t, body, "/deck/")
 	assert.NotContains(t, body, "deck-preparations")
@@ -275,26 +257,21 @@ func performReadingRequest(t *testing.T, h http.Handler, method, path string, fo
 	return response
 }
 
-func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T) {
+func TestCurrentReadingFinishRendersTruthfulOutcomeWithNoVocabularyEffect(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	currentReadingBefore, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
 	knownBefore, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	finished := readingTestRequest(t, h, "/reading/finish", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {currentReadingBefore.SnapshotID},
-	}, cookies)
+	finished := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{
 		"Reading finished",
-		"Vocabulary transition",
-		"Vocabulary: 2 identities newly Known; 0 identities already Known",
 		`href="/de/reading">Choose a To Read book</a>`,
 	} {
 		assert.Contains(t, finished.Body.String(), want, "finish outcome missing %q: %s", want, finished.Body.String())
 	}
-	assert.NotContains(t, finished.Body.String(), "achievement")
-	assert.NotContains(t, finished.Body.String(), "Where next?")
+	for _, unwanted := range []string{"Vocabulary transition", "Known", "achievement", "Where next?"} {
+		assert.NotContains(t, finished.Body.String(), unwanted)
+	}
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Empty(t, currentReading.BookID, "finished Goal=%+v", currentReading)
@@ -303,62 +280,36 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeAndIsIdempotent(t *testing.T)
 	assert.Equal(t, domain.BookDispositionInbox, disposition)
 	known, err := store.ListKnownVocabulary(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, 2, len(known)-len(knownBefore))
-	repeated := readingTestRequest(t, h, "/reading/finish", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {currentReadingBefore.SnapshotID},
-	}, cookies)
-	assert.Equal(t, http.StatusOK, repeated.Code)
-	assert.Contains(t, repeated.Body.String(), "Reading finished", "idempotent finish body=%s", repeated.Body.String())
-	assert.Contains(t, repeated.Body.String(), "Der lange Weg nach Hause", "idempotent finish lost Book title: %s", repeated.Body.String())
+	assert.Equal(t, knownBefore, known, "Finish accepts nothing as Known")
+
+	repeated := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}}, cookies)
+	assert.Equal(t, http.StatusSeeOther, repeated.Code, "a second Finish has no reading to finish")
+	assert.Contains(t, repeated.Header().Get("Location"), "error=")
 }
 
-func TestCurrentReadingFinishRejectsStaleAndMissingCSRF(t *testing.T) {
-	h, cookies, csrf, store := readingFixtureSession(t)
+func TestCurrentReadingFinishRejectsMissingCSRF(t *testing.T) {
+	h, cookies, _, store := readingFixtureSession(t)
+	missingCSRF := readingTestRequest(t, h, "/reading/finish", url.Values{}, cookies)
+	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	stale := readingTestRequest(t, h, "/reading/finish", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {"stale-book"}, "expected_current_snapshot_id": {currentReading.SnapshotID},
-	}, cookies)
-	assert.Equal(t, http.StatusSeeOther, stale.Code)
-	assert.Contains(t, stale.Header().Get("Location"), "This+current+reading+changed", "stale finish location=%q", stale.Header().Get("Location"))
-	missingCSRF := readingTestRequest(t, h, "/reading/finish", url.Values{"expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, cookies)
-	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	assert.Equal(t, fixtures.BookID, currentReading.BookID, "rejected finish changed Goal=%+v", currentReading)
 }
 
-func TestCurrentReadingFinishOutcomeShowsStructuredVocabularyCounts(t *testing.T) {
-	residual := currentReadingFinishView{BookTitle: "Reading-only book", GraduatedVocabularyCount: 2, AlreadyKnownCount: 0}
+func TestCurrentReadingFinishOutcomeShowsTheBookAndNoVocabulary(t *testing.T) {
+	residual := currentReadingFinishView{BookTitle: "Reading-only book"}
 	var output bytes.Buffer
 	require.NoError(t, CurrentReadingFinish(residual).Render(context.Background(), &output))
-	for _, want := range []string{"Vocabulary: 2 identities newly Known; 0 identities already Known", "Choose a To Read book"} {
-		assert.Contains(t, output.String(), want, "residual outcome missing %q: %s", want, output.String())
+	for _, want := range []string{"Reading finished for", "Reading-only book", "Choose a To Read book"} {
+		assert.Contains(t, output.String(), want, "outcome missing %q: %s", want, output.String())
 	}
+	assert.NotContains(t, output.String(), "Vocabulary")
 	assert.NotContains(t, output.String(), "achievement")
 }
 
-func TestCurrentReadingFinishOutcomeExplainsEmptySnapshot(t *testing.T) {
-	outcome := currentReadingFinishView{BookTitle: "Empty snapshot book"}
-	var output bytes.Buffer
-	require.NoError(t, CurrentReadingFinish(outcome).Render(context.Background(), &output))
-	html := output.String()
-	for _, want := range []string{
-		"Reading finished",
-		"Vocabulary: 0 identities newly Known; 0 identities already Known",
-		"Choose a To Read book",
-	} {
-		assert.Contains(t, html, want)
-	}
-	assert.NotContains(t, html, `<article role="alert" class=`)
-	assert.NotContains(t, html, "celebrat")
-}
-
-func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing.T) {
+func TestCurrentReadingFinishThroughAuthenticatedHandlerAfterRestart(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
-	cleared := readingTestRequest(t, h, "/reading/end", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {current.SnapshotID},
-	}, cookies)
+	cleared := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, cleared.Code)
 	chosen := readingTestRequest(t, h, "/reading/books/"+fixtures.BookID+"/start", url.Values{
 		"csrf_token": {csrf},
@@ -366,55 +317,35 @@ func TestCurrentReadingFinishEmptySnapshotThroughAuthenticatedHandler(t *testing
 	require.Equal(t, http.StatusSeeOther, chosen.Code)
 	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	assert.Zero(t, currentReading.SnapshotSize)
+	assert.Equal(t, fixtures.BookID, currentReading.BookID)
 
-	finished := readingTestRequest(t, h, "/reading/finish", url.Values{
-		"csrf_token": {csrf}, "expected_current_book_id": {fixtures.BookID}, "expected_current_snapshot_id": {currentReading.SnapshotID},
-	}, cookies)
+	finished := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusOK, finished.Code)
-	for _, want := range []string{
-		"Reading finished",
-		"Vocabulary: 0 identities newly Known; 0 identities already Known",
-		"Choose a To Read book",
-	} {
+	for _, want := range []string{"Reading finished", "Choose a To Read book"} {
 		assert.Contains(t, finished.Body.String(), want)
 	}
 	assert.NotContains(t, finished.Body.String(), `<article role="alert" class=`)
 	assert.NotContains(t, finished.Body.String(), "celebrat")
 }
 
-func TestEndCurrentReadingRejectsStaleMissingAndCSRFThenEndsExactCommitment(t *testing.T) {
+func TestEndCurrentReadingNeedsOnlyCSRFThenEndsTheCurrentReading(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
-	currentReading, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
-	require.NoError(t, err)
 
-	for name, form := range map[string]url.Values{
-		"stale book":       {"csrf_token": {csrf}, "expected_current_book_id": {"stale-book"}, "expected_current_snapshot_id": {currentReading.SnapshotID}},
-		"stale snapshot":   {"csrf_token": {csrf}, "expected_current_book_id": {currentReading.BookID}, "expected_current_snapshot_id": {"stale-snapshot"}},
-		"missing snapshot": {"csrf_token": {csrf}, "expected_current_book_id": {currentReading.BookID}},
-	} {
-		rejected := readingTestRequest(t, h, "/reading/end", form, cookies)
-		assert.Equal(t, http.StatusSeeOther, rejected.Code, name)
-		assert.Contains(t, rejected.Header().Get("Location"), "error=", name)
-	}
-	missingCSRF := readingTestRequest(t, h, "/reading/end", url.Values{"expected_current_book_id": {currentReading.BookID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}, cookies)
+	missingCSRF := readingTestRequest(t, h, "/reading/end", url.Values{}, cookies)
 	assert.Equal(t, http.StatusForbidden, missingCSRF.Code)
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	assert.Equal(t, currentReading.SnapshotID, current.SnapshotID, "rejected End leaves the commitment")
+	assert.Equal(t, fixtures.BookID, current.BookID, "rejected End leaves the reading")
 
-	exact := url.Values{"csrf_token": {csrf}, "expected_current_book_id": {currentReading.BookID}, "expected_current_snapshot_id": {currentReading.SnapshotID}}
-	ended := readingTestRequest(t, h, "/reading/end", exact, cookies)
+	ended := readingTestRequest(t, h, "/reading/end", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, ended.Code)
 	assert.NotContains(t, ended.Header().Get("Location"), "error=")
 	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.False(t, current.IsActive())
-	replay := readingTestRequest(t, h, "/reading/end", exact, cookies)
-	assert.NotContains(t, replay.Header().Get("Location"), "error=", "verified replay is harmless")
 
 	for _, path := range []string{"/reading/stop", "/reading/set-aside"} {
-		retired := readingTestRequest(t, h, path, exact, cookies)
+		retired := readingTestRequest(t, h, path, url.Values{"csrf_token": {csrf}}, cookies)
 		assert.GreaterOrEqual(t, retired.Code, http.StatusBadRequest, path)
 	}
 }

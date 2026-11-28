@@ -30,9 +30,7 @@ test.describe('Current reading selection', () => {
     const currentCard = page.locator('.journey-book--goal');
     if (await currentCard.count() === 0) {
       const candidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Der lange Weg nach Hause' });
-      const start = candidate.locator('details').filter({ hasText: 'Start reading' });
-      await start.locator('summary').click();
-      await start.getByRole('button', { name: 'Confirm start reading' }).click();
+      await candidate.getByRole('button', { name: 'Read next' }).click();
       await expect(page).toHaveURL(/\/reading\?message=/);
     }
     await expect(currentCard).toBeVisible();
@@ -43,7 +41,7 @@ test.describe('Current reading selection', () => {
     expect(retired.status()).toBe(404);
   });
 
-  test('current-reading confirmations carry stale-write guards and distinct consequences', async ({ page }) => {
+  test('current-reading confirmations carry no commitment token and state distinct consequences', async ({ page }) => {
       await signIn(page);
       await page.getByLabel('Study language').selectOption('de');
       await expect(page).toHaveURL(/\/de\/library$/);
@@ -58,38 +56,21 @@ test.describe('Current reading selection', () => {
         await expect(confirmation.locator('summary')).toBeFocused();
         await confirmation.locator('summary').press('Enter');
         const form = confirmation.locator('form');
-        await expect(form.locator('input[name="expected_current_book_id"]')).toHaveValue('fixture-book');
-        await expect(form.locator('input[name="expected_current_snapshot_id"]')).not.toHaveValue('');
+        await expect(form.locator('input[name="expected_current_book_id"]')).toHaveCount(0);
+        await expect(form.locator('input[name="expected_current_snapshot_id"]')).toHaveCount(0);
         await expect(form.getByRole('button', { name: button })).toBeVisible();
         await confirmation.locator('summary').press('Enter');
       }
 
-      const staleStopForm = stop.locator('form');
-      const staleResponse = await page.request.post(new URL('/reading/end', page.url()).toString(), {
-        maxRedirects: 0,
-        form: {
-          csrf_token: await staleStopForm.locator('input[name="csrf_token"]').inputValue(),
-          expected_current_book_id: 'stale-book-id',
-          expected_current_snapshot_id: await staleStopForm.locator('input[name="expected_current_snapshot_id"]').inputValue(),
-        },
-      });
-      expect(staleResponse.status()).toBe(303);
-      const staleLocation = staleResponse.headers().location;
-      expect(staleLocation).toContain('error=');
-      await page.goto(staleLocation);
-      await expect(page.getByRole('alert')).toContainText('No changes were made');
-      await page.goto('/de/reading');
       await expect(page.locator('#primary-goal-section')).toContainText('Der lange Weg nach Hause');
 
       await expect(current.locator('a[href="/de/reading/switch"]')).toBeVisible();
       await page.goto('/de/reading/switch');
       const switchCandidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Route match: familiar German' });
-      const switchDisclosure = switchCandidate.locator('details').filter({ hasText: 'Switch to this book' });
-      await switchDisclosure.locator('summary').click();
-      const switchForm = switchDisclosure.locator('form');
-      await expect(switchForm.locator('input[name="expected_current_book_id"]')).toHaveValue('fixture-book');
-      await expect(switchForm.locator('input[name="expected_current_snapshot_id"]')).not.toHaveValue('');
-      await expect(switchForm.getByRole('button', { name: 'Confirm switch to this book' })).toBeVisible();
+      const switchForm = switchCandidate.locator('form');
+      await expect(switchForm.locator('input[name="expected_current_book_id"]')).toHaveCount(0);
+      await expect(switchForm.locator('input[name="expected_current_snapshot_id"]')).toHaveCount(0);
+      await expect(switchForm.getByRole('button', { name: 'Read next' })).toBeVisible();
     });
 
     test('Reading and My Books expose truthful current-reading controls', async ({ page }) => {
@@ -122,7 +103,7 @@ test.describe('Current reading selection', () => {
       }
       expect(titleReceivedKeyboardFocus).toBe(true);
       await expect(titleLink).toHaveCSS('text-decoration-line', 'underline');
-      await expect(goal.getByRole('heading', { name: 'Reserved vocabulary' })).toBeVisible();
+      await expect(goal.getByRole('heading', { name: 'Reserved vocabulary' })).toHaveCount(0);
       await expect(goal.getByRole('heading', { name: 'Analysis' })).toBeVisible();
       await expect(goal.getByRole('heading', { name: 'Book deck' })).toHaveCount(0);
       await expect(goal.getByRole('link', { name: 'Review flagged dictionary forms' })).toHaveAttribute('href', /\/reading\/books\/[^/]+\/lemma-review$/);
@@ -144,18 +125,18 @@ test.describe('Current reading selection', () => {
     // Lifecycle controls are canonical Reading mutations; retired Goal forms
     // are not present on the page.
      await expect(goal.locator('form[action="/goal/clear"], form[action="/goal/finish"]')).toHaveCount(0);
-     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(1);
-     await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+     await expect(goal.locator('form[action="/reading/finish"] input[name="expected_current_snapshot_id"]')).toHaveCount(0);
+     await expect(goal.getByRole('button', { name: 'Read next' })).toHaveCount(0);
       await expect(goal).not.toContainText('Book deck');
       await expect(goal.getByRole('link', { name: 'Download deck' })).toHaveCount(0);
-      await expect(goal.locator('.reading-note').filter({ hasText: '2 lemmas' })).toContainText('2 lemmas');
+      await expect(goal.locator('.reading-note').filter({ hasText: 'lemmas' })).toHaveCount(0);
      await expect(goal.locator('input[name="external_translation_consent"]')).toHaveCount(0);
 
     // While a Book is current, Reading has no Other To Read section; the
     // alternatives and their start or switch actions live in the chooser.
     await expect(page.locator('#provisional-journey-heading')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Other To Read books', exact: true })).toHaveCount(0);
-    await expect(goal.getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+    await expect(goal.getByRole('button', { name: 'Read next' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Add books from My Books' })).toHaveAttribute('href', '/de/library');
     await expect(page.getByRole('region', { name: 'Reading coverage forecast' })).toHaveCount(0);
     const currentEnd = goal.locator('details').filter({ hasText: 'End current reading' });
@@ -167,15 +148,14 @@ test.describe('Current reading selection', () => {
     // Membership can grow within the stateful sequence in this file, so assert
     // structurally instead of by exact count.
     await expect(chooser.first()).toBeVisible();
-    await expect(chooser.locator('details').filter({ hasText: 'Start reading' })).toHaveCount(0);
-    await expect(chooser.filter({ hasText: 'Empty chapter' }).locator('details').filter({ hasText: 'Switch to this book' })).toHaveCount(0);
+    await expect(chooser.filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Read next' })).toHaveCount(0);
     const eligible = chooser.filter({ hasText: 'Route match: familiar German' });
     await expect(eligible).toContainText('By Anja Roth');
-    await expect(eligible.locator('details').filter({ hasText: 'Switch to this book' })).toHaveCount(1);
+    await expect(eligible.getByRole('button', { name: 'Read next' })).toHaveCount(1);
 
     const ineligible = chooser.filter({ hasText: 'Route evidence pending' });
     await expect(ineligible).toContainText('Route evidence pending');
-    await expect(ineligible.locator('details').filter({ hasText: 'Switch to this book' })).toHaveCount(0);
+    await expect(ineligible.getByRole('button', { name: 'Read next' })).toHaveCount(0);
     await expect(ineligible.getByRole('button', { name: 'Retry acquisition' })).toBeVisible();
 
       const retryAcquisition = ineligible.getByRole('button', { name: 'Retry acquisition' });
@@ -194,7 +174,7 @@ test.describe('Current reading selection', () => {
       await page.goto('/de/library?disposition=to_read');
       await expect(page.getByRole('link', { name: 'To Read (16)' })).toBeVisible();
       await expect(page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' }).locator('.library-book__membership')).toHaveText('Currently reading');
-      await expect(page.locator('.library-books .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Start reading' })).toHaveCount(0);
+      await expect(page.locator('.library-books .library-book').filter({ hasText: 'Empty chapter' }).getByRole('button', { name: 'Read next' })).toHaveCount(0);
    });
 
    test('end mutations return to truthful Reading state', async ({ page }) => {
@@ -206,9 +186,7 @@ test.describe('Current reading selection', () => {
      const currentCard = page.locator('.journey-book--goal');
      if (await currentCard.count() === 0) {
        const initialCandidate = page.locator('li.reading-chooser-book').filter({ hasText: 'Italian route baseline' });
-       const initialStart = initialCandidate.locator('details').filter({ hasText: 'Start reading' });
-       await initialStart.locator('summary').click();
-       await initialStart.getByRole('button', { name: 'Confirm start reading' }).click();
+       await initialCandidate.getByRole('button', { name: 'Read next' }).click();
        await expect(page).toHaveURL(/\/reading\?message=/);
       }
       await expect(currentCard).toBeVisible();
@@ -228,9 +206,7 @@ test.describe('Current reading selection', () => {
        await page.goto('/it/reading');
        const candidate = page.locator('li.reading-chooser-book').filter({ has: page.getByRole('heading', { name: bookTitle, exact: true }) });
        await expect(candidate).toBeVisible();
-       const start = candidate.locator('details').filter({ hasText: 'Start reading' });
-       await start.locator('summary').click();
-       await start.getByRole('button', { name: 'Confirm start reading' }).click();
+       await candidate.getByRole('button', { name: 'Read next' }).click();
        await expect(page).toHaveURL(/\/reading\?message=/);
        await expect(page.locator('.journey-book--goal')).toContainText(bookTitle);
      };

@@ -292,16 +292,3 @@ func (s *Store) PutLemmaDecisionProposal(ctx context.Context, proposal domain.Le
 	}
 	return s.PutLemmaDecisions(ctx, proposal.Decisions())
 }
-
-// hasUnresolvedLemmaReviewFlag reports whether any seeded occurrence of the Book
-// carries an unresolved local high-risk flag. Provider-sourced advisory flags
-// never gate a freeze.
-func (s *Store) hasUnresolvedLemmaReviewFlag(owner, bookID string) bool {
-	for _, occurrence := range s.lemmaOccurrences[lemmaOccurrenceKey(owner, bookID)] {
-		key := fixtureLemmaCorrectionKey(owner, bookID, occurrence.AnalysisRunID, occurrence.StartOffset, occurrence.EndOffset)
-		if flag, ok := s.lemmaReviewFlags[key]; ok && flag.BlocksFreeze() {
-			return true
-		}
-	}
-	return false
-}

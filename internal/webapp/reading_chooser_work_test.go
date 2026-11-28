@@ -69,7 +69,7 @@ func endFixtureReading(t *testing.T, store *fixtures.Store, language string) {
 	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, language)
 	require.NoError(t, err)
 	if current.IsActive() {
-		require.NoError(t, store.EndCurrentReading(t.Context(), fixtures.OwnerID, language, current.BookID, current.SnapshotID))
+		require.NoError(t, store.EndCurrentReading(t.Context(), fixtures.OwnerID, language))
 	}
 }
 

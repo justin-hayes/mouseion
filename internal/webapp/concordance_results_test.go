@@ -228,8 +228,7 @@ func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.
 		"/de/vocabulary/concordance?term=Haus&page=not-a-page&focus=x#x",
 		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&next=https://example.com#x",
 		"/de/vocabulary/concordance?term=Haus&mode=surface&book=x&page=2&focus=x#x",
-		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b&from_snap=s&from_page=0#x",
-		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b#x",
+		"/de/vocabulary/concordance?term=Haus&page=2&focus=x&from_book=b&from_page=0#x",
 	} {
 		if got := safeConcordanceReturnURL(invalid, "de"); got != "/de/vocabulary/concordance" {
 			t.Errorf("unsafe return URL %q accepted as %q", invalid, got)
@@ -238,7 +237,7 @@ func TestSafeConcordanceReturnURLRejectsUnrelatedAndMalformedTargets(t *testing.
 }
 
 func TestSafeConcordanceReturnURLKeepsAValidBrowseOrigin(t *testing.T) {
-	origin := browseOrigin{BookID: "book-1", SnapshotID: "snap-1", Prefix: "ha", IncludeAll: true, Page: 2, Row: "NOUN:haus", Revision: "rev-1"}
+	origin := browseOrigin{BookID: "book-1", Prefix: "ha", IncludeAll: true, Page: 2, Row: "NOUN:haus", Revision: "rev-1"}
 	valid := origin.Apply("/de/vocabulary/concordance?page=1&term=haus&focus=occurrence-book-1-0-0") + "#occurrence-book-1-0-0"
 	if got := safeConcordanceReturnURL(valid, "de"); got != valid {
 		t.Fatalf("return URL with origin = %q, want %q", got, valid)
@@ -246,13 +245,12 @@ func TestSafeConcordanceReturnURLKeepsAValidBrowseOrigin(t *testing.T) {
 }
 
 func TestBrowseOriginParsingDropsMalformedOrPartialState(t *testing.T) {
-	complete := url.Values{originKeyBook: {"b"}, originKeySnapshot: {"s"}, originKeyPage: {"3"}, originKeyAll: {"1"}, originKeyRow: {"NOUN:haus"}}
+	complete := url.Values{originKeyBook: {"b"}, originKeyPage: {"3"}, originKeyAll: {"1"}, originKeyRow: {"NOUN:haus"}}
 	origin := parseBrowseOrigin(complete)
 	if !origin.Active() || origin.Page != 3 || !origin.IncludeAll || origin.Row != "NOUN:haus" {
 		t.Fatalf("complete origin parsed as %+v", origin)
 	}
 	for name, mutate := range map[string]func(url.Values){
-		"no snapshot":   func(v url.Values) { v.Del(originKeySnapshot) },
 		"no book":       func(v url.Values) { v.Del(originKeyBook) },
 		"page zero":     func(v url.Values) { v.Set(originKeyPage, "0") },
 		"page text":     func(v url.Values) { v.Set(originKeyPage, "x") },

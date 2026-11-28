@@ -69,7 +69,7 @@ func TestReadingChooserOffersAConfirmedSourceStructureUpdate(t *testing.T) {
 	assert.Contains(t, body, `name="expected_convention_set" value="epub-structure/1"`)
 	assert.Contains(t, body, `name="expected_result_identity" value="sha256:checked"`)
 	assert.Contains(t, body, "Confirm source structure update")
-	assert.Contains(t, body, "Confirm start reading", "the offer does not change readiness")
+	assert.Contains(t, body, "Read next", "the offer does not change readiness")
 }
 
 func TestCurrentReadingCanAdoptSourceStructureWithoutLosingEvidence(t *testing.T) {
@@ -206,5 +206,5 @@ func TestSourceStructureUpdateCandidateLookupFailureOffersNothing(t *testing.T) 
 
 	body := readingGet(t, h, "/de/reading", cookies)
 	assert.NotContains(t, body, "A source structure update is available.")
-	assert.Contains(t, body, "Confirm start reading")
+	assert.Contains(t, body, "Read next")
 }

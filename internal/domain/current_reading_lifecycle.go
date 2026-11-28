@@ -2,22 +2,17 @@ package domain
 
 import "time"
 
-// CurrentReadingCompletion is the current-reading vocabulary for the durable
-// completion fact. It intentionally does not expose the retired Goal name.
+// CurrentReadingCompletion is the durable fact that Finish appended to Reading
+// history. Finishing has no vocabulary effect (ADR 0136 §4), so it carries no
+// counts.
 type CurrentReadingCompletion struct {
-	OwnerID                     string
-	Language                    string
-	BookID                      string
-	CompletedAt                 time.Time
-	SnapshotID                  string
-	SnapshotVocabularyCount     int
-	EligibleVocabularyCount     int
-	GraduatedVocabularyCount    int
-	AlreadyKnownVocabularyCount int
+	OwnerID     string
+	Language    string
+	BookID      string
+	CompletedAt time.Time
 }
 
-// CurrentReadingFinishResult is the durable outcome returned by accepting a
-// current reading. Replaying the same finish request returns the same result.
+// CurrentReadingFinishResult is the outcome of Finish.
 type CurrentReadingFinishResult struct {
 	Completion CurrentReadingCompletion
 }

@@ -11,10 +11,13 @@ import (
 )
 
 const bookEverCurrentReading = `-- name: BookEverCurrentReading :one
-SELECT EXISTS(
+SELECT (EXISTS(
   SELECT 1 FROM primary_goal_snapshots s
   WHERE s.owner_id = $1 AND s.book_id = $2
-)
+) OR EXISTS(
+  SELECT 1 FROM primary_goals g
+  WHERE g.owner_id = $1 AND g.book_id = $2
+))::boolean
 `
 
 type BookEverCurrentReadingParams struct {
@@ -22,13 +25,14 @@ type BookEverCurrentReadingParams struct {
 	Book  string
 }
 
-// A released snapshot proves the Book held the Current reading role even after
-// the reading ended, so an unstarted Book is one with no snapshot.
+// The Book holds the Current reading role now, or held it before the
+// vocabulary snapshot was retired (a legacy snapshot proves it). A reading
+// ended since then leaves no trace (ADR 0136 section 4).
 func (q *Queries) BookEverCurrentReading(ctx context.Context, arg BookEverCurrentReadingParams) (bool, error) {
 	row := q.db.QueryRow(ctx, bookEverCurrentReading, arg.Owner, arg.Book)
-	var exists bool
-	err := row.Scan(&exists)
-	return exists, err
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const bookExists = `-- name: BookExists :one
@@ -88,10 +92,13 @@ SELECT e.book_id, e.book_owner_id, e.book_title, e.book_metadata_provenance, e.b
          SELECT 1 FROM primary_goals g
          WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
        ) AS is_current_reading
-     , EXISTS (
+     , ((EXISTS (
          SELECT 1 FROM primary_goal_snapshots s
          WHERE s.owner_id::text = e.book_owner_id AND s.book_id::text = e.book_id
-       ) AS ever_current_reading
+       ) OR EXISTS (
+         SELECT 1 FROM primary_goals g
+         WHERE g.owner_id::text = e.book_owner_id AND g.book_id::text = e.book_id
+       )))::boolean AS ever_current_reading
      , COALESCE(ru.definition_key, '')::text AS reading_unit_key
      , COALESCE(w.definition_key, '')::text AS work_key
      , COALESCE(w.title, '')::text AS work_title

@@ -412,7 +412,7 @@ func TestLibraryShowsCurrentReadingInToReadWithDistinctLabel(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	current, err := store.GetCurrentReading(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
-	_, err = store.FinishCurrentReading(t.Context(), fixtures.OwnerID, "de", current.BookID, current.SnapshotID)
+	_, err = store.FinishCurrentReading(t.Context(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	require.NoError(t, store.SetBookDisposition(t.Context(), fixtures.OwnerID, current.BookID, domain.BookDispositionToRead))
 	_, err = store.StartCurrentReading(t.Context(), fixtures.OwnerID, "de", current.BookID)

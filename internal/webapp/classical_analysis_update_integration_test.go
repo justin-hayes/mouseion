@@ -187,10 +187,10 @@ func TestClassicalAnalysisUpdateSkipsTheCurrentBookUntilEnd(t *testing.T) {
 	assert.Equal(t, 3, countRows(t, h.pool, `SELECT count(*) FROM occurrence_lemma_corrections WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, h.learnerID, h.secondID, secondRun))
 	reading, err := h.store.GetCurrentReading(context.Background(), h.learnerID, classical.Language)
 	require.NoError(t, err)
-	assert.Equal(t, started.Reading.SnapshotID, reading.SnapshotID)
+	assert.Equal(t, started.Reading.BookID, reading.BookID)
 
 	// After End the Book is To Read and its offer returns with the other Book.
-	require.NoError(t, h.store.EndCurrentReading(context.Background(), h.learnerID, classical.Language, h.firstID, started.Reading.SnapshotID))
+	require.NoError(t, h.store.EndCurrentReading(context.Background(), h.learnerID, classical.Language))
 	body = readingGet(t, h.h, "/library", h.cookies)
 	assert.Equal(t, 2, strings.Count(body, analysisUpdateNotice), "each Book's row offers its own update")
 	assert.Contains(t, body, `action="`+readingAnalysisUpdateURL(h.firstID)+`"`)

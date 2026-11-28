@@ -341,24 +341,12 @@ func (h *postgresHarness) StartCurrentReading(owner, language, bookID string) (d
 	return h.store.StartCurrentReading(h.ctx, owner, language, bookID)
 }
 
-func (h *postgresHarness) SwitchCurrentReading(owner, language, bookID, expectedBookID, expectedSnapshotID string) (domain.CurrentReading, error) {
-	return h.store.SwitchCurrentReading(h.ctx, owner, language, bookID, expectedBookID, expectedSnapshotID)
+func (h *postgresHarness) EndCurrentReading(owner, language string) error {
+	return h.store.EndCurrentReading(h.ctx, owner, language)
 }
 
-func (h *postgresHarness) EndCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) error {
-	return h.store.EndCurrentReading(h.ctx, owner, language, expectedBookID, expectedSnapshotID)
-}
-
-func (h *postgresHarness) FinishCurrentReading(owner, language, expectedBookID, expectedSnapshotID string) (domain.CurrentReadingFinishResult, error) {
-	return h.store.FinishCurrentReading(h.ctx, owner, language, expectedBookID, expectedSnapshotID)
-}
-
-func (h *postgresHarness) ListKnownVocabulary(owner, language string) ([]domain.KnownVocabulary, error) {
-	return h.store.ListKnownVocabulary(h.ctx, owner, language)
-}
-
-func (h *postgresHarness) ListReservedVocabulary(owner, language string) ([]domain.DeckPreparationVocabulary, error) {
-	return h.store.ListReservedVocabulary(h.ctx, owner, language)
+func (h *postgresHarness) FinishCurrentReading(owner, language string) (domain.CurrentReadingFinishResult, error) {
+	return h.store.FinishCurrentReading(h.ctx, owner, language)
 }
 
 func (h *postgresHarness) ListLemmaReviewOccurrences(owner, bookID, surface string) ([]domain.LemmaReviewOccurrence, error) {

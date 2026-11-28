@@ -104,14 +104,6 @@ func marshalLemmaReviewFlagProvenance(provenance map[string]any) ([]byte, error)
 	return json.Marshal(provenance)
 }
 
-// unresolvedLemmaReviewFlags reports whether the analysis still holds unresolved
-// local high-risk evidence. Provider-sourced advisory flags never gate a freeze.
-func unresolvedLemmaReviewFlags(ctx context.Context, tx pgx.Tx, owner, book, analysisRun string) (bool, error) {
-	var exists bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM occurrence_lemma_review_flags WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3 AND resolution IS NULL AND COALESCE(evidence_provenance->>'source','')<>$4)`, owner, book, analysisRun, domain.LemmaReviewFlagProviderSource).Scan(&exists)
-	return exists, err
-}
-
 // listEligibleLemmaReviewRows fetches candidate occurrences and keeps only
 // those selection counts as vocabulary (ADR 0087).
 func listEligibleLemmaReviewRows(ctx context.Context, q *sqlcgen.Queries, owner, bookID, surface string) ([]sqlcgen.ListLemmaReviewOccurrencesRow, error) {

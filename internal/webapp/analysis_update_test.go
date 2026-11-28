@@ -89,7 +89,7 @@ func TestReadingChooserOffersAConfirmedAnalysisUpdate(t *testing.T) {
 	assert.Contains(t, body, `name="expected_run_id" value="published-run"`)
 	assert.Contains(t, body, `name="expected_target" value="`+testUpdateTarget.Key()+`"`)
 	assert.Contains(t, body, "Confirm analysis update")
-	assert.Contains(t, body, "Confirm start reading", "the offer does not change readiness")
+	assert.Contains(t, body, "Read next", "the offer does not change readiness")
 }
 
 func TestReadingChooserTreatsUnavailableOffersAsCurrent(t *testing.T) {
@@ -102,7 +102,7 @@ func TestReadingChooserTreatsUnavailableOffersAsCurrent(t *testing.T) {
 
 	body := readingGet(t, h, "/de/reading", cookies)
 	assert.NotContains(t, body, "A newer analysis is available.")
-	assert.Contains(t, body, "Confirm start reading")
+	assert.Contains(t, body, "Read next")
 }
 
 func TestMyBooksTellsTheCurrentReadingToEndFirst(t *testing.T) {

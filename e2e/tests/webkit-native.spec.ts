@@ -295,12 +295,10 @@ test.describe('native WebKit smoke journey', () => {
       await expect(finish).not.toHaveAttribute('open', '');
 
       await switchLink.click();
-      const switchConfirmation = page.locator('details.confirmation').filter({ hasText: 'Switch to this book' }).first();
-      const switchSummary = switchConfirmation.locator('summary');
-      await switchSummary.focus();
-      await page.keyboard.press('Enter');
-      await expect(switchConfirmation).toHaveAttribute('open', '');
-      await expect(switchConfirmation.getByRole('button', { name: 'Confirm switch to this book' })).toBeVisible();
+      const readNext = page.getByRole('button', { name: 'Read next' }).first();
+      await readNext.focus();
+      await expect(readNext).toBeFocused();
+      await expect(readNext).toBeVisible();
       await expectNoHorizontalOverflow(page);
     } finally {
       await page.close();

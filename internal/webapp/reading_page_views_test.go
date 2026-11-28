@@ -45,34 +45,20 @@ func TestReadingPageIdentifiesCurrentReadingSinceAndKeepsLifecycleActionsWithBoo
 	assert.NotContains(t, html, "Set aside this Book")
 }
 
-func TestIsCurrentReadingShowsReservedVocabularyAndNoDeck(t *testing.T) {
+func TestIsCurrentReadingShowsNoReservedVocabularyOrDeck(t *testing.T) {
 	currentReading := testReadingBook("goal", "Goal book", testAnalyzed)
-	currentReading.CurrentReadingSnapshotSize = 2
-	currentReading.CurrentReadingSnapshotID = "snapshot"
-	currentReading.CurrentReadingVocabularyEligible = 1
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "2 lemmas are set aside from vocabulary selection while you read this Book.")
-	assert.Contains(t, html, "1 currently eligible frozen Reserved identities")
+	assert.NotContains(t, html, "set aside from vocabulary selection")
+	assert.NotContains(t, html, "Reserved vocabulary")
+	assert.NotContains(t, html, "Reserved identities")
 	assert.NotContains(t, html, "Book deck")
 	assert.NotContains(t, html, "/deck/")
 	assert.NotContains(t, html, "Prepare deck")
 }
 
-func TestIsCurrentReadingRendersEmptyReservedVocabularyCount(t *testing.T) {
-	currentReading := testReadingBook("empty-goal", "Empty Goal book", testAnalyzed)
-	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "0 lemmas are set aside from vocabulary selection while you read this Book.")
-}
-
-func TestReservedVocabularySummaryPluralizesLearnerCopy(t *testing.T) {
-	assert.Equal(t, "1 lemma is set aside from vocabulary selection while you read this Book.", reservedVocabularySummary(1))
-	assert.Equal(t, "2 lemmas are set aside from vocabulary selection while you read this Book.", reservedVocabularySummary(2))
-}
-
 func TestIsCurrentReadingShowsReadingStateAndPageAction(t *testing.T) {
 	currentReading := testReadingBook("goal-state", "Goal state book", testAnalyzed)
 	html := renderReading(t, readingPageView{CurrentReading: &currentReading})
-	assert.Contains(t, html, "Reserved vocabulary</h2>")
 	assert.Contains(t, html, "Analysis</h2>")
 	assert.NotContains(t, html, "Book deck</h2>")
 	assert.Contains(t, html, `href="/library">Add books from My Books</a>`)

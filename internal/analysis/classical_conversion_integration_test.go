@@ -26,10 +26,10 @@ import (
 
 // preUpgradeAnabasis is the seeded state conversion must preserve.
 type preUpgradeAnabasis struct {
-	ownerID, bookID, sourceID, runID, corpusID, snapshotID string
-	oldRevisionID, oldSnapshotID                           string
-	definition                                             classical.Definition
-	brownsonPin                                            string
+	ownerID, bookID, sourceID, runID, corpusID string
+	oldRevisionID, oldSnapshotID               string
+	definition                                 classical.Definition
+	brownsonPin                                string
 }
 
 // preUpgradeDefinition builds the pre-manifest definition with the
@@ -142,10 +142,8 @@ func seedPreUpgradeAnabasis(t *testing.T, ctx context.Context, store *persistenc
 
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, owner.ID, classical.Language))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, registration.BookID, domain.BookDispositionToRead))
-	started, err := store.StartCurrentReadingResult(ctx, owner.ID, classical.Language, registration.BookID)
+	_, err = store.StartCurrentReadingResult(ctx, owner.ID, classical.Language, registration.BookID)
 	require.NoError(t, err)
-	seed.snapshotID = started.Reading.SnapshotID
-	require.NotEmpty(t, seed.snapshotID)
 
 	// One installation-wide translation row the conversion never touches.
 	seed.brownsonPin = "f4c88203196a4f2ed315d47642d10f9515c568374139ba1e25e7934312586ea7"
@@ -226,9 +224,6 @@ func TestConvertLegacyAnabasisBookPreservesEveryPieceOfState(t *testing.T) {
 	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
 	require.NoError(t, err)
 	assert.Equal(t, seed.bookID, current.BookID)
-	assert.Equal(t, seed.snapshotID, current.SnapshotID, "the current reading keeps its frozen snapshot")
-	_, err = store.ListCurrentReadingSnapshotVocabulary(ctx, seed.ownerID, seed.snapshotID)
-	require.NoError(t, err, "the frozen snapshot remains readable")
 
 	// The installation-wide translation row is exactly what it was before conversion.
 	var translation string
@@ -317,9 +312,9 @@ func TestConvertLegacyV4BookRecordsItsPublishedInterpretationAndOffersAnUpdate(t
 	require.True(t, ok, "a converted v4 Book is offered an Analysis update")
 	assert.Equal(t, seed.runID, candidate.PublishedRunID)
 	assert.Equal(t, "oga-agdt-upos/5", candidate.Target.AnalyzerVersion, "the offer targets the current definition")
-	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
-	require.NoError(t, err)
-	assert.Equal(t, seed.runID, current.AnalysisRunID, "the v4 analysis stays in effect until confirmation")
+	var publishedRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&publishedRunID))
+	assert.Equal(t, seed.runID, publishedRunID, "the v4 analysis stays in effect until confirmation")
 }
 
 // survivingDefinition is a valid current manifest entry that keeps the
@@ -556,9 +551,9 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	_, err = pool.Exec(ctx, `UPDATE corpus_sentences SET sentence_text='different' WHERE owner_id=$1 AND analysis_run_id=$2 AND sentence_ordinal=0`,
 		seed.ownerID, seed.runID)
 	require.NoError(t, err)
-	current, err := store.GetCurrentReading(ctx, seed.ownerID, classical.Language)
-	require.NoError(t, err)
-	assert.Equal(t, seed.runID, current.AnalysisRunID)
+	var publishedRunID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2`, seed.ownerID, seed.bookID).Scan(&publishedRunID))
+	assert.Equal(t, seed.runID, publishedRunID)
 
 	// The persistence conversion refuses evidence the comparison did not name.
 	conversion := domain.ClassicalSourceConversion{
@@ -693,7 +688,7 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	_, err = updates.SubmitAnalysisUpdate(ctx, seed.ownerID, seed.bookID, seed.sourceID, candidate.PublishedRunID, candidate.Target.Key())
 	require.ErrorIs(t, err, ErrCurrentBook)
 
-	require.NoError(t, store.EndCurrentReading(ctx, seed.ownerID, classical.Language, seed.bookID, current.SnapshotID))
+	require.NoError(t, store.EndCurrentReading(ctx, seed.ownerID, classical.Language))
 	_, err = updates.SubmitAnalysisUpdate(ctx, seed.ownerID, seed.bookID, seed.sourceID, candidate.PublishedRunID, "stale-target")
 	require.ErrorIs(t, err, ErrAnalysisUpdateChanged)
 

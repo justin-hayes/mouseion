@@ -1,43 +1,38 @@
 package domain
 
 // StartFacts are the loaded facts that decide whether a Book may become the
-// owner's current reading in Language. Adapters load them under their own
-// concurrency control and hold no Start rule themselves.
+// owner's current reading in Language (Read next, ADR 0136 §4). Adapters load
+// them under their own concurrency control and hold no rule themselves.
 type StartFacts struct {
 	// Language is the study language the reading would start in.
 	Language string
-	// AlreadyCurrent reports that a reading is already current in Language.
-	AlreadyCurrent bool
-	// CurrentIsBook reports that the current reading in Language names the
-	// requested Book. It is only meaningful when AlreadyCurrent is set.
+	// CurrentIsBook reports that the current reading in Language already names
+	// the requested Book.
 	CurrentIsBook bool
 	// Signals, Disposition, and BookLanguage feed the Analysis evidence
 	// classifier. BookLanguage is empty unless the Book has a chosen language.
 	Signals      AnalysisSignals
 	Disposition  BookDisposition
 	BookLanguage string
-	// IdentityPublished reports that the Book has the published analysis
-	// identity a snapshot is frozen from.
+	// IdentityPublished reports that the Book has a published analysis
+	// identity.
 	IdentityPublished bool
-	// UnresolvedLemmaReviewFlags reports high-risk flags on the Book's current
-	// analysis run that still need a resolution.
-	UnresolvedLemmaReviewFlags bool
 }
 
-// StartOutcome is the result class of a Start decision.
+// StartOutcome is the result class of a Read next decision.
 type StartOutcome string
 
 const (
+	// StartAccepted means the Book becomes the current reading, replacing any
+	// other current reading in the language.
 	StartAccepted StartOutcome = "accepted"
 	// StartReplayed means the requested Book is already the current reading,
-	// so the Start changes nothing and succeeds.
-	StartReplayed                StartOutcome = "replayed"
-	StartRejectedAlreadyCurrent  StartOutcome = "already-current"
-	StartRejectedIneligible      StartOutcome = "ineligible"
-	StartRejectedUnresolvedFlags StartOutcome = "unresolved-lemma-review-flags"
+	// so Read next changes nothing and succeeds.
+	StartReplayed           StartOutcome = "replayed"
+	StartRejectedIneligible StartOutcome = "ineligible"
 )
 
-// StartDecision accepts, replays, or rejects a Start. Reason carries the
+// StartDecision accepts, replays, or rejects Read next. Reason carries the
 // classifier's eligibility reason when the Book is ineligible and is
 // CurrentReadingEligible otherwise.
 type StartDecision struct {
@@ -45,22 +40,12 @@ type StartDecision struct {
 	Reason  CurrentReadingEligibilityReason
 }
 
-// Accepted reports whether the Start may proceed to freezing a snapshot.
-func (d StartDecision) Accepted() bool {
-	return d.Outcome == StartAccepted
-}
-
-// DecideStart applies the Start rules in a fixed order: a reading already
-// current in the language, which replays when it names the requested Book and
-// is rejected otherwise; then eligibility from the Analysis evidence
-// classifier; then unresolved lemma-review flags. Snapshot candidate selection
-// is not part of the decision.
+// DecideStart applies the Read next rules: the Book that is already current is
+// a replay; otherwise the Book must be To Read, analysed, and have a Book
+// language matching the study language. Lemma review flags never gate it.
 func DecideStart(facts StartFacts) StartDecision {
-	if facts.AlreadyCurrent {
-		if facts.CurrentIsBook {
-			return StartDecision{Outcome: StartReplayed, Reason: CurrentReadingEligible}
-		}
-		return StartDecision{Outcome: StartRejectedAlreadyCurrent, Reason: CurrentReadingEligible}
+	if facts.CurrentIsBook {
+		return StartDecision{Outcome: StartReplayed, Reason: CurrentReadingEligible}
 	}
 	classification := ClassifyBookEvidence(facts.Signals, facts.Disposition, facts.BookLanguage)
 	if reason := CurrentReadingEligibilityIn(classification, facts.BookLanguage, facts.Language); reason != CurrentReadingEligible {
@@ -68,9 +53,6 @@ func DecideStart(facts StartFacts) StartDecision {
 	}
 	if !facts.IdentityPublished {
 		return StartDecision{Outcome: StartRejectedIneligible, Reason: CurrentReadingNoCompletedAnalysis}
-	}
-	if facts.UnresolvedLemmaReviewFlags {
-		return StartDecision{Outcome: StartRejectedUnresolvedFlags, Reason: CurrentReadingEligible}
 	}
 	return StartDecision{Outcome: StartAccepted, Reason: CurrentReadingEligible}
 }

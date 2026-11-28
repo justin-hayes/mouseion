@@ -77,14 +77,12 @@ func seedProviderReviewFlag(t *testing.T, h Harness, occurrence domain.LemmaRevi
 }
 
 // requireLocalHighRiskFlag asserts the Book's first review occurrence holds
-// unresolved local evidence, and that the evidence still gates Start.
+// unresolved local evidence.
 func requireLocalHighRiskFlag(t *testing.T, h Harness, bookID string) {
 	t.Helper()
 	after := reviewOccurrence(t, h, bookID, 0)
 	assert.Equal(t, "local high-risk evidence", after.ReviewFlagReason)
 	assert.False(t, domain.LemmaReviewFlagProviderSourced(after.ReviewFlagProvenance))
-	_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
-	require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
 }
 
 func lemmaReviewScenarios() []Scenario {
@@ -242,50 +240,52 @@ func lemmaFlagScenarios() []Scenario {
 	})
 }
 
-// lemmaProviderFlagScenarios pin the advisory provider flag's place across the
-// freeze gates. Provider flags never pause a freeze; unresolved local high-risk
-// evidence still does, and takes precedence over an unresolved provider flag.
+// lemmaProviderFlagScenarios pin the advisory provider flag's place beside a
+// local high-risk flag. Neither gates Read next (ADR 0136 §6); a local flag
+// replaces an unresolved provider flag.
 func lemmaProviderFlagScenarios() []Scenario {
 	return []Scenario{{
-		Name: "an unresolved provider flag does not block start",
+		Name: "an unresolved provider flag does not block Read next",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)
 			seedProviderReviewFlag(t, h, reviewOccurrence(t, h, bookID, 0), "provider lemma mismatch")
 			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
-			require.NoError(t, err, "a provider flag never pauses a freeze")
+			require.NoError(t, err, "a provider flag never gates Read next")
 		},
 	}, {
-		Name: "an unresolved local high-risk flag still blocks start",
+		Name: "an unresolved local high-risk flag does not block Read next",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)
 			seedReviewFlag(t, h, reviewOccurrence(t, h, bookID, 0), "local high-risk evidence")
-			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
-			require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
+			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
+			require.NoError(t, err, "lemma review flags never gate the Current reading")
+			assert.Equal(t, bookID, reading.BookID)
 		},
 	}, {
-		Name: "an unresolved provider flag does not block a switch",
+		Name: "an unresolved provider flag does not block Read next from another Book",
 		Run: func(t *testing.T, h Harness) {
 			first := seedReviewBook(t, h)
-			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, first)
+			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, first)
 			require.NoError(t, err)
 			target := seedReviewBook(t, h)
 			seedProviderReviewFlag(t, h, reviewOccurrence(t, h, target, 0), "provider lemma mismatch")
-			_, err = h.Store().SwitchCurrentReading(h.Seeds().Owner(), Language, target, first, reading.SnapshotID)
+			_, err = h.Store().StartCurrentReading(h.Seeds().Owner(), Language, target)
 			require.NoError(t, err)
 		},
 	}, {
-		Name: "an unresolved local high-risk flag still blocks a switch",
+		Name: "an unresolved local high-risk flag does not block Read next from another Book",
 		Run: func(t *testing.T, h Harness) {
 			first := seedReviewBook(t, h)
-			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, first)
+			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, first)
 			require.NoError(t, err)
 			target := seedReviewBook(t, h)
 			seedReviewFlag(t, h, reviewOccurrence(t, h, target, 0), "local high-risk evidence")
-			_, err = h.Store().SwitchCurrentReading(h.Seeds().Owner(), Language, target, first, reading.SnapshotID)
-			require.ErrorIs(t, err, domain.ErrUnresolvedLemmaReviewFlags)
+			switched, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, target)
+			require.NoError(t, err)
+			assert.Equal(t, target, switched.BookID)
 		},
 	}, {
-		Name: "a local high-risk flag replaces an unresolved provider flag and blocks start",
+		Name: "a local high-risk flag replaces an unresolved provider flag",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)
 			flagged := reviewOccurrence(t, h, bookID, 0)
@@ -317,18 +317,16 @@ func lemmaProviderFlagScenarios() []Scenario {
 			assert.Equal(t, "first local evidence", reviewOccurrence(t, h, bookID, 1).ReviewFlagReason)
 		},
 	}, {
-		Name: "a provider flag saved after the freeze leaves the reading unchanged",
+		Name: "a provider flag saved while a reading is current leaves the reading unchanged",
 		Run: func(t *testing.T, h Harness) {
 			bookID := seedReviewBook(t, h)
 			reading, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
 			require.NoError(t, err)
-			seedProviderReviewFlag(t, h, reviewOccurrence(t, h, bookID, 1), "provider evidence after freeze")
+			seedProviderReviewFlag(t, h, reviewOccurrence(t, h, bookID, 1), "provider evidence while reading")
 
 			current, err := h.Store().GetCurrentReading(h.Seeds().Owner(), Language)
 			require.NoError(t, err)
 			assert.Equal(t, reading.BookID, current.BookID)
-			assert.Equal(t, reading.SnapshotID, current.SnapshotID)
-			assert.Equal(t, reading.SnapshotSize, current.SnapshotSize)
 		},
 	}, {
 		Name: "a resolved provider flag is not reopened by later provider or local evidence",
@@ -344,7 +342,7 @@ func lemmaProviderFlagScenarios() []Scenario {
 			assert.Equal(t, "keep", after.ReviewFlagResolution)
 			assert.Equal(t, "provider lemma mismatch", after.ReviewFlagReason)
 			_, err := h.Store().StartCurrentReading(h.Seeds().Owner(), Language, bookID)
-			require.NoError(t, err, "a resolved flag never gates a freeze")
+			require.NoError(t, err, "a resolved flag never gates Read next")
 		},
 	}}
 }

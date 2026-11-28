@@ -1,7 +1,6 @@
 package storecontract
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
@@ -31,8 +30,6 @@ func removalScenarios() []Scenario {
 			detail := requireDetail(t, h, owner, bookID)
 			completion, err := h.BookState().ImportPreviouslyRead(owner, bookID)
 			require.NoError(t, err)
-			knownLemma := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "haus", UPOS: "NOUN"}
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{knownLemma})
 			before := requireDetail(t, h, owner, bookID)
 			assert.Equal(t, bookID, before.Book.ID)
 			assert.Equal(t, detail.Book.Title, before.Book.Title)
@@ -40,12 +37,6 @@ func removalScenarios() []Scenario {
 			require.NoError(t, h.BookState().RemoveBookFromMyBooks(owner, bookID))
 			_, err = h.BookState().GetBookDetail(owner, bookID)
 			require.ErrorIs(t, err, domain.ErrNotFound, "Remove ends membership")
-
-			known, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			assert.True(t, slices.ContainsFunc(known, func(vocabulary domain.KnownVocabulary) bool {
-				return vocabulary.OwnerID == owner && vocabulary.CanonicalLemma == knownLemma.CanonicalLemma
-			}), "Remove keeps Known vocabulary")
 
 			connectionID := h.Seeds().SeedCatalogueConnection(t, owner, "Removal contract catalog")
 			h.Seeds().SeedCatalogueEntries(t, owner, connectionID, []CatalogueEntrySeed{{
@@ -323,12 +314,6 @@ func importScenarios() []Scenario {
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			bookID := seedBook(t, h, BookSeed{})
-			known := domain.SnapshotIdentity{Language: Language, CanonicalLemma: "Haus", UPOS: "NOUN"}
-			h.Seeds().SeedKnownVocabulary(t, owner, []domain.SnapshotIdentity{known})
-			before, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			require.NotEmpty(t, before)
-
 			require.NoError(t, h.BookState().MarkBookPreviouslyRead(owner, bookID))
 			detail := requireDetail(t, h, owner, bookID)
 			assert.Equal(t, domain.BookDispositionInbox, detail.Disposition, "marking clears the To Read disposition")
@@ -338,9 +323,6 @@ func importScenarios() []Scenario {
 
 			require.NoError(t, h.BookState().MarkBookPreviouslyRead(owner, bookID), "a replay is idempotent")
 			assert.Equal(t, 1, requireDetail(t, h, owner, bookID).CompletionCount, "a replay adds no second history row")
-			after, err := h.Store().ListKnownVocabulary(owner, Language)
-			require.NoError(t, err)
-			assert.ElementsMatch(t, before, after, "marking changes no Known vocabulary")
 		},
 	}, {
 		Name: "marking a Book that is not an unstarted To Read Book is refused",
@@ -351,9 +333,8 @@ func importScenarios() []Scenario {
 			detail := requireDetail(t, h, owner, inbox)
 			require.ErrorIs(t, detail.ValidateMembership(), domain.ErrBookNotChosen, "a refused assertion records no history")
 
-			started, reading := startReading(t, h, defaultVocabulary)
-			require.NoError(t, h.Store().EndCurrentReading(owner, Language, started, reading.SnapshotID))
-			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, started), domain.ErrPreviouslyReadIneligible)
+			started, _ := startReading(t, h, defaultVocabulary)
+			require.ErrorIs(t, h.BookState().MarkBookPreviouslyRead(owner, started), domain.ErrBookIsCurrentReading)
 			assert.Zero(t, requireDetail(t, h, owner, started).CompletionCount, "a started Book keeps no previous-read history")
 		},
 	}, {
@@ -378,15 +359,13 @@ func importScenarios() []Scenario {
 		Run: func(t *testing.T, h Harness) {
 			owner := h.Seeds().Owner()
 			fresh := seedBook(t, h, BookSeed{})
-			assert.False(t, requireDetail(t, h, owner, fresh).EverCurrentReading, "an unstarted Book has no snapshot")
+			assert.False(t, requireDetail(t, h, owner, fresh).EverCurrentReading, "an unstarted Book never held the reading")
 
-			currentBook, reading := startReading(t, h, defaultVocabulary)
+			currentBook, _ := startReading(t, h, defaultVocabulary)
 			assert.True(t, requireDetail(t, h, owner, currentBook).EverCurrentReading, "the current reading counts as started")
 
-			require.NoError(t, h.Store().EndCurrentReading(owner, Language, currentBook, reading.SnapshotID))
-			ended := requireDetail(t, h, owner, currentBook)
-			assert.False(t, ended.IsCurrentReading)
-			assert.True(t, ended.EverCurrentReading, "a released snapshot keeps proving the reading happened")
+			require.NoError(t, h.Store().EndCurrentReading(owner, Language))
+			assert.False(t, requireDetail(t, h, owner, currentBook).IsCurrentReading)
 		},
 	}, {
 		Name: "previously-read import refuses the current reading",

@@ -23,8 +23,7 @@ test.describe('Current reading over a failed re-analysis', () => {
     const plate = candidate.locator('.book-cover-media__placeholder');
     await expect(plate).toHaveAttribute('aria-hidden', 'true');
     await expect(plate.locator('.title-plate__title')).toBeVisible();
-    await candidate.locator('summary').filter({ hasText: 'Switch to this book' }).click();
-    await candidate.getByRole('button', { name: 'Confirm switch to this book' }).click();
+    await candidate.getByRole('button', { name: 'Read next' }).click();
 
     await page.goto('/de/reading');
     await expect(page.getByRole('heading', { name: 'Neue Analyse fehlgeschlagen' })).toBeVisible();

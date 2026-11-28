@@ -24,8 +24,7 @@ test('a corrected occurrence remains reviewable when starting its Book', async (
 
   await page.goto('/de/reading');
   const start = page.locator('form[action="/reading/books/fixture-route-match/start"]');
-  await start.locator('xpath=../..').locator('summary').click();
-  await start.getByRole('button', { name: 'Confirm start reading' }).click();
+  await start.getByRole('button', { name: 'Read next' }).click();
   await expect(page.locator('.journey-book__title')).toContainText('Route match: familiar German');
   await expect(page.getByText('Route match: familiar German is now your current reading.', { exact: true })).toBeVisible();
 });

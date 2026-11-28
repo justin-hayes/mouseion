@@ -110,7 +110,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	for _, book := range []domain.Book{zeta, alpha, leer} {
 		require.NoError(t, store.SetBookDisposition(ctx, alice.ID, book.ID, domain.BookDispositionToRead))
 	}
-	startZeta, err := store.StartCurrentReading(ctx, alice.ID, "de", zeta.ID)
+	_, err = store.StartCurrentReading(ctx, alice.ID, "de", zeta.ID)
 	require.NoError(t, err)
 
 	var firstPage, secondPage, thirdPage string
@@ -159,7 +159,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 	})
 
 	t.Run("Start, End, and Switch never reorder an existing result set and offer a refresh", func(t *testing.T) {
-		switched, err := store.SwitchCurrentReading(ctx, alice.ID, "de", alpha.ID, zeta.ID, startZeta.SnapshotID)
+		_, err = store.StartCurrentReading(ctx, alice.ID, "de", alpha.ID)
 		require.NoError(t, err)
 		again := get(strings.TrimPrefix(pageLink(firstPage, "Next"), "/de/vocabulary/concordance?"))
 		require.Equal(t, http.StatusOK, again.Code)
@@ -181,7 +181,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 		assert.Contains(t, refreshed.Body.String(), "Results begin with Alpha")
 		assert.NotContains(t, refreshed.Body.String(), `id="concordance-reading-changed"`)
 
-		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de", alpha.ID, switched.SnapshotID))
+		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 		ended := get(strings.TrimPrefix(pageLink(firstPage, "Next"), "/de/vocabulary/concordance?"))
 		assert.Equal(t, []string{"Zeta|25 occurrences on this page"}, groups(ended.Body.String()))
 		assert.Contains(t, ended.Body.String(), `id="concordance-reading-changed"`)
@@ -200,7 +200,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 		for _, book := range []domain.Book{zeta, alpha, beta, gleichOne, gleichTwo, leer} {
 			buildBrowseProjection(t, ctx, store, book.ID)
 		}
-		restarted, err := store.StartCurrentReading(ctx, alice.ID, "de", leer.ID)
+		_, err = store.StartCurrentReading(ctx, alice.ID, "de", leer.ID)
 		require.NoError(t, err)
 		second := get(strings.TrimPrefix(next, "/de/vocabulary/concordance?"))
 		require.Equal(t, http.StatusOK, second.Code)
@@ -222,7 +222,7 @@ func TestConcordanceCapturesPriorityAndKeepsStableOccurrencePagesOverHTTP(t *tes
 			assert.NotContains(t, text, `id="concordance-reading-changed"`)
 		})
 
-		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de", leer.ID, restarted.SnapshotID))
+		require.NoError(t, store.EndCurrentReading(ctx, alice.ID, "de"))
 	})
 
 	t.Run("an unavailable priority analysis is not reported as zero matches", func(t *testing.T) {

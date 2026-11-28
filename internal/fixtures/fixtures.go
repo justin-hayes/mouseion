@@ -6,6 +6,7 @@ package fixtures
 // acceptance harness; each feature file states its own status.
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
@@ -52,8 +53,10 @@ func fixtureGoalKey(owner, language string) string {
 	return fixtureLanguageKey(owner, language)
 }
 
-func fixtureReadingHistoryKey(owner, language, snapshotID string) string {
-	return fixtureGoalKey(owner, language) + "\x00" + snapshotID
+// fixtureReadingHistoryKey names the next Finish completion. Every Finish is a
+// new row, so the key is a sequence number, never a Book or snapshot identity.
+func fixtureReadingHistoryKey(owner, language string, sequence int) string {
+	return fixtureGoalKey(owner, language) + "\x00" + strconv.Itoa(sequence)
 }
 
 type Store struct {
@@ -68,20 +71,16 @@ type Store struct {
 	catalogueEntries map[string][]domain.CatalogueIndexEntry
 	// entryCovers holds seeded retained Catalog entry covers, keyed by
 	// connection and entry identity.
-	entryCovers            map[string]domain.CatalogEntryCoverResource
-	catalogueBookCount     int
-	aliases                []domain.BookAlias
-	preps                  []domain.DeckPreparation
-	deckVocabulary         []domain.DeckPreparationVocabulary
-	known                  []domain.KnownVocabulary
-	goalSnapshotVocabulary map[string][]domain.DeckPreparationVocabulary
-	// bookSnapshotVocabulary is the vocabulary a Book's next Start freezes. It is
-	// seeded by store contract harnesses, the way analysis supplies it in Postgres.
-	bookSnapshotVocabulary map[string][]domain.DeckPreparationVocabulary
-	legacyGenerated        []domain.GeneratedVocabulary
-	myBooks                []domain.MyBook
-	dispositions           map[string]domain.BookDisposition
-	dispositionRevisions   map[string]int64
+	entryCovers          map[string]domain.CatalogEntryCoverResource
+	catalogueBookCount   int
+	aliases              []domain.BookAlias
+	preps                []domain.DeckPreparation
+	deckVocabulary       []domain.DeckPreparationVocabulary
+	known                []domain.KnownVocabulary
+	legacyGenerated      []domain.GeneratedVocabulary
+	myBooks              []domain.MyBook
+	dispositions         map[string]domain.BookDisposition
+	dispositionRevisions map[string]int64
 	// unchosen holds legacy active members with no chosen workflow role, keyed
 	// like dispositions. My Books neither lists nor counts them.
 	unchosen map[string]bool
@@ -92,8 +91,6 @@ type Store struct {
 	// Book and its evidence stay so a later Add can restore them.
 	removedBooks         map[string]struct{}
 	currentReadings      map[string]domain.CurrentReading
-	goalSnapshotSequence map[string]int
-	snapshotLifecycles   map[string]domain.CurrentReadingSnapshotLifecycle
 	readingHistory       map[string]domain.ReadingCompletion
 	importedHistory      map[string]domain.ReadingCompletion
 	syncStatuses         []domain.CatalogueSyncStatus
@@ -214,7 +211,7 @@ func NewStore() *Store {
 			{OwnerID: OwnerID, ConnectionID: "fixture-syncing-connection", State: domain.CatalogueSyncSyncing, UpdatedAt: fixtureJourneyTime},
 		},
 		preps: []domain.DeckPreparation{
-			{ID: PrepID, OwnerID: OwnerID, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, SnapshotID: "fixture-de-goal-snapshot", State: domain.DeckPreparationReady},
+			{ID: PrepID, OwnerID: OwnerID, BookID: BookID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady},
 			{ID: QueuedPrepID, OwnerID: OwnerID, SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, State: domain.DeckPreparationReady},
 		},
 		deckVocabulary: []domain.DeckPreparationVocabulary{
@@ -283,17 +280,8 @@ func NewStore() *Store {
 		removedBooks:         make(map[string]struct{}),
 		importedHistory:      make(map[string]domain.ReadingCompletion),
 		currentReadings: map[string]domain.CurrentReading{
-			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, SnapshotID: "fixture-de-goal-snapshot", SourceMaterialID: SourceID, AnalysisRunID: ResultRunID, ContentRevisionID: "fixture-revision", ContentSnapshotID: "fixture-snapshot", CorpusID: "fixture-corpus", SnapshotSize: 2, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
-			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, SnapshotID: "fixture-it-goal-snapshot", SourceMaterialID: ItalianGoalBookID, AnalysisRunID: "fixture-italian-goal-run", ContentRevisionID: "fixture-italian-goal-revision", ContentSnapshotID: "fixture-italian-goal-snapshot", CorpusID: "fixture-italian-goal-corpus", CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
-		},
-		goalSnapshotSequence:   make(map[string]int),
-		snapshotLifecycles:     make(map[string]domain.CurrentReadingSnapshotLifecycle),
-		bookSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{},
-		goalSnapshotVocabulary: map[string][]domain.DeckPreparationVocabulary{
-			"fixture-de-goal-snapshot": {
-				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "gehen", UPOS: "VERB", GeneratedAt: fixtureJourneyTime},
-				{OwnerID: OwnerID, Language: "de", CanonicalLemma: "Weg", UPOS: "NOUN", GeneratedAt: fixtureJourneyTime},
-			},
+			fixtureGoalKey(OwnerID, "de"): {OwnerID: OwnerID, Language: "de", BookID: BookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
+			fixtureGoalKey(OwnerID, "it"): {OwnerID: OwnerID, Language: "it", BookID: ItalianGoalBookID, CreatedAt: fixtureJourneyTime, UpdatedAt: fixtureJourneyTime},
 		},
 		readingHistory:       make(map[string]domain.ReadingCompletion),
 		storedActiveLanguage: &initialActiveLanguage,
