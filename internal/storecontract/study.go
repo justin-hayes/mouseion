@@ -498,6 +498,7 @@ func studyStreamScenario() Scenario {
 		stream, err := h.Study().GetStudyStream(owner, Language)
 		require.NoError(t, err)
 		require.ElementsMatch(t, all, stream.Candidates)
+		require.True(t, stream.Coverage.Active, "the Current reading's coverage is part of the read")
 		require.Equal(t, domain.OrderStudyStream(all, stream.Coverage.BoostsCurrentReading()), stream.Ordered(nil),
 			"the stream orders its candidates by its own coverage")
 

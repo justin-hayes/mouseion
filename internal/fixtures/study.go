@@ -66,19 +66,18 @@ func (s *Store) tallyStudyBookLocked(tallies map[domain.StudyItem]*domain.StudyC
 // candidate and the Current reading's coverage.
 func (s *Store) GetStudyStream(ctx context.Context, owner, language string) (domain.StudyStream, error) {
 	candidates, err := s.ListStudyCandidates(ctx, owner, language)
-	if err != nil {
-		return domain.StudyStream{}, err
-	}
-	coverage, err := s.GetStudyReadingCoverage(ctx, owner, language)
-	if err != nil {
-		return domain.StudyStream{}, err
-	}
-	return domain.StudyStream{Candidates: candidates, Coverage: coverage}, nil
+	return s.studyStream(ctx, owner, language, candidates, err)
 }
 
 // GetStudyStreamAmong is GetStudyStream for the given identities only.
 func (s *Store) GetStudyStreamAmong(ctx context.Context, owner, language string, identities []domain.StudyItem) (domain.StudyStream, error) {
 	candidates, err := s.ListStudyCandidatesAmong(ctx, owner, language, identities)
+	return s.studyStream(ctx, owner, language, candidates, err)
+}
+
+// studyStream pairs the candidates just read with the Current reading's
+// coverage, the one place a stream's ordering input is assembled.
+func (s *Store) studyStream(ctx context.Context, owner, language string, candidates []domain.StudyCandidate, err error) (domain.StudyStream, error) {
 	if err != nil {
 		return domain.StudyStream{}, err
 	}
