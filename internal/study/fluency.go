@@ -108,7 +108,6 @@ type FluencyStore interface { //nolint:interfacebloat // the worker reads one st
 	idiomSentenceStore
 	GetStudyProgress(ctx context.Context, owner, id string) (domain.StudyProgress, error)
 	GetStudyMaterial(ctx context.Context, owner, id string) (domain.StudyMaterial, error)
-	GetCurrentReading(ctx context.Context, owner, language string) (domain.CurrentReading, error)
 	ListVocabularyConcordance(ctx context.Context, owner, language string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error)
 	ListCorpusSentences(ctx context.Context, owner, corpusID string, ordinals []int64) (map[int64]analyzer.Sentence, error)
 	ListStudyEffectiveTokens(ctx context.Context, owner, book, run, corpus string, ordinals []int64) (map[int64][]analyzer.Token, error)
@@ -364,8 +363,7 @@ func assessedOccurrences(contexts []domain.FluencyContext, progressID string) (m
 	return assessed, agreeing
 }
 
-// rankedCandidates reads the word's other occurrences across the library, the
-// Current reading's first, keeps those the sentence-quality gate accepts and
+// rankedCandidates reads the word's other occurrences across the library, keeps those the sentence-quality gate accepts and
 // that were not assessed, and orders them to prefer a different form than the
 // one the word was introduced in.
 func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word domain.StudyProgress, assessed map[occurrenceKey]bool) (ordered []sentenceChoice, complete bool, err error) {
@@ -374,19 +372,11 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 		return nil, false, err
 	}
 	introduced := w.introducedForm(ctx, owner, material)
-	reading, err := w.Store.GetCurrentReading(ctx, owner, word.Language)
-	if err != nil {
-		return nil, false, err
-	}
-	priority, lookupPriority := "", domain.ConcordancePriorityNone
-	if reading.IsActive() {
-		priority, lookupPriority = reading.BookID, reading.BookID
-	}
 	retired, err := w.Store.ListRetiredStudyOccurrences(ctx, owner, word.ID)
 	if err != nil {
 		return nil, false, err
 	}
-	choices, complete, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, lookupPriority, w.Idioms.reader(word.Language))
+	choices, complete, err := w.otherOccurrences(ctx, owner, word, material, assessed, retired, w.Idioms.reader(word.Language))
 	if err != nil {
 		return nil, false, err
 	}
@@ -397,7 +387,7 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 		key := fmt.Sprintf("%s/%d/%d", occurrence.AnalysisRunID, occurrence.SentenceOrdinal, occurrence.TokenOrdinal)
 		byKey[key] = choice
 		candidates = append(candidates, domain.FluencyCandidate{
-			Key: key, Form: choice.form, InIdiom: choice.inIdiom, InCurrentReading: priority != "" && occurrence.BookID == priority, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
+			Key: key, Form: choice.form, InIdiom: choice.inIdiom, Quality: choice.quality.GDEXScore + float64(choice.quality.Score),
 		})
 	}
 	ranked := domain.RankFluencyCandidates(introduced, candidates)
@@ -412,12 +402,12 @@ func (w *FluencyWorker) rankedCandidates(ctx context.Context, owner string, word
 // occurrences the sentence-quality gate accepts, leaving out the occurrences
 // already assessed and the word's own introducing sentence, wherever else the
 // library repeats that text.
-func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, lookupPriority string, reader *idiomReader) (kept []sentenceChoice, complete bool, err error) {
+func (w *FluencyWorker) otherOccurrences(ctx context.Context, owner string, word domain.StudyProgress, material domain.StudyMaterial, assessed map[occurrenceKey]bool, retired []domain.StudyOccurrenceRef, reader *idiomReader) (kept []sentenceChoice, complete bool, err error) {
 	introducing := strings.TrimSpace(material.Sentence)
 	for page := 1; page <= maxFluencyPages; page++ {
 		result, err := w.Store.ListVocabularyConcordance(ctx, owner, word.Language, domain.ConcordanceLookup{
 			Language: word.Language, Term: word.CanonicalLemma, Match: domain.ConcordanceMatchLemma,
-			UPOS: word.UPOS, Priority: lookupPriority, Page: page,
+			UPOS: word.UPOS, Priority: domain.ConcordancePriorityNone, Page: page,
 		})
 		if err != nil {
 			return nil, false, err
