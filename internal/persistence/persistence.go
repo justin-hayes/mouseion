@@ -7,7 +7,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -116,52 +115,6 @@ func Migrate(databaseURL string) (err error) {
 }
 func (s *PostgresStore) Ping(ctx context.Context) error { return s.pool.Ping(ctx) }
 func (s *PostgresStore) Close() error                   { s.pool.Close(); return nil }
-
-// PutSelectionCandidate atomically respects current learner-state exclusions
-// and records corpus-specific provenance.
-func (s *PostgresStore) PutSelectionCandidate(ctx context.Context, candidate domain.SelectionCandidate) (bool, error) {
-	var accepted bool
-	err := withTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
-		q := sqlcgen.New(tx)
-		known, err := q.KnownVocabularyExists(ctx, sqlcgen.KnownVocabularyExistsParams{
-			OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-		})
-		if err != nil {
-			return err
-		}
-		if known {
-			return nil
-		}
-		reserved, err := q.ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
-			OwnerID: candidate.OwnerID, Language: candidate.Language, CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-		})
-		if err != nil {
-			return err
-		}
-		if reserved {
-			return nil
-		}
-		if err := q.PutSelectionCandidate(ctx, sqlcgen.PutSelectionCandidateParams{
-			OwnerID: candidate.OwnerID, CorpusID: candidate.CorpusID, Language: candidate.Language,
-			CanonicalLemma: candidate.CanonicalLemma, Upos: candidate.UPOS,
-			OccurrenceCount: candidate.OccurrenceCount, ObservedForms: candidate.ObservedForms,
-			EligibleSentenceRefs: candidate.SentenceReferences, Provenance: candidate.Provenance,
-		}); err != nil {
-			return err
-		}
-		accepted = true
-		return nil
-	})
-	return accepted, err
-}
-
-// IsReservedVocabulary reports whether an identity belongs to the owner's
-// active reading snapshot.
-func (s *PostgresStore) IsReservedVocabulary(ctx context.Context, owner, language, lemma, upos string) (bool, error) {
-	return s.queries().ReservedVocabularyExists(ctx, sqlcgen.ReservedVocabularyExistsParams{
-		OwnerID: owner, Language: language, CanonicalLemma: lemma, Upos: upos,
-	})
-}
 
 func missing(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -737,18 +690,6 @@ func (s *PostgresStore) GetKnownVocabulary(ctx context.Context, owner, id string
 	}
 	return knownVocabularyFromFields(row.KvID, row.KvOwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt), nil
 }
-func (s *PostgresStore) ListKnownVocabulary(ctx context.Context, owner, lang string) ([]domain.KnownVocabulary, error) {
-	lang = canonicalization.NormalizeLanguage(lang)
-	rows, err := s.queries().ListKnownVocabulary(ctx, sqlcgen.ListKnownVocabularyParams{OwnerID: owner, Language: lang})
-	if err != nil {
-		return nil, err
-	}
-	var result []domain.KnownVocabulary
-	for _, row := range rows {
-		result = append(result, knownVocabularyFromFields(row.KvID, row.KvOwnerID, row.Language, row.CanonicalLemma, row.Upos, row.LexicalDiscriminator, row.Headword, row.CreatedAt))
-	}
-	return result, nil
-}
 
 func (s *PostgresStore) ListStudyProgressLanguages(ctx context.Context, owner string) ([]domain.StudyLanguage, error) {
 	rows, err := s.queries().ListStudyProgressLanguages(ctx, owner)
@@ -760,10 +701,6 @@ func (s *PostgresStore) ListStudyProgressLanguages(ctx context.Context, owner st
 		out = append(out, domain.StudyLanguage{Language: row.Language, DisplayName: row.DisplayName})
 	}
 	return out, nil
-}
-func (s *PostgresStore) IsKnownVocabularyIdentity(ctx context.Context, owner, lang, lemma, upos string) (bool, error) {
-	lang = canonicalization.NormalizeLanguage(lang)
-	return s.queries().IsKnownVocabularyIdentity(ctx, sqlcgen.IsKnownVocabularyIdentityParams{OwnerID: owner, Language: lang, CanonicalLemma: lemma, Upos: upos})
 }
 func (s *PostgresStore) PutExampleSentence(ctx context.Context, owner, corpus, key, sentence string, loc []byte) (v domain.ExampleSentence, err error) {
 	row, err := s.queries().PutExampleSentence(ctx, sqlcgen.PutExampleSentenceParams{
@@ -881,63 +818,6 @@ func (s *PostgresStore) ListReviewSentencesForBook(ctx context.Context, owner, b
 		out = append(out, exampleSentenceFromFields(row.ID, row.OwnerID, row.CorpusID, row.SentenceKey, row.SentenceText, row.SourceLocation, row.Language, row.CanonicalLemma, row.Upos, row.SelectionRank, row.SelectionScore, row.SelectionReasons, row.IsChosen, row.CreatedAt))
 	}
 	return out, nil
-}
-
-// PersistReviewSentenceFromAnalysis materializes the first sentence retained by
-// selection so review can curate it when sentence ranking persisted no choices.
-func (s *PostgresStore) PersistReviewSentenceFromAnalysis(ctx context.Context, owner, bookID, lang, lemma, upos string) (v domain.ExampleSentence, err error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return v, err
-	}
-	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
-	q := sqlcgen.New(tx)
-	// Match the original dynamic query's trim semantics: a blank (after trim)
-	// bookID is treated as "any corpus", otherwise the predicate filters on the
-	// raw bookID exactly as the pre-sqlc concatenation did.
-	book := ""
-	if strings.TrimSpace(bookID) != "" {
-		book = bookID
-	}
-	row, err := q.SelectAcquisitionCandidate(ctx, sqlcgen.SelectAcquisitionCandidateParams{
-		Owner: owner, Language: lang, CanonicalLemma: lemma, Upos: upos, Book: book,
-	})
-	if err != nil {
-		return v, missing(err)
-	}
-	var candidates []struct {
-		SentenceIndex int             `json:"sentence_index"`
-		Text          string          `json:"text"`
-		Location      json.RawMessage `json:"location"`
-	}
-	if err := json.Unmarshal(row.EligibleSentenceRefs, &candidates); err != nil {
-		return v, err
-	}
-	for _, candidate := range candidates {
-		if strings.TrimSpace(candidate.Text) == "" {
-			continue
-		}
-		location := candidate.Location
-		if len(location) == 0 || string(location) == "null" {
-			location = json.RawMessage(`{}`)
-		}
-		sentenceKey := fmt.Sprintf("analysis:%d", candidate.SentenceIndex)
-		inserted, err := q.UpsertReviewSentenceFromAnalysis(ctx, sqlcgen.UpsertReviewSentenceFromAnalysisParams{
-			OwnerID: owner, CorpusID: row.CorpusID, SentenceKey: sentenceKey,
-			SentenceText: candidate.Text, SourceLocation: location,
-			Language:       textArg(lang),
-			CanonicalLemma: textArg(lemma),
-			Upos:           textArg(upos),
-		})
-		if err != nil {
-			return v, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return v, err
-		}
-		return exampleSentenceFromFields(inserted.ID, inserted.OwnerID, inserted.CorpusID, inserted.SentenceKey, inserted.SentenceText, inserted.SourceLocation, inserted.Language, inserted.CanonicalLemma, inserted.Upos, inserted.SelectionRank, inserted.SelectionScore, inserted.SelectionReasons, inserted.IsChosen, inserted.CreatedAt), nil
-	}
-	return v, ErrNotFound
 }
 
 // CurateReviewSentence atomically applies an optional owner-scoped text edit,

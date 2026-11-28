@@ -360,9 +360,7 @@ func TestClassicalAnalysisUpdatePublishesAndRefreshesPreparedDefinition(t *testi
 	require.NoError(t, err)
 	jobs = readingGet(t, h, "/jobs", cookies)
 	assert.Equal(t, 1, strings.Count(jobs, "1 of 3 decisions carried over"), "a job that failed after publishing keeps its carry-over line")
-	known, err := store.IsKnownVocabularyIdentity(ctx, learner.ID, classical.Language, "λέγω", "VERB")
-	require.NoError(t, err)
-	assert.True(t, known, "Known vocabulary is unchanged by an Analysis update")
+	assert.Contains(t, testutil.LegacyKnownLemmas(t, ctx, store.Pool(), learner.ID, classical.Language), "λέγω", "Known vocabulary is unchanged by an Analysis update")
 }
 
 func TestClassicalAnalysisUpdateIgnoresCuratorialAndTranslationRevisions(t *testing.T) {

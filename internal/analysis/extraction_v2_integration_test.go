@@ -17,7 +17,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,8 +72,7 @@ VALUES($1,$2,$3,$4,$5,$6,$7,'queued') RETURNING id::text`,
 		}, nil
 	}}
 	worker := &Worker{
-		Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(),
-		Selection: selection.NewService(store), MaxChunkChars: 80,
+		Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), MaxChunkChars: 80,
 	}
 	args := JobArgs{
 		OwnerID: owner.ID, SourceMaterialID: source.ID, ContentRevisionID: revisionID, SnapshotID: snapshotID,
@@ -85,9 +83,6 @@ VALUES($1,$2,$3,$4,$5,$6,$7,'queued') RETURNING id::text`,
 	require.NoError(t, err)
 	require.Len(t, plan.inputs, len(extraction.Book.ExtractedUnits.Units), "the fixture declares no main-text landmark, so the whole snapshot is analyzed")
 	assert.Equal(t, extraction.Structure, plan.structure, "the worker loads the exact snapshot's recorded structure")
-	selectionCfg, err := worker.selectionConfig(ctx, args, "corpus")
-	require.NoError(t, err)
-	assert.Equal(t, extraction.Structure, selectionCfg.Structure, "candidate generation uses the same exact-snapshot structure")
 	for index, input := range plan.inputs {
 		assert.Equal(t, extraction.Book.ExtractedUnits.Units[index].Text, input.text)
 	}

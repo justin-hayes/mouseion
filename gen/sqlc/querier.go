@@ -301,8 +301,6 @@ type Querier interface {
 	// Wrong-word report, or whose material is not ready and current, returns no
 	// row.
 	IntroduceStudyWord(ctx context.Context, arg IntroduceStudyWordParams) (StudyProgress, error)
-	IsKnownVocabularyIdentity(ctx context.Context, arg IsKnownVocabularyIdentityParams) (bool, error)
-	KnownVocabularyExists(ctx context.Context, arg KnownVocabularyExistsParams) (bool, error)
 	LatestCorpusForSource(ctx context.Context, arg LatestCorpusForSourceParams) (LatestCorpusForSourceRow, error)
 	ListActiveBooks(ctx context.Context, owner string) ([]ListActiveBooksRow, error)
 	// The occurrences of one word's agreeing contexts, to count those a retired
@@ -371,7 +369,6 @@ type Querier interface {
 	ListCurrentStudyMaterial(ctx context.Context, arg ListCurrentStudyMaterialParams) ([]ListCurrentStudyMaterialRow, error)
 	ListEPUBAcquisitionFailures(ctx context.Context, arg ListEPUBAcquisitionFailuresParams) ([]ListEPUBAcquisitionFailuresRow, error)
 	ListExtractedUnitsForSnapshot(ctx context.Context, arg ListExtractedUnitsForSnapshotParams) ([]ListExtractedUnitsForSnapshotRow, error)
-	ListKnownVocabulary(ctx context.Context, arg ListKnownVocabularyParams) ([]ListKnownVocabularyRow, error)
 	ListLSJSenseSummariesByPins(ctx context.Context, pins []string) ([]ListLSJSenseSummariesByPinsRow, error)
 	ListLanguageLessReadBooks(ctx context.Context) ([]ListLanguageLessReadBooksRow, error)
 	// The one definition of a legacy classical Book. The catalog precondition
@@ -392,6 +389,7 @@ type Querier interface {
 	// Legacy classical source rows are counted from the shared definition in
 	// ListLegacyClassicalSourceCandidates, not from a second predicate here.
 	ListLegacyLanguageRows(ctx context.Context, languageTag pgtype.Text) ([]ListLegacyLanguageRowsRow, error)
+	// Sentence selection and review queries.
 	ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error)
 	// Coverage comes from the durable Vocabulary Browse inventory counts joined to
 	// the learner's Study progress (ADR 0136 §3): mature_tokens counts occurrences
@@ -570,7 +568,6 @@ type Querier interface {
 	PutNormalizedCorpusArtifact(ctx context.Context, arg PutNormalizedCorpusArtifactParams) error
 	PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccurrenceLemmaCorrectionParams) (PutOccurrenceLemmaCorrectionRow, error)
 	PutProcessingHistory(ctx context.Context, arg PutProcessingHistoryParams) (PutProcessingHistoryRow, error)
-	PutSelectionCandidate(ctx context.Context, arg PutSelectionCandidateParams) error
 	PutSharedLemma(ctx context.Context, arg PutSharedLemmaParams) error
 	PutSourceMaterial(ctx context.Context, arg PutSourceMaterialParams) (string, error)
 	PutSupportedLanguage(ctx context.Context, arg PutSupportedLanguageParams) (SupportedLanguage, error)
@@ -603,11 +600,6 @@ type Querier interface {
 	RestoreStudyProgressMaterial(ctx context.Context, arg RestoreStudyProgressMaterialParams) error
 	// Fenced by the advertisement generation: a stale completion changes nothing.
 	SaveCatalogEntryCover(ctx context.Context, arg SaveCatalogEntryCoverParams) (int64, error)
-	// Sentence selection and review queries. SelectAcquisitionCandidate is the
-	// static replacement for the runtime string-concatenated acquisition query:
-	// an unconditional predicate of the form ($book = '' OR source = $book) keeps
-	// the statement statically analyzable.
-	SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error)
 	// First success selects (ADR 0077): every Book aliasing the entry selects it
 	// once its image is available, unless it already selects an available image.
 	// A selection whose entry has no image yet gives way to an available one.
@@ -677,7 +669,6 @@ type Querier interface {
 	// sentence; a re-import upserts the same citations, so it never changes an
 	// already-prepared deck. Different pins coexist.
 	UpsertReferenceTranslation(ctx context.Context, arg UpsertReferenceTranslationParams) error
-	UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error)
 	// Immutable source revisions and extracted EPUB-unit snapshots.
 	UpsertSourceMaterialForExtractedUnits(ctx context.Context, arg UpsertSourceMaterialForExtractedUnitsParams) (UpsertSourceMaterialForExtractedUnitsRow, error)
 	// Classical reading units and their Book association. Definitions are shared

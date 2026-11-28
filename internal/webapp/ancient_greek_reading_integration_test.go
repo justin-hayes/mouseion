@@ -16,6 +16,7 @@ import (
 	"github.com/justin-hayes/mouseion/internal/ancientgreek"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,8 +75,7 @@ func TestAncientGreekReadNextEndAndFinishBook1Reading(t *testing.T) {
 	require.Equal(t, http.StatusSeeOther, restarted.Code, "restart body=%s", restarted.Body.String())
 	finished := perform(t, h, http.MethodPost, "/reading/finish", form, cookies)
 	require.Equal(t, http.StatusOK, finished.Code, "finish body=%s", finished.Body.String())
-	known, err := store.ListKnownVocabulary(ctx, learner.ID, "grc")
-	require.NoError(t, err)
+	known := testutil.LegacyKnownLemmas(t, ctx, store.Pool(), learner.ID, "grc")
 	assert.Empty(t, known, "Finish accepts no Known vocabulary")
 	afterFinish, err := store.GetCurrentReading(ctx, learner.ID, "grc")
 	require.NoError(t, err)

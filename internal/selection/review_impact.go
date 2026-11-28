@@ -6,6 +6,22 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
+// DefaultRecurringMinOccurrences and DefaultAcrossBooksMinOccurrences are the
+// Reading frequency floors lemma review previews against. The across-Books
+// floor is provisional (issue #1803): an absolute library total that needs
+// re-measuring as the learner's library grows.
+const (
+	DefaultRecurringMinOccurrences   = 3
+	DefaultAcrossBooksMinOccurrences = 15
+)
+
+// readingFrequencyEligible is the Reading frequency rule of the lemma review
+// impact preview: three occurrences in the Book, or at least one with fifteen
+// across the learner's currently analyzed Books, including this one.
+func readingFrequencyEligible(inBook, acrossBooks int64) bool {
+	return inBook >= DefaultRecurringMinOccurrences || (inBook >= 1 && acrossBooks >= DefaultAcrossBooksMinOccurrences)
+}
+
 // Impact is what a proposed lemma decision does to one identity's Reading
 // eligibility.
 type Impact struct {

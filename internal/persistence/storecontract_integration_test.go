@@ -15,7 +15,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/classical"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/storecontract"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/require"
@@ -251,7 +250,7 @@ func (h *postgresHarness) seedDisposition(t *testing.T, owner, bookID string, to
 // makes it the Book's current analysis, and returns its run and corpus IDs.
 func (h *postgresHarness) completeAnalysis(t *testing.T, owner, bookID, sourceID, identifier, language string, imported bool) (string, string) {
 	t.Helper()
-	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(h.store))
+	analysisRiver, err := analysis.NewClient(h.store.Pool(), &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	handle, err := analysis.NewService(h.store.Pool(), analysisRiver).SubmitAnalysis(h.ctx, owner, sourceID)
 	require.NoError(t, err)

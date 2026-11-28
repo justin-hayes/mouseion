@@ -13,7 +13,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/epub"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river/rivertype"
 	"github.com/stretchr/testify/assert"
@@ -54,7 +53,7 @@ func TestImportedMainTextFixtureAnalysisExcludesAncillaryText(t *testing.T) {
 			}},
 		}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
@@ -135,7 +134,7 @@ func TestImportedGutenbergFixtureAnalysisExcludesDistributorText(t *testing.T) {
 	assert.Contains(t, imported.Book.FullText, "Project Gutenberg licence text.")
 
 	var analyzed []string
-	client, err := NewClient(store.Pool(), paragraphAnalyzer(&analyzed), analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), paragraphAnalyzer(&analyzed), analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)

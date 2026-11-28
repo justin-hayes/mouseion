@@ -1139,7 +1139,6 @@ type Worker struct {
 	Pool          *pgxpool.Pool
 	Analyzer      analyzer.Analyzer
 	Capabilities  analyzer.CapabilityProvider
-	Selection     *selection.Service
 	MaxChunkChars int
 }
 
@@ -1544,39 +1543,39 @@ func (w *Worker) analyzeDocumentChunks(ctx context.Context, a JobArgs, input sna
 // persistSnapshotWork writes the analyzed corpus in one transaction. proceed is
 // false when the run was cancelled or completed concurrently, so the caller
 // must not finalize it.
-func (w *Worker) persistSnapshotWork(ctx context.Context, a JobArgs, plan snapshotPlan, analyzed snapshotAnalysis) (corpusID string, proceed bool, err error) {
+func (w *Worker) persistSnapshotWork(ctx context.Context, a JobArgs, plan snapshotPlan, analyzed snapshotAnalysis) (proceed bool, err error) {
 	tx, err := w.Pool.Begin(ctx)
 	if err != nil {
-		return "", false, err
+		return false, err
 	}
 	defer func() { err = errors.Join(err, txcleanup.Rollback(ctx, tx)) }()
 	var runState string
 	if err := tx.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE owner_id=$1 AND id=$2 FOR UPDATE`, a.OwnerID, a.RunID).Scan(&runState); err != nil {
-		return "", false, err
+		return false, err
 	}
 	if runState == "cancelled" || runState == "completed" {
-		return "", false, nil
+		return false, nil
 	}
 	if err := insertCorpusArtifact(ctx, tx, analyzed.artifact); err != nil {
-		return "", false, err
+		return false, err
 	}
 	if err := insertSharedLemmas(ctx, tx, analyzed.lemmas); err != nil {
-		return "", false, err
+		return false, err
 	}
-	corpusID, err = insertCompletedCorpus(ctx, tx, a, analyzed)
+	corpusID, err := insertCompletedCorpus(ctx, tx, a, analyzed)
 	if err != nil {
-		return "", false, err
+		return false, err
 	}
 	if err := persistNormalizedCorpus(ctx, tx, a.OwnerID, analyzed.result.Language, a.RunID, corpusID, analyzed.result); err != nil {
-		return "", false, err
+		return false, err
 	}
 	if err := completeSnapshotRun(ctx, tx, a, plan, corpusID); err != nil {
-		return "", false, err
+		return false, err
 	}
 	if err := tx.Commit(ctx); err != nil {
-		return "", false, err
+		return false, err
 	}
-	return corpusID, true, nil
+	return true, nil
 }
 
 // insertCorpusArtifact records the normalized artifact identity, ignoring an
@@ -1639,16 +1638,6 @@ func completeSnapshotRun(ctx context.Context, tx pgx.Tx, a JobArgs, plan snapsho
 	return nil
 }
 
-// selectSnapshotRun generates the candidate selection for a persisted corpus
-// and publishes the completed run. A completed run reloads its corpus from
-// persisted evidence instead of the in-memory result.
-func (w *Worker) selectSnapshotRun(ctx context.Context, a JobArgs, riverJobID int64, corpusID string, result *analyzer.Result) error {
-	if err := w.generateSelection(ctx, a, riverJobID, corpusID, result); err != nil {
-		return err
-	}
-	return w.publishCompletedRun(ctx, a, riverJobID)
-}
-
 func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (workErr error) {
 	a := job.Args
 	runState, err := w.beginSnapshotRun(ctx, a, job.ID)
@@ -1664,7 +1653,7 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		}
 	}()
 	if runState == "completed" {
-		return w.selectSnapshotRun(ctx, a, job.ID, "", nil)
+		return w.publishCompletedRun(ctx, a, job.ID)
 	}
 	plan, err := w.fetchSnapshotWork(ctx, a)
 	if err != nil {
@@ -1674,179 +1663,14 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 	if err != nil {
 		return err
 	}
-	corpusID, proceed, err := w.persistSnapshotWork(ctx, a, plan, analyzed)
+	proceed, err := w.persistSnapshotWork(ctx, a, plan, analyzed)
 	if err != nil {
 		return err
 	}
 	if !proceed {
 		return nil
 	}
-	return w.selectSnapshotRun(ctx, a, job.ID, corpusID, &analyzed.result)
-}
-
-func (w *Worker) generateSelection(ctx context.Context, args JobArgs, riverJobID int64, corpusID string, result *analyzer.Result) error {
-	if corpusID == "" {
-		if err := w.Pool.QueryRow(ctx, `SELECT c.id::text FROM analysis_runs r JOIN corpora c ON c.owner_id=r.owner_id AND c.id=r.corpus_id AND c.analysis_run_id=r.id AND c.status='complete' WHERE r.owner_id=$1 AND r.id=$2 AND r.state='completed'`, args.OwnerID, args.RunID).Scan(&corpusID); err != nil {
-			return fmt.Errorf("load completed corpus for selection retry: %w", err)
-		}
-	}
-	var generated bool
-	if err := w.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation' AND status='complete' AND details->>'stage'='selection')`, args.OwnerID, corpusID).Scan(&generated); err != nil {
-		return fmt.Errorf("check completed candidate generation: %w", err)
-	}
-	if generated {
-		return nil
-	}
-	var persisted analyzer.Result
-	if result == nil {
-		var err error
-		persisted, err = loadNormalizedCorpusForSelection(ctx, w.Pool, args.OwnerID, corpusID, args.Language)
-		if err != nil {
-			return err
-		}
-		result = &persisted
-	}
-	config, err := w.selectionConfig(ctx, args, corpusID)
-	if err != nil {
-		return w.recordSelectionFailure(ctx, args.OwnerID, corpusID, riverJobID, err)
-	}
-	if _, err := w.Selection.Select(ctx, args.OwnerID, *result, config); err != nil {
-		return w.recordSelectionFailure(ctx, args.OwnerID, corpusID, riverJobID, err)
-	}
-	details, err := json.Marshal(map[string]any{"river_job_id": riverJobID, "stage": "selection"})
-	if err != nil {
-		return fmt.Errorf("encode candidate-generation completion: %w", err)
-	}
-	if _, err = w.Pool.Exec(ctx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'candidate_generation','complete',$3,now())`, args.OwnerID, corpusID, details); err != nil {
-		return fmt.Errorf("record candidate-generation completion: %w", err)
-	}
-	return nil
-}
-
-// recordSelectionFailure records a retryable candidate-generation failure and
-// returns it together with any recording failure.
-func (w *Worker) recordSelectionFailure(ctx context.Context, owner, corpusID string, riverJobID int64, failure error) error {
-	if recordErr := w.recordCandidateGenerationFailure(ctx, owner, corpusID, riverJobID, "selection", failure); recordErr != nil {
-		return errors.Join(failure, recordErr)
-	}
-	return failure
-}
-
-// selectionConfig passes the exact snapshot's recorded structure to the
-// selection rule. A run without a snapshot id has no structure to supply.
-func (w *Worker) selectionConfig(ctx context.Context, args JobArgs, corpusID string) (selection.SelectionConfig, error) {
-	config := selection.DefaultConfig(corpusID)
-	if args.SnapshotID == "" {
-		return config, nil
-	}
-	structure, err := persistence.LoadSnapshotStructure(ctx, w.Pool, args.OwnerID, args.SourceMaterialID, args.SnapshotID)
-	if err != nil {
-		return config, err
-	}
-	config.Structure = structure
-	return config, nil
-}
-
-func loadNormalizedCorpusForSelection(ctx context.Context, pool *pgxpool.Pool, owner, corpusID, language string) (analyzer.Result, error) {
-	rows, err := pool.Query(ctx, `SELECT s.sentence_ordinal,s.sentence_text,s.unit_id,s.start_offset,s.end_offset,
-		COALESCE(t.token_ordinal,-1),COALESCE(t.surface,''),COALESCE(t.raw_lemma,''),COALESCE(t.canonical_lemma,''),COALESCE(t.upos,''),COALESCE(t.dependency,''),COALESCE(t.head,0),COALESCE(t.morphology,'{}'::jsonb),COALESCE(t.start_offset,0),COALESCE(t.end_offset,0),COALESCE(t.lexical_discriminator,''),COALESCE(t.headword,'')
-		FROM corpus_sentences s LEFT JOIN corpus_tokens t
-		 ON t.owner_id=s.owner_id AND t.analysis_run_id=s.analysis_run_id AND t.corpus_id=s.corpus_id AND t.sentence_ordinal=s.sentence_ordinal
-		WHERE s.owner_id=$1 AND s.corpus_id=$2 ORDER BY s.sentence_ordinal,t.token_ordinal`, owner, corpusID)
-	if err != nil {
-		return analyzer.Result{}, fmt.Errorf("load persisted corpus for selection: %w", err)
-	}
-	defer rows.Close()
-	result := analyzer.Result{Language: language, Sentences: make([]analyzer.Sentence, 0)}
-	var currentOrdinal int64 = -1
-	for rows.Next() {
-		row, err := scanPersistedCorpusRow(rows)
-		if err != nil {
-			return analyzer.Result{}, err
-		}
-		if err := appendPersistedSentence(&result, &currentOrdinal, row); err != nil {
-			return analyzer.Result{}, err
-		}
-		if row.tokenOrdinal < 0 {
-			continue
-		}
-		if err := appendPersistedToken(&result, row); err != nil {
-			return analyzer.Result{}, err
-		}
-	}
-	if err = rows.Err(); err != nil {
-		return analyzer.Result{}, fmt.Errorf("iterate persisted corpus for selection: %w", err)
-	}
-	return result, nil
-}
-
-// persistedCorpusRow is one scanned sentence/token row of a persisted corpus.
-type persistedCorpusRow struct {
-	sentenceOrdinal, sentenceStart, sentenceEnd         int64
-	sentenceText, unitID                                string
-	tokenOrdinal, head, tokenStart, tokenEnd            int64
-	surface, rawLemma, canonicalLemma, upos, dependency string
-	lexicalDiscriminator, headword                      string
-	morphologyJSON                                      []byte
-}
-
-// scanPersistedCorpusRow reads one row of the persisted-corpus join, keeping a
-// sentence with no token rows so its token ordinal stays -1.
-func scanPersistedCorpusRow(rows pgx.Rows) (persistedCorpusRow, error) {
-	var row persistedCorpusRow
-	if err := rows.Scan(&row.sentenceOrdinal, &row.sentenceText, &row.unitID, &row.sentenceStart, &row.sentenceEnd, &row.tokenOrdinal, &row.surface, &row.rawLemma, &row.canonicalLemma, &row.upos, &row.dependency, &row.head, &row.morphologyJSON, &row.tokenStart, &row.tokenEnd, &row.lexicalDiscriminator, &row.headword); err != nil {
-		return persistedCorpusRow{}, fmt.Errorf("read persisted corpus for selection: %w", err)
-	}
-	return row, nil
-}
-
-// appendPersistedSentence appends the row's sentence when it is the next
-// sentence ordinal, so a sentence without tokens still contributes one sentence.
-func appendPersistedSentence(result *analyzer.Result, currentOrdinal *int64, row persistedCorpusRow) error {
-	if row.sentenceOrdinal == *currentOrdinal {
-		return nil
-	}
-	startOffset, err := checked.Uint64FromInt64(row.sentenceStart)
-	if err != nil {
-		return fmt.Errorf("decode persisted sentence start offset %d: %w", row.sentenceOrdinal, err)
-	}
-	endOffset, err := checked.Uint64FromInt64(row.sentenceEnd)
-	if err != nil {
-		return fmt.Errorf("decode persisted sentence end offset %d: %w", row.sentenceOrdinal, err)
-	}
-	result.Sentences = append(result.Sentences, analyzer.Sentence{
-		Text: row.sentenceText, Tokens: make([]analyzer.Token, 0),
-		Location: analyzer.SourceLocation{SourceDocumentID: row.unitID, StartOffset: startOffset, EndOffset: endOffset},
-	})
-	*currentOrdinal = row.sentenceOrdinal
-	return nil
-}
-
-// appendPersistedToken decodes and appends the row's token to the last sentence.
-func appendPersistedToken(result *analyzer.Result, row persistedCorpusRow) error {
-	checkedHead, err := checked.Uint32FromInt64(row.head)
-	if err != nil {
-		return fmt.Errorf("decode persisted token head for sentence %d: %w", row.sentenceOrdinal, err)
-	}
-	var morphology map[string]string
-	if err = json.Unmarshal(row.morphologyJSON, &morphology); err != nil {
-		return fmt.Errorf("decode persisted token morphology for sentence %d: %w", row.sentenceOrdinal, err)
-	}
-	tokenStartOffset, err := checked.Uint64FromInt64(row.tokenStart)
-	if err != nil {
-		return fmt.Errorf("decode persisted token start offset for sentence %d: %w", row.sentenceOrdinal, err)
-	}
-	tokenEndOffset, err := checked.Uint64FromInt64(row.tokenEnd)
-	if err != nil {
-		return fmt.Errorf("decode persisted token end offset for sentence %d: %w", row.sentenceOrdinal, err)
-	}
-	result.Sentences[len(result.Sentences)-1].Tokens = append(result.Sentences[len(result.Sentences)-1].Tokens, analyzer.Token{
-		Surface: row.surface, RawLemma: row.rawLemma, CanonicalLemma: row.canonicalLemma, UPOS: row.upos,
-		Dependency: row.dependency, Head: checkedHead, Morphology: morphology,
-		Location:             analyzer.SourceLocation{SourceDocumentID: row.unitID, StartOffset: tokenStartOffset, EndOffset: tokenEndOffset},
-		LexicalDiscriminator: row.lexicalDiscriminator, Headword: row.headword,
-	})
-	return nil
+	return w.publishCompletedRun(ctx, a, job.ID)
 }
 
 // publishCompletedRun promotes only the exact completed corpus whose source
@@ -2257,18 +2081,6 @@ func corpusTokenRow(ownerID, language, runID, corpusID string, sentenceOrdinal, 
 	return tuple.String(), args, nil
 }
 
-func (w *Worker) recordCandidateGenerationFailure(ctx context.Context, owner, corpusID string, jobID int64, stage string, cause error) error {
-	details, err := json.Marshal(map[string]any{"river_job_id": jobID, "stage": stage, "error": cause.Error()})
-	if err != nil {
-		return fmt.Errorf("encode candidate-generation failure: %w", err)
-	}
-	failureCtx := context.WithoutCancel(ctx)
-	if _, err = w.Pool.Exec(failureCtx, `INSERT INTO processing_history(owner_id,corpus_id,operation,status,details,completed_at) VALUES($1,$2,'candidate_generation','failed',$3,now())`, owner, corpusID, details); err != nil {
-		return fmt.Errorf("record candidate-generation failure: %w", err)
-	}
-	return nil
-}
-
 // analysisFailureCode classifies a worker error as one of the stable analysis
 // failure codes. A run found orphaned while running is classified separately as
 // analysis_interrupted by the paths that record it.
@@ -2362,9 +2174,9 @@ func aggregateLemmas(hash string, result analyzer.Result) ([]domain.SharedLemma,
 	return out, nil
 }
 
-func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
-	if pool == nil || a == nil || capabilities == nil || selectionService == nil {
-		return nil, errors.New("analysis client requires pool, analyzer, capabilities, and selection service")
+func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.CapabilityProvider, workerSets ...*river.Workers) (*river.Client[pgx.Tx], error) {
+	if pool == nil || a == nil || capabilities == nil {
+		return nil, errors.New("analysis client requires pool, analyzer, and capabilities")
 	}
 	jobTimeout, err := configuredJobTimeout()
 	if err != nil {
@@ -2374,7 +2186,7 @@ func NewClient(pool *pgxpool.Pool, a analyzer.Analyzer, capabilities analyzer.Ca
 	if len(workerSets) > 0 && workerSets[0] != nil {
 		workers = workerSets[0]
 	}
-	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities, Selection: selectionService})
+	river.AddWorker(workers, &Worker{Pool: pool, Analyzer: a, Capabilities: capabilities})
 	river.AddWorker(workers, &BrowseCountsRebuildWorker{Pool: pool})
 	river.AddWorker(workers, &ConstructionRebuildWorker{Pool: pool})
 	return river.NewClient(riverpgxv5.New(pool), &river.Config{Queues: map[string]river.QueueConfig{Queue: {MaxWorkers: 1}, "catalogue_sync": {MaxWorkers: 1}, "study": {MaxWorkers: 2}, IdiomCountsQueue: {MaxWorkers: 1}, sourcecheck.Queue: {MaxWorkers: 1}, ClassicalPreparationQueue: {MaxWorkers: 1}, ClassicalTranslationQueue: {MaxWorkers: 1}, EPUBAcquisitionQueue: {MaxWorkers: 1}}, Workers: workers, JobTimeout: jobTimeout})

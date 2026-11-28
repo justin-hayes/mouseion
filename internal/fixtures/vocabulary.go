@@ -481,10 +481,6 @@ func (s *Store) GetProjectedCorpusVocabulary(ctx context.Context, owner, corpusI
 	return domain.ProjectedCorpusVocabulary{AnalysisCorpusVocabulary: vocabulary, Ready: true}, nil
 }
 
-func (s *Store) IsReservedVocabulary(context.Context, string, string, string, string) (bool, error) {
-	return false, nil
-}
-
 func fixtureKnownCorpusTokens(corpusID string) int64 {
 	switch corpusID {
 	case "fixture-corpus", "fixture-route-match-corpus":

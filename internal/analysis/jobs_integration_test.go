@@ -19,7 +19,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/analyzer/analyzertest"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/persistence"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -96,7 +95,7 @@ func TestSubmitToReadBookAnalysisRejectsCurrentBookBeforeOperationalWrites(t *te
 	capabilities := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
 		Language: "de", SupportedFeatures: []string{"tokenize", "pos", "lemma", "depparse"}, Ready: true,
 	}}}}
-	client, err := NewClient(store.Pool(), &analyzertest.Fake{}, capabilities, selection.NewService(store))
+	client, err := NewClient(store.Pool(), &analyzertest.Fake{}, capabilities)
 	require.NoError(t, err)
 	service := NewService(store.Pool(), client)
 	accepted, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
@@ -180,7 +179,7 @@ func TestRiverAnalysisFailsFastWhenDependencyParsingIsUnavailable(t *testing.T) 
 	capabilities := analyzertest.CapabilityProvider{Value: analyzer.Capabilities{Languages: []analyzer.LanguageCapability{{
 		Language: "de", SupportedFeatures: []string{"tokenize", "pos", "lemma"}, Ready: true,
 	}}}}
-	client, err := NewClient(store.Pool(), fake, capabilities, selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, capabilities)
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
@@ -251,7 +250,7 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 			NormalizationProfile: analyzer.NormalizationProfile{Name: "german-standard-post-1996", Version: "6"},
 		}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,11 +339,6 @@ func TestRiverAnalysisPersistsNormalizedCorpus(t *testing.T) {
 	assert.Equal(t, "aufstehen", separatedCanonicalLemma)
 	assert.Equal(t, "root", separatedDependency)
 	assert.Equal(t, int64(2), separatedHead)
-	var particleCandidateCount int
-	if err = pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2 AND canonical_lemma='auf'`, owner.ID, corpus.ID).Scan(&particleCandidateCount); err != nil {
-		t.Fatal(err)
-	}
-	assert.Zero(t, particleCandidateCount)
 }
 
 func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
@@ -397,7 +391,7 @@ func TestRiverAnalysisSelectsMainTextAndVersionsTheRun(t *testing.T) {
 			}},
 		}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
@@ -499,7 +493,7 @@ func TestCompletedCorpusPublicationCanRetryWithoutRerunningNLP(t *testing.T) {
 
 	calls := 0
 	fake := countingTagAnalyzer(&calls)
-	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
@@ -767,7 +761,11 @@ func TestCompletedAnalysisPublicationDoesNotPromoteSupersededRun(t *testing.T) {
 	assert.Zero(t, exposed)
 }
 
-func TestCompletedCorpusRetryRebuildsSelectionWithoutRerunningNLP(t *testing.T) {
+// TestAnalysisPublishesWithoutGeneratingCandidates pins ADR 0136's removal of
+// Recurring-vocabulary selection: an analysis completes and publishes without
+// writing Book vocabulary candidates or a candidate-generation history entry,
+// so a table that rejects candidate writes cannot hold publication back.
+func TestAnalysisPublishesWithoutGeneratingCandidates(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -775,57 +773,39 @@ func TestCompletedCorpusRetryRebuildsSelectionWithoutRerunningNLP(t *testing.T) 
 	require.NoError(t, err)
 	testutil.Cleanup(t, "analysis store", store.Close)
 	require.NoError(t, MigrateRiver(ctx, pool))
-	owner, err := store.CreateUser(ctx, "analysis-selection-retry", false)
+	owner, err := store.CreateUser(ctx, "analysis-without-selection", false)
 	require.NoError(t, err)
-	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "Selection retry", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
+	book, err := store.CreateBook(ctx, domain.Book{OwnerID: owner.ID, Title: "No selection", MetadataProvenance: domain.MetadataProvenanceCatalogueSync, LanguageState: domain.LanguageChosen, LanguageTag: "de"})
 	require.NoError(t, err)
-	source, err := putAnalysisSource(ctx, store, owner.ID, "selection-retry", book.Title, "Guten Tag.", "sha256:selection-retry")
+	source, err := putAnalysisSource(ctx, store, owner.ID, "no-selection", book.Title, "Guten Tag.", "sha256:no-selection")
 	require.NoError(t, err)
 	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
 
 	calls := 0
 	fake := countingTagAnalyzer(&calls)
-	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(pool, fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
 	service := NewService(pool, client)
-	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_selection_candidates() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'simulated selection failure'; END $$;
+	_, err = pool.Exec(ctx, `CREATE FUNCTION reject_selection_candidates() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'candidates are no longer written'; END $$;
 		CREATE TRIGGER reject_selection_candidates BEFORE INSERT ON selection_candidates FOR EACH ROW EXECUTE FUNCTION reject_selection_candidates()`)
 	require.NoError(t, err)
-	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	handle, err := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
 	require.NoError(t, err)
-	failed, err := service.Wait(ctx, owner.ID, handle.ID)
-	require.NoError(t, err)
-	assert.Equal(t, rivertype.JobStateDiscarded, failed.State)
-	assert.Equal(t, 1, calls)
-	var corpusID string
-	require.NoError(t, pool.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&corpusID))
-	var corpusStatus string
-	require.NoError(t, pool.QueryRow(ctx, `SELECT status FROM corpora WHERE owner_id=$1 AND id=$2`, owner.ID, corpusID).Scan(&corpusStatus))
-	assert.Equal(t, "complete", corpusStatus)
-	t.Run("candidate-generation failure is recorded", func(t *testing.T) {
-		var generationDetails []byte
-		require.NoError(t, pool.QueryRow(ctx, `SELECT details FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation' AND status='failed' ORDER BY id DESC LIMIT 1`, owner.ID, corpusID).Scan(&generationDetails))
-		var generationRecorded map[string]any
-		require.NoError(t, json.Unmarshal(generationDetails, &generationRecorded))
-		assert.Equal(t, "selection", generationRecorded["stage"])
-		assert.NotEmpty(t, generationRecorded["error"])
-	})
-
-	_, err = pool.Exec(ctx, `DROP TRIGGER reject_selection_candidates ON selection_candidates; DROP FUNCTION reject_selection_candidates()`)
-	require.NoError(t, err)
-	retry, err := service.SubmitToReadBookAnalysis(ctx, owner.ID, book.ID, source.ID)
-	require.NoError(t, err)
-	status, err := service.Wait(ctx, owner.ID, retry.ID)
+	status, err := service.Wait(ctx, owner.ID, handle.ID)
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, status.State)
-	assert.Equal(t, 1, calls, "selection replay must use persisted evidence rather than rerunning NLP")
-	var candidates, promoted int
-	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpusID).Scan(&candidates))
+	assert.Equal(t, 1, calls)
+	var corpusID string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2 AND state='completed'`, owner.ID, handle.RunID).Scan(&corpusID))
+	var candidates, generation, promoted int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, owner.ID).Scan(&candidates))
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='candidate_generation'`, owner.ID).Scan(&generation))
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM book_current_analyses WHERE owner_id=$1 AND book_id=$2 AND analysis_run_id=$3`, owner.ID, book.ID, handle.RunID).Scan(&promoted))
-	assert.Equal(t, 1, candidates)
+	assert.Zero(t, candidates)
+	assert.Zero(t, generation)
 	assert.Equal(t, 1, promoted)
 }
 
@@ -845,7 +825,7 @@ func TestQueuedPublicationCanBeCancelledAndRetriedWithoutDiscardingCorpus(t *tes
 	require.NoError(t, err)
 	require.NoError(t, store.LinkSourceToBook(ctx, owner.ID, book.ID, source.ID))
 	require.NoError(t, store.SetBookDisposition(ctx, owner.ID, book.ID, domain.BookDispositionToRead))
-	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	service := NewService(pool, client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
@@ -906,7 +886,7 @@ func TestAnalysisStatusReportsDiscardedFinalizationAsFailed(t *testing.T) {
 	require.NoError(t, err)
 	source, err := putAnalysisSource(ctx, store, owner.ID, "finalization-discarded", "Finalization discarded", "Guten Tag.", "sha256:finalization-discarded")
 	require.NoError(t, err)
-	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	service := NewService(pool, client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
@@ -946,7 +926,7 @@ func TestAnalysisJobListReconcilesFinalizationWithRiver(t *testing.T) {
 	require.NoError(t, MigrateRiver(ctx, pool))
 	owner, err := store.CreateUser(ctx, "analysis-list-finalization", false)
 	require.NoError(t, err)
-	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	service := NewService(pool, client)
 
@@ -1001,7 +981,7 @@ func TestAnalysisStatusReportsCompletedRunAsFinalizing(t *testing.T) {
 	require.NoError(t, err)
 	source, err := putAnalysisSource(ctx, store, owner.ID, "finalization-pending", "Finalization pending", "Guten Tag.", "sha256:finalization-pending")
 	require.NoError(t, err)
-	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(pool, &analyzertest.Fake{}, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	service := NewService(pool, client)
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
@@ -1062,7 +1042,7 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 		}
 		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Häuser", RawLemma: "Häuser", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "root", Head: 0, Morphology: map[string]string{"Number": "Plur"}, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 6}}}}}}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
@@ -1114,12 +1094,6 @@ func TestRiverAnalysisLifecycleDedupAndOwnership(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, rivertype.JobStateCompleted, completedStatus.State)
 	assert.Equal(t, domain.JobLifecycleCompleted, completedStatus.Lifecycle)
-	var candidateCount int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1 AND corpus_id=$2`, alice.ID, corpus.ID).Scan(&candidateCount))
-	assert.Equal(t, 1, candidateCount)
-	var bobCandidateCount int
-	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM selection_candidates WHERE owner_id=$1`, bob.ID).Scan(&bobCandidateCount))
-	assert.Equal(t, 1, bobCandidateCount)
 	_, err = service.Result(ctx, bob.ID, handle.ID)
 	t.Run("cross-owner result is not found", func(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotFound)
@@ -1300,7 +1274,7 @@ func TestAnalysisRunSurvivesDispositionChanges(t *testing.T) {
 		}
 		return analyzer.Result{SchemaVersion: "1.0.0", Language: req.Language, Analysis: analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"}, NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"}, Sentences: []analyzer.Sentence{{Text: req.Document.Text, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: uint64(len([]rune(req.Document.Text)))}, Tokens: []analyzer.Token{{Surface: "Haus", RawLemma: "Haus", CanonicalLemma: "haus", UPOS: "NOUN", Dependency: "root", Head: 0, Location: analyzer.SourceLocation{SourceDocumentID: req.Document.ID, EndOffset: 4}}}}}}, nil
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
@@ -1353,7 +1327,7 @@ func TestRiverAnalysisFailsWhenSourceRevisionIsNoLongerCurrent(t *testing.T) {
 	fake := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{}, errors.New("Analyze should not be called")
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	service := NewService(store.Pool(), client)
 
@@ -1394,7 +1368,7 @@ func TestRiverAnalysisRecordsFailureAcrossRunAttemptJobAndHistory(t *testing.T) 
 	fake := &analyzertest.Fake{AnalyzeFunc: func(context.Context, analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{}, analyzerErr
 	}}
-	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider(), selection.NewService(store))
+	client, err := NewClient(store.Pool(), fake, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
 	require.NoError(t, client.Start(ctx))
 	testutil.StopOnCleanup(t, "analysis client", client.Stop)
@@ -2085,7 +2059,7 @@ func TestWorkerRejectsMalformedCorpusTokens(t *testing.T) {
 					}},
 				}, nil
 			}}
-			worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), Selection: selection.NewService(store)}
+			worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider()}
 			job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: handle.JobID}, Args: args}
 			workErr := worker.Work(ctx, job)
 			require.ErrorContains(t, workErr, test.wantErr)
@@ -2099,7 +2073,7 @@ func TestWorkerRejectsMalformedCorpusTokens(t *testing.T) {
 // TestWorkerPersistsTokenlessCorpusAndReloadsIt pins two moved branches through
 // the worker seam: a corpus with no tokens flushes no token batch, and reloading
 // that corpus for selection skips a sentence that has no token rows.
-func TestWorkerPersistsTokenlessCorpusAndReloadsIt(t *testing.T) {
+func TestWorkerPersistsTokenlessCorpus(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
@@ -2126,7 +2100,7 @@ func TestWorkerPersistsTokenlessCorpusAndReloadsIt(t *testing.T) {
 			}},
 		}, nil
 	}}
-	worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), Selection: selection.NewService(store)}
+	worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider()}
 	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
 	require.NoError(t, err)
 	args, err := snapshotArgsTx(ctx, pool, owner.ID, handle.RunID)
@@ -2141,15 +2115,6 @@ func TestWorkerPersistsTokenlessCorpusAndReloadsIt(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM corpus_sentences WHERE owner_id=$1 AND corpus_id=$2`, owner.ID, corpusID).Scan(&sentences))
 	assert.Zero(t, tokens)
 	assert.Equal(t, 1, sentences)
-
-	// Removing the recorded selection completion forces the completed run to
-	// reload its persisted corpus instead of the in-memory result.
-	_, err = pool.Exec(ctx, `DELETE FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation'`, owner.ID, corpusID)
-	require.NoError(t, err)
-	require.NoError(t, worker.Work(ctx, job))
-	var regenerated int
-	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation' AND status='complete'`, owner.ID, corpusID).Scan(&regenerated))
-	assert.Equal(t, 1, regenerated)
 }
 
 // TestAnalysisReconcileSurfacesOperationalFailures pins the failure branches of
@@ -2280,7 +2245,7 @@ func TestWorkerSnapshotPersistenceSurfacesOperationalFailures(t *testing.T) {
 				}},
 			}, nil
 		}}
-		worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), Selection: selection.NewService(store)}
+		worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider()}
 		return &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: handle.JobID}, Args: args}, worker
 	}
 	rejectWrite := func(t *testing.T, name, action, table, message string) {
@@ -2313,66 +2278,6 @@ func TestWorkerSnapshotPersistenceSurfacesOperationalFailures(t *testing.T) {
 			require.ErrorContains(t, worker.Work(ctx, job), test.message)
 		})
 	}
-}
-
-// TestWorkerReloadsMultiTokenCorpusForSelection pins the moved sentence-scanning
-// branch that keeps one sentence across its token rows: a completed run retried
-// for selection reloads a multi-token sentence from persisted evidence without
-// rerunning NLP.
-func TestWorkerReloadsMultiTokenCorpusForSelection(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	t.Cleanup(cancel)
-	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
-	store, err := persistence.Open(ctx, url)
-	require.NoError(t, err)
-	testutil.Cleanup(t, "analysis store", store.Close)
-	require.NoError(t, MigrateRiver(ctx, pool))
-	owner, err := store.CreateUser(ctx, "analysis-reload-multi-token", false)
-	require.NoError(t, err)
-	source, err := putAnalysisSource(ctx, store, owner.ID, "reload-multi-token", "Reload multi token", "Hallo Welt.", "sha256:reload-multi-token")
-	require.NoError(t, err)
-	riverClient, err := river.NewClient(riverpgxv5.New(pool), &river.Config{})
-	require.NoError(t, err)
-	service := NewService(pool, riverClient)
-	unitID := domain.EPUBUnitID(0, "reload-multi-token")
-	calls := 0
-	fake := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
-		calls++
-		return analyzer.Result{
-			SchemaVersion:        "1.0.0",
-			Language:             req.Language,
-			Analysis:             analyzer.AnalysisProvenance{AnalyzerName: "fake", AnalyzerVersion: "1"},
-			NormalizationProfile: analyzer.NormalizationProfile{Name: "casefold", Version: "1"},
-			Sentences: []analyzer.Sentence{{
-				Text:     req.Document.Text,
-				Location: analyzer.SourceLocation{SourceDocumentID: unitID, EndOffset: uint64(len([]rune(req.Document.Text)))},
-				Tokens: []analyzer.Token{
-					{Surface: "Hallo", RawLemma: "hallo", CanonicalLemma: "hallo", UPOS: "INTJ", Dependency: "root", Head: 0, Location: analyzer.SourceLocation{SourceDocumentID: unitID, EndOffset: 5}},
-					{Surface: "Welt", RawLemma: "Welt", CanonicalLemma: "welt", UPOS: "NOUN", Dependency: "dep", Head: 0, Location: analyzer.SourceLocation{SourceDocumentID: unitID, StartOffset: 6, EndOffset: 10}},
-				},
-			}},
-		}, nil
-	}}
-	worker := &Worker{Pool: pool, Analyzer: fake, Capabilities: analyzertest.ReadyDepparseCapabilityProvider(), Selection: selection.NewService(store)}
-	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
-	require.NoError(t, err)
-	args, err := snapshotArgsTx(ctx, pool, owner.ID, handle.RunID)
-	require.NoError(t, err)
-	job := &river.Job[JobArgs]{JobRow: &rivertype.JobRow{ID: handle.JobID}, Args: args}
-	require.NoError(t, worker.Work(ctx, job))
-	var corpusID string
-	require.NoError(t, pool.QueryRow(ctx, `SELECT corpus_id::text FROM analysis_runs WHERE owner_id=$1 AND id=$2`, owner.ID, handle.RunID).Scan(&corpusID))
-	assert.Equal(t, 1, calls)
-
-	// Removing the recorded selection completion forces the completed run to
-	// reload its persisted, multi-token corpus instead of the in-memory result.
-	_, err = pool.Exec(ctx, `DELETE FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation'`, owner.ID, corpusID)
-	require.NoError(t, err)
-	require.NoError(t, worker.Work(ctx, job))
-	assert.Equal(t, 1, calls, "reload must use persisted evidence rather than rerunning NLP")
-	var reloaded int
-	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND corpus_id=$2 AND operation='candidate_generation' AND status='complete'`, owner.ID, corpusID).Scan(&reloaded))
-	assert.Equal(t, 1, reloaded)
 }
 
 // TestAnalysisCancelAndRetrySurfaceOperationalFailures pins the write-failure

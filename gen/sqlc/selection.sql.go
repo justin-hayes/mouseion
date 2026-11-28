@@ -313,6 +313,7 @@ func (q *Queries) ListCorpusLemmaReviewOccurrences(ctx context.Context, arg List
 }
 
 const listLemmaReviewOccurrences = `-- name: ListLemmaReviewOccurrences :many
+
 SELECT c.id::text AS corpus_id, c.analysis_run_id::text AS analysis_run_id,
        t.language,
        t.sentence_ordinal, t.token_ordinal, t.surface, t.raw_lemma,
@@ -374,6 +375,7 @@ type ListLemmaReviewOccurrencesRow struct {
 	NormalizationVersion string
 }
 
+// Sentence selection and review queries.
 func (q *Queries) ListLemmaReviewOccurrences(ctx context.Context, arg ListLemmaReviewOccurrencesParams) ([]ListLemmaReviewOccurrencesRow, error) {
 	rows, err := q.db.Query(ctx, listLemmaReviewOccurrences, arg.Owner, arg.Book, arg.Surface)
 	if err != nil {
@@ -798,125 +800,6 @@ func (q *Queries) PutOccurrenceLemmaCorrection(ctx context.Context, arg PutOccur
 		&i.Excluded,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const selectAcquisitionCandidate = `-- name: SelectAcquisitionCandidate :one
-
-SELECT sc.corpus_id, sc.eligible_sentence_refs
-FROM selection_candidates sc
-JOIN corpora c ON c.owner_id = sc.owner_id AND c.id::text = sc.corpus_id
-WHERE sc.owner_id = $1
-  AND sc.language = $2
-  AND sc.canonical_lemma = $3
-  AND sc.upos = $4
-   AND ($5::text = '' OR c.source_material_id::text = $5::text)
-ORDER BY sc.selected_at DESC, sc.corpus_id DESC
-LIMIT 1
-`
-
-type SelectAcquisitionCandidateParams struct {
-	Owner          string
-	Language       string
-	CanonicalLemma string
-	Upos           string
-	Book           string
-}
-
-type SelectAcquisitionCandidateRow struct {
-	CorpusID             string
-	EligibleSentenceRefs []byte
-}
-
-// Sentence selection and review queries. SelectAcquisitionCandidate is the
-// static replacement for the runtime string-concatenated acquisition query:
-// an unconditional predicate of the form ($book = ” OR source = $book) keeps
-// the statement statically analyzable.
-func (q *Queries) SelectAcquisitionCandidate(ctx context.Context, arg SelectAcquisitionCandidateParams) (SelectAcquisitionCandidateRow, error) {
-	row := q.db.QueryRow(ctx, selectAcquisitionCandidate,
-		arg.Owner,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-		arg.Book,
-	)
-	var i SelectAcquisitionCandidateRow
-	err := row.Scan(&i.CorpusID, &i.EligibleSentenceRefs)
-	return i, err
-}
-
-const upsertReviewSentenceFromAnalysis = `-- name: UpsertReviewSentenceFromAnalysis :one
-INSERT INTO example_sentences(owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, 0, '[]', true)
-ON CONFLICT(owner_id, corpus_id, sentence_key) DO UPDATE SET
-  sentence_text = excluded.sentence_text,
-  source_location = excluded.source_location,
-  language = excluded.language,
-  canonical_lemma = excluded.canonical_lemma,
-  upos = excluded.upos,
-  selection_rank = excluded.selection_rank,
-  selection_score = excluded.selection_score,
-  selection_reasons = excluded.selection_reasons,
-  is_chosen = true
-RETURNING id, owner_id, corpus_id, sentence_key, sentence_text, source_location, language, canonical_lemma, upos, selection_rank, selection_score, selection_reasons, is_chosen, created_at
-`
-
-type UpsertReviewSentenceFromAnalysisParams struct {
-	OwnerID        string
-	CorpusID       string
-	SentenceKey    string
-	SentenceText   string
-	SourceLocation []byte
-	Language       pgtype.Text
-	CanonicalLemma pgtype.Text
-	Upos           pgtype.Text
-}
-
-type UpsertReviewSentenceFromAnalysisRow struct {
-	ID               string
-	OwnerID          string
-	CorpusID         string
-	SentenceKey      string
-	SentenceText     string
-	SourceLocation   []byte
-	Language         pgtype.Text
-	CanonicalLemma   pgtype.Text
-	Upos             pgtype.Text
-	SelectionRank    pgtype.Int4
-	SelectionScore   pgtype.Int4
-	SelectionReasons []byte
-	IsChosen         bool
-	CreatedAt        time.Time
-}
-
-func (q *Queries) UpsertReviewSentenceFromAnalysis(ctx context.Context, arg UpsertReviewSentenceFromAnalysisParams) (UpsertReviewSentenceFromAnalysisRow, error) {
-	row := q.db.QueryRow(ctx, upsertReviewSentenceFromAnalysis,
-		arg.OwnerID,
-		arg.CorpusID,
-		arg.SentenceKey,
-		arg.SentenceText,
-		arg.SourceLocation,
-		arg.Language,
-		arg.CanonicalLemma,
-		arg.Upos,
-	)
-	var i UpsertReviewSentenceFromAnalysisRow
-	err := row.Scan(
-		&i.ID,
-		&i.OwnerID,
-		&i.CorpusID,
-		&i.SentenceKey,
-		&i.SentenceText,
-		&i.SourceLocation,
-		&i.Language,
-		&i.CanonicalLemma,
-		&i.Upos,
-		&i.SelectionRank,
-		&i.SelectionScore,
-		&i.SelectionReasons,
-		&i.IsChosen,
-		&i.CreatedAt,
 	)
 	return i, err
 }

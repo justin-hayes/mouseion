@@ -31,7 +31,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/opds"
 	"github.com/justin-hayes/mouseion/internal/persistence"
 	"github.com/justin-hayes/mouseion/internal/readingintent"
-	"github.com/justin-hayes/mouseion/internal/selection"
 	"github.com/justin-hayes/mouseion/internal/sourcecheck"
 	"github.com/justin-hayes/mouseion/internal/study"
 	"github.com/justin-hayes/mouseion/internal/webapp"
@@ -225,7 +224,6 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 	authHandler := webauth.New(authService, cfg.secureCookies, cfg.sessionLifetime)
 	epubService := epub.NewService(store)
 	opdsService := opds.NewService(store, epubService, nil).WithAcquisitionTempDir(cfg.acquisitionTempDir)
-	selectionService := selection.NewService(store)
 	translationProvider, err := enrichment.NewConfiguredLLMProvider(llmConfig, nil)
 	if err != nil {
 		return nil, err
@@ -256,7 +254,7 @@ func startServerDependencies(ctx context.Context, cfg serverConfig, store *persi
 		return nil, err
 	}
 	studyPlanWorker := registerStudyWorker(workers, store, translationProvider, codec, dictionaryIndex, studyIdioms)
-	riverClient, err := newRiverClient(ctx, store, nlp, capabilities, selectionService, workers, dictionaryIndex)
+	riverClient, err := newRiverClient(ctx, store, nlp, capabilities, workers, dictionaryIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -300,13 +298,13 @@ func idiomIndexVersion(ctx context.Context, dictionaryIndex *dictionary.Index) (
 // newRiverClient registers the Idiom candidate count rebuild, which derives
 // counts against the loaded dictionary index and stamps them with its idiom
 // version, and builds the River client over the complete worker set.
-func newRiverClient(ctx context.Context, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, capabilities analyzer.CapabilityProvider, selectionService *selection.Service, workers *river.Workers, dictionaryIndex *dictionary.Index) (*river.Client[pgx.Tx], error) {
+func newRiverClient(ctx context.Context, store *persistence.PostgresStore, nlp *analyzer.GRPCAnalyzer, capabilities analyzer.CapabilityProvider, workers *river.Workers, dictionaryIndex *dictionary.Index) (*river.Client[pgx.Tx], error) {
 	version, err := idiomIndexVersion(ctx, dictionaryIndex)
 	if err != nil {
 		return nil, err
 	}
 	analysis.AddIdiomCountsWorker(workers, store.Pool(), dictionaryIndex, version)
-	return analysis.NewClient(store.Pool(), nlp, capabilities, selectionService, workers)
+	return analysis.NewClient(store.Pool(), nlp, capabilities, workers)
 }
 
 // studyDictionaryPin reads the loaded dictionary index's pin for a language, so

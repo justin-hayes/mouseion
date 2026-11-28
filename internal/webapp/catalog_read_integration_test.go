@@ -11,6 +11,7 @@ import (
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
 	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/justin-hayes/mouseion/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -28,8 +29,7 @@ func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
 	ctx := context.Background()
 	_, err := fixture.store.PutKnownVocabulary(ctx, fixture.owner.ID, "de", "Haus", "NOUN")
 	require.NoError(t, err)
-	knownBefore, err := fixture.store.ListKnownVocabulary(ctx, fixture.owner.ID, "de")
-	require.NoError(t, err)
+	knownBefore := testutil.LegacyKnownLemmas(t, ctx, fixture.store.Pool(), fixture.owner.ID, "de")
 
 	read := fixture.previouslyRead(t)
 	require.Equal(t, http.StatusSeeOther, read.Code, read.Body.String())
@@ -51,8 +51,7 @@ func TestCataloguePreviouslyReadCreatesAReadBookWithoutAcquiring(t *testing.T) {
 	assert.False(t, detail.EverCurrentReading)
 	assert.Nil(t, detail.Acquired, "I've read this downloads nothing")
 
-	knownAfter, err := fixture.store.ListKnownVocabulary(ctx, fixture.owner.ID, "de")
-	require.NoError(t, err)
+	knownAfter := testutil.LegacyKnownLemmas(t, ctx, fixture.store.Pool(), fixture.owner.ID, "de")
 	assert.ElementsMatch(t, knownBefore, knownAfter, "I've read this changes no Known vocabulary")
 }
 

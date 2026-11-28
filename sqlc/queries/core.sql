@@ -239,17 +239,6 @@ SELECT kv.id::text,
        kv.created_at
 FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.id = $2;
 
--- name: ListKnownVocabulary :many
-SELECT kv.id::text,
-       kv.owner_id::text,
-       kv.language,
-       kv.canonical_lemma,
-       kv.upos,
-       kv.lexical_discriminator,
-       kv.headword,
-       kv.created_at
-FROM known_vocabulary kv WHERE kv.owner_id = $1 AND kv.language = $2 ORDER BY kv.canonical_lemma, kv.upos, kv.lexical_discriminator, kv.id;
-
 -- name: ListStudyProgressLanguages :many
 -- The languages the learner has Study progress in, whether or not a Book of the
 -- language is still in My Books.
@@ -260,12 +249,6 @@ SELECT k.language, (COALESCE(NULLIF(n.display_name, ''), k.language))::text AS d
 FROM progress_languages k
 LEFT JOIN supported_languages n ON n.language = k.language
 ORDER BY COALESCE(NULLIF(n.display_name, ''), k.language), k.language;
-
--- name: IsKnownVocabularyIdentity :one
-SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND (upos = $4 OR upos = ''));
-
--- name: KnownVocabularyExists :one
-SELECT EXISTS(SELECT 1 FROM known_vocabulary WHERE owner_id = $1 AND language = $2 AND canonical_lemma = $3 AND upos = $4);
 
 -- name: ReservedVocabularyExists :one
 SELECT EXISTS(
@@ -278,16 +261,6 @@ SELECT EXISTS(
     AND ps.released_at IS NULL AND pv.language = $2
     AND pv.canonical_lemma = $3 AND pv.upos = $4
 );
-
--- name: PutSelectionCandidate :exec
-INSERT INTO selection_candidates(owner_id, corpus_id, language, canonical_lemma, upos, occurrence_count, observed_forms, eligible_sentence_refs, provenance)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-ON CONFLICT(owner_id, corpus_id, language, canonical_lemma, upos) DO UPDATE SET
-  occurrence_count = excluded.occurrence_count,
-  observed_forms = excluded.observed_forms,
-  eligible_sentence_refs = excluded.eligible_sentence_refs,
-  provenance = excluded.provenance,
-  selected_at = now();
 
 -- name: PutExampleSentence :one
 INSERT INTO example_sentences(owner_id, corpus_id, sentence_key, sentence_text, source_location)
