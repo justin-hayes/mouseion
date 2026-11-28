@@ -4,8 +4,12 @@ package analysis
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
@@ -41,7 +45,9 @@ func TestAnalysisJobStoppedByShutdownRunsAgainAndCompletes(t *testing.T) {
 	blocking := &analyzertest.Fake{AnalyzeFunc: func(ctx context.Context, _ analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		started <- struct{}{}
 		<-ctx.Done()
-		return analyzer.Result{}, ctx.Err()
+		// The production analyzer reports a cancelled call as a gRPC status
+		// error, not context.Canceled.
+		return analyzer.Result{}, fmt.Errorf("call NLP analyzer: %w", status.Error(codes.Canceled, "context canceled"))
 	}}
 	first, err := NewClient(pool, blocking, analyzertest.ReadyDepparseCapabilityProvider())
 	require.NoError(t, err)
@@ -63,6 +69,9 @@ func TestAnalysisJobStoppedByShutdownRunsAgainAndCompletes(t *testing.T) {
 	require.NoError(t, pool.QueryRow(ctx, `SELECT r.state,a.state FROM analysis_runs r JOIN analysis_run_attempts a ON a.run_id=r.id WHERE r.id=$1`, handle.RunID).Scan(&runState, &attemptState))
 	require.Equal(t, "running", runState, "the run is resumable, not failed")
 	require.Equal(t, "running", attemptState)
+	var failures int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis' AND status='failed'`, owner.ID).Scan(&failures))
+	require.Zero(t, failures, "a shutdown is not recorded as an analysis failure")
 
 	resumed := &analyzertest.Fake{AnalyzeFunc: func(_ context.Context, req analyzer.AnalyzeRequest) (analyzer.Result, error) {
 		return analyzer.Result{
@@ -152,4 +161,47 @@ func TestJobContextCauseOnStopAndCancel(t *testing.T) {
 		require.ErrorIs(t, context.Cause(seen), river.ErrJobCancelledRemotely)
 		require.False(t, cancelledByClientStop(seen))
 	})
+}
+
+// TestAnalysisCancelledByUserStillRecordsFailure keeps the user-cancel path as
+// it was: cancelling a running analysis is not a server stop, so the worker
+// still records the run's failure history.
+func TestAnalysisCancelledByUserStillRecordsFailure(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	t.Cleanup(cancel)
+	url, pool := testutil.Postgres(t, ctx, persistence.Migrate)
+	store, err := persistence.Open(ctx, url)
+	require.NoError(t, err)
+	testutil.Cleanup(t, "analysis store", store.Close)
+	require.NoError(t, MigrateRiver(ctx, pool))
+	owner, err := store.CreateUser(ctx, "cancel-alice", false)
+	require.NoError(t, err)
+	source, err := putAnalysisSource(ctx, store, owner.ID, "cancel-source", "Cancel", "Hallo Berlin.", "sha256:cancel")
+	require.NoError(t, err)
+	started := make(chan struct{}, 1)
+	blocking := &analyzertest.Fake{AnalyzeFunc: func(ctx context.Context, _ analyzer.AnalyzeRequest) (analyzer.Result, error) {
+		started <- struct{}{}
+		<-ctx.Done()
+		return analyzer.Result{}, ctx.Err()
+	}}
+	client, err := NewClient(pool, blocking, analyzertest.ReadyDepparseCapabilityProvider())
+	require.NoError(t, err)
+	require.NoError(t, client.Start(ctx))
+	testutil.StopOnCleanup(t, "analysis client", client.Stop)
+	service := NewService(pool, client)
+	handle, err := service.SubmitAnalysis(ctx, owner.ID, source.ID)
+	require.NoError(t, err)
+	<-started
+	_, err = service.Cancel(ctx, owner.ID, handle.ID)
+	require.NoError(t, err)
+	testutil.Eventually(t, 20*time.Second, "the worker records the cancelled run's failure history", func() (bool, string) {
+		var failures int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM processing_history WHERE owner_id=$1 AND operation='analysis' AND status='failed'`, owner.ID).Scan(&failures); err != nil {
+			return false, err.Error()
+		}
+		return failures == 1, "no failure history yet"
+	})
+	var runState string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT state FROM analysis_runs WHERE id=$1`, handle.RunID).Scan(&runState))
+	require.Equal(t, "cancelled", runState)
 }

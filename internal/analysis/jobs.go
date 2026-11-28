@@ -1661,7 +1661,11 @@ func (w *Worker) workSnapshot(ctx context.Context, job *river.Job[JobArgs]) (wor
 		// River runs it again, and a run recorded as failed would not. A user's
 		// cancel and any other cancellation still record the failure.
 		stopped := cancelledByClientStop(ctx)
-		if workErr != nil && !stopped {
+		if workErr != nil && stopped {
+			// The analyzer may report the cancellation as its own error (a gRPC
+			// Canceled status), which River would count as a failed attempt.
+			workErr = fmt.Errorf("analysis stopped for shutdown: %w", ctx.Err())
+		} else if workErr != nil {
 			workErr = w.recordSnapshotFailure(ctx, workErr, a, job.ID)
 		}
 	}()
