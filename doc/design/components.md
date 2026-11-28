@@ -51,9 +51,8 @@ markup.
 | `StatusBadge`     | Compactly identify a resource state                                        | Neutral, information, success, warning, danger    | Current library, Goal and artifact surfaces            |
 | `Feedback`        | Explain a result, degraded state, or blocking error                        | Information, success, warning, error              | Core book workflow, Jobs, Vocabulary                         |
 | `EmptyState`      | Explain why a collection is empty and the next useful action               | With or without an action                         | Current library, Jobs, Vocabulary                            |
-| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | My Books, book actions, prepared books, Vocabulary           |
+| `ResourceCard`    | Group one resource's identity, metadata, status, and action                | Content-defined; not a generic marketing card     | Book detail summary and Reading chooser (page markup using the `resource-card` class) |
 | `ActionGroup`     | Keep peer actions together while preserving reading order                  | Primary, secondary, and consequential children    | Job status and Goal completion                            |
-| `MetadataList`    | Present term-value facts with native definition-list semantics             | Content-defined                                   | Book and job facts                                         |
 | `ResponsiveTable` | Contain tabular overflow without creating page-level horizontal scrolling  | Labeled focusable region                          | Jobs and import rejection details                          |
 | `AsyncStatus`     | Present one live asynchronous operation with progress and recovery actions | Busy or settled; optional progress                | Analysis, catalog-sync, enrichment, and prepared-deck status |
 | `Confirmation`    | Reveal consequences before submitting a consequential server action        | Neutral or danger; copy remains workflow-specific | Goal completion and catalog connections                  |
@@ -601,7 +600,6 @@ At the compact breakpoint:
   adjacent to the affected book;
 - labeled forecast values stack in document order rather than compressing into
   unreadable columns;
-- metadata lists use a single column;
 - buttons remain native controls and may occupy the available width where the
   surrounding workflow requires it.
 
@@ -725,11 +723,6 @@ carry more hierarchy than border, shadow, or background.
 Group actions that affect the same resource or transition. The primary action
 comes first in document order. Destructive or abandonment actions are visually
 secondary and use `Confirmation` when the consequence is material.
-
-### `MetadataList`
-
-Use native `dl`, `dt`, and `dd` for stable term-value facts. Do not use it for a
-sequence of actions or for unrelated paragraph content.
 
 ### `ResponsiveTable`
 

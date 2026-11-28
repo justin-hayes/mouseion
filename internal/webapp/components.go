@@ -126,11 +126,6 @@ const (
 	FeedbackError   FeedbackKind = "error"
 )
 
-type MetadataItem struct {
-	Term        string
-	Description string
-}
-
 type catalogueSyncConnectionView struct {
 	HasStatus       bool
 	State           string

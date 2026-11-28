@@ -224,18 +224,12 @@ func TestFeedbackPatterns(t *testing.T) {
 	)
 }
 
-func TestEmptyStateAndResourceCardPatterns(t *testing.T) {
+func TestEmptyStatePattern(t *testing.T) {
 	empty := renderPattern(t, EmptyState("Your library is empty", "Add a book to begin."), `<a href="/catalogs">Acquire an EPUB</a>`)
 	requireMarkup(t, empty,
 		`class="empty-state"`,
 		`<h2>Your library is empty</h2>`,
 		`<div class="empty-state__actions">`,
-	)
-
-	card := renderPattern(t, ResourceCard(), `<h2>Die Verwandlung</h2>`)
-	requireMarkup(t, card,
-		`<article class="resource-card">`,
-		`<h2>Die Verwandlung</h2>`,
 	)
 }
 
@@ -256,13 +250,6 @@ func TestActionAndConfirmationPatterns(t *testing.T) {
 }
 
 func TestDataDisplayPatterns(t *testing.T) {
-	metadata := renderPattern(t, MetadataList([]MetadataItem{{Term: "Language", Description: "German"}}), "")
-	requireMarkup(t, metadata,
-		`<dl class="metadata-list">`,
-		`<dt>Language</dt>`,
-		`<dd>German</dd>`,
-	)
-
 	table := renderPattern(t, ResponsiveTable("Analysis history"), `<thead><tr><th>Run</th></tr></thead>`)
 	requireMarkup(t, table,
 		`class="table-region"`,
@@ -304,7 +291,6 @@ func TestComponentStylesAvailable(t *testing.T) {
 		".action-group",
 		".resource-card",
 		".confirmation",
-		".metadata-list",
 		".table-region",
 		".async-status",
 	} {

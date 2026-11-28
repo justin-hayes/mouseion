@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
+func TestShellLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, Layout("Foundations", nil, "").Render(context.Background(), &output))
+	require.NoError(t, ShellLayout("Foundations", nil, "", NavigationLibrary).Render(context.Background(), &output))
 
 	html := output.String()
 	for _, want := range []string{
@@ -54,7 +54,7 @@ func TestLayoutUsesSingleBundledFrontendFoundation(t *testing.T) {
 func TestLoginStylesAreRouteScopedAndDoNotResetUnmigratedPages(t *testing.T) {
 	var login, library bytes.Buffer
 	require.NoError(t, LoginPage("csrf", "", "/de/library", false).Render(context.Background(), &login))
-	require.NoError(t, Layout("My Books", &domain.User{Username: "learner"}, "csrf").Render(context.Background(), &library))
+	require.NoError(t, ShellLayout("My Books", &domain.User{Username: "learner"}, "csrf", NavigationLibrary).Render(context.Background(), &library))
 
 	assert.Contains(t, login.String(), `href="/static/app.css"`)
 	assert.Contains(t, login.String(), `rel="preload" href="/static/vendor/fonts/commissioner-latin-wght-normal.woff2"`)
@@ -309,9 +309,9 @@ func TestLibraryUsesSharedFeedbackAndEmptyState(t *testing.T) {
 	}
 }
 
-func TestLayoutExposesAccessibleApplicationShell(t *testing.T) {
+func TestShellLayoutExposesAccessibleApplicationShell(t *testing.T) {
 	var output bytes.Buffer
-	require.NoError(t, Layout("Mouseion", nil, "csrf-token").Render(context.Background(), &output))
+	require.NoError(t, ShellLayout("Mouseion", nil, "csrf-token", NavigationLibrary).Render(context.Background(), &output))
 	for _, pattern := range []string{`class="skip-link"`, `href="#main-content"`, `aria-label="Primary navigation"`, `id="main-content"`, `tabindex="-1"`} {
 		assert.Contains(t, output.String(), pattern, "application shell missing %q: %s", pattern, output.String())
 	}

@@ -770,16 +770,6 @@ func sentenceStudyMorphology(morphology map[string]string) string {
 	return strings.Join(features, ", ")
 }
 
-func concordanceDecisionLabelForStudy(token domain.SentenceStudyToken) string {
-	if token.Excluded {
-		return " (excluded from effective vocabulary; retained as syntax evidence)"
-	}
-	if token.Corrected {
-		return " (corrected for this occurrence)"
-	}
-	return ""
-}
-
 // sentenceStudyDecisionDescription names an unresolved occurrence decision and
 // why it was not attributed to a word. It shows the decision separately and
 // never presents its proposed lemma as a confirmed effective outcome.
@@ -821,20 +811,6 @@ func sentenceCitation(citations []string) string {
 		return ""
 	}
 	return classical.FormatCitationRange(citations)
-}
-
-func concordanceDecisionLabel(occurrence domain.ConcordanceResultOccurrence) string {
-	var labels []string
-	if occurrence.Corrected {
-		labels = append(labels, "corrected for this occurrence")
-	}
-	if occurrence.Excluded {
-		labels = append(labels, "excluded from effective vocabulary; retained as analyzer evidence")
-	}
-	if len(labels) == 0 {
-		return ""
-	}
-	return " (" + strings.Join(labels, "; ") + ")"
 }
 
 // concordanceSentenceParts splits the sentence around the observed occurrence.

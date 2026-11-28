@@ -1037,19 +1037,6 @@ progress {
   margin-bottom: var(--mouseion-space-7);
 }
 
-.next-action {
-  max-width: 52rem;
-  margin-bottom: var(--mouseion-space-7);
-  border-left: var(--mouseion-space-1) solid var(--mouseion-color-accent);
-  padding: var(--mouseion-space-4) var(--mouseion-space-5);
-  background: var(--mouseion-color-surface-quiet);
-}
-
-.next-action h2 {
-  margin-bottom: var(--mouseion-space-1);
-}
-
-.next-action > :last-child,
 .library-next-action {
   margin-bottom: 0;
 }
@@ -1079,27 +1066,6 @@ progress {
 
 .confirmation__body {
   padding-top: var(--mouseion-space-3);
-}
-
-.metadata-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: var(--mouseion-space-3) var(--mouseion-space-5);
-}
-
-.metadata-list div {
-  min-width: 0;
-}
-
-.metadata-list dt {
-  color: var(--mouseion-color-text-muted);
-  font-size: var(--mouseion-font-size-metadata);
-  font-weight: 600;
-}
-
-.metadata-list dd {
-  margin: 0;
-  overflow-wrap: anywhere;
 }
 
 .table-region {
