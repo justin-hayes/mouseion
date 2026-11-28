@@ -103,18 +103,16 @@ func TestPassContractIsChosenByPolicy(t *testing.T) {
 	}
 }
 
-// TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne proves Greek Study looks
-// up every competing entry and carries entry handles in its pass (ADR 0139).
-func TestGreekStudyLooksUpEveryEntryWhereTheDeckTakesOne(t *testing.T) {
+// TestGreekStudyCarriesEntryHandlesInItsPass proves Greek Study carries entry
+// handles in its pass (ADR 0139) while the generic lookup keeps one candidate.
+func TestGreekStudyCarriesEntryHandlesInItsPass(t *testing.T) {
 	policy := For("grc")
 	assert.Equal(t, LookupExactlyOne, policy.DictionaryLookup, "the generic lookup keeps one candidate")
-	assert.Equal(t, LookupEveryEntry, policy.StudyLookup)
 	assert.Equal(t, PassContractGreekEntries, policy.StudyPassContract)
 	assert.True(t, policy.Study, "Greek's Study switch is on after the evidence run (#2767)")
 }
 
-func TestLatinStudyUsesTheDeckLookupAndContract(t *testing.T) {
+func TestLatinStudyUsesTheLatinContract(t *testing.T) {
 	policy := For("la")
-	assert.Equal(t, policy.DictionaryLookup, policy.StudyLookup)
 	assert.Equal(t, PassContractLatin, policy.StudyPassContract)
 }

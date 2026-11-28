@@ -90,42 +90,24 @@ type Resolution struct {
 	Pin string
 }
 
-// ResolveStudy looks the lemma up by the policy's Study lookup rule (ADR 0139)
-// and returns every entry with its structured outline; cited is the set of entry
-// senses to flag. Greek Study takes every competing LSJ entry in source order. It
+// ResolveStudy looks the lemma up in the dictionary the policy's Entries names
+// and returns every entry with its structured outline (ADR 0139); cited is the
+// set of entry senses to flag. Greek Study takes every competing LSJ entry in
+// source order. It
 // resolves nothing for a policy with no dictionary, a provider without the
 // capability, or a lemma with no usable entry.
 func ResolveStudy(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
-	return resolve(ctx, lexical, policy, policy.StudyLookup, lemma, cited)
-}
-
-func resolve(ctx context.Context, lexical enrichment.LexicalProvider, policy cardpolicy.Policy, rule cardpolicy.Lookup, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
 	if lexical == nil {
 		return Resolution{}, false
 	}
 	switch policy.Entries {
 	case cardpolicy.EntryLSJ:
-		if rule == cardpolicy.LookupEveryEntry {
-			return resolveEveryLSJ(ctx, lexical, lemma, cited)
-		}
-		return resolveLSJ(ctx, lexical, lemma, cited)
+		return resolveEveryLSJ(ctx, lexical, lemma, cited)
 	case cardpolicy.EntryLewisShort:
 		return resolveLewisShort(ctx, lexical, lemma, cited)
 	case cardpolicy.EntryNone:
 	}
 	return Resolution{}, false
-}
-
-func resolveLSJ(ctx context.Context, lexical enrichment.LexicalProvider, lemma string, cited map[SenseRef]struct{}) (Resolution, bool) {
-	provider, ok := lexical.(enrichment.AncientGreekLSJProvider)
-	if !ok {
-		return Resolution{}, false
-	}
-	matched, found := provider.LookupAncientGreekLSJ(ctx, lemma)
-	if !found || matched.Empty() {
-		return Resolution{}, false
-	}
-	return Resolution{Entries: []Entry{BuildLSJ(matched, cited)}, EntryID: matched.EntryID, Pin: matched.Pin}, true
 }
 
 // resolveEveryLSJ stacks every competing LSJ entry of the lemma, in source
@@ -230,9 +212,8 @@ func BuildLewisShort(found []enrichment.LatinLSEntry, targets map[string]enrichm
 // sense's evidence ID names its entry and its sense (enrichment.EntryEvidenceID),
 // so a cited sense is exactly one sense of one entry across homographs.
 func PassSenses(policy cardpolicy.Policy, entries []Entry) []enrichment.LexicalSense {
-	// Study sends every sense of every entry, in entry order: the cap belongs to
-	// the Prepared deck, and a frequent lemma's entries need their later senses
-	// citable (ADR 0139; Latin's "dico" "plead" sense sits past the cap).
+	// Study sends every sense of every entry, in entry order, uncapped: a
+	// frequent lemma's entries need their later senses citable (ADR 0139; Latin's "dico" "plead" sense sits past the cap).
 	entrySenses := lsjEntryPassSenses
 	if policy.Entries != cardpolicy.EntryLSJ {
 		entrySenses = latinEntryPassSenses
@@ -240,47 +221,6 @@ func PassSenses(policy cardpolicy.Policy, entries []Entry) []enrichment.LexicalS
 	var senses []enrichment.LexicalSense
 	for _, entry := range entries {
 		senses = append(senses, entrySenses(entry)...)
-	}
-	return senses
-}
-
-// LatinPassSenses are the pinned Lewis & Short senses the Latin Prepared deck's
-// evidence-assisted pass may cite (Study sends every sense: see PassSenses),
-// across every resolved entry. Each sense's evidence ID names its entry and its
-// sense, so a cited sense is exactly one sense of one entry, even
-// across stacked homographs. A sense sends its definitions, or its glosses when
-// it has none; a sense with no native ID or nothing to send gives no evidence and
-// is skipped. The pass carries at most enrichment.DefaultMaxCandidateSenses
-// senses, taken round-robin across the entries so every returned entry is
-// represented, and kept in source order.
-func LatinPassSenses(entries []Entry) []enrichment.LexicalSense {
-	perEntry := make([][]enrichment.LexicalSense, len(entries))
-	for i, entry := range entries {
-		perEntry[i] = latinEntryPassSenses(entry)
-	}
-	return capRoundRobin(perEntry)
-}
-
-// capRoundRobin keeps at most enrichment.DefaultMaxCandidateSenses senses, taken
-// round-robin across the entries so every entry is represented, and each entry's
-// senses stay in source order.
-func capRoundRobin(perEntry [][]enrichment.LexicalSense) []enrichment.LexicalSense {
-	keep := make([]int, len(perEntry))
-	for taken := 0; taken < enrichment.DefaultMaxCandidateSenses; {
-		before := taken
-		for i := range perEntry {
-			if keep[i] < len(perEntry[i]) && taken < enrichment.DefaultMaxCandidateSenses {
-				keep[i]++
-				taken++
-			}
-		}
-		if taken == before {
-			break
-		}
-	}
-	var senses []enrichment.LexicalSense
-	for i := range perEntry {
-		senses = append(senses, perEntry[i][:keep[i]]...)
 	}
 	return senses
 }
@@ -472,42 +412,6 @@ func spanOutline(flat []OutlineSense) []OutlineSense {
 		}
 	}
 	return outline
-}
-
-// GreekPassSenses flattens a matched LSJ entry's sense hierarchy, in source
-// order, into the pinned LSJ meaning evidence the evidence-assisted pass
-// transmits. Each sense carries its native LSJ sense ID as its evidence ID, so
-// the provider cites a pinned sense and decoding maps the short handle back to
-// that exact ID. Each sense sends its definitions (ADR 0104), not the usage
-// glosses that translate quoted passages; an entry derived before definitions
-// existed sends every gloss instead. A sense with no native ID cannot be cited,
-// and a sense with nothing to send gives no evidence, so both are skipped.
-func GreekPassSenses(entry enrichment.AncientGreekLSJEntry) []enrichment.LexicalSense {
-	useDefinitions := lsjHasDefinitions(entry.Senses)
-	var senses []enrichment.LexicalSense
-	var walk func([]enrichment.AncientGreekLSJSense)
-	walk = func(level []enrichment.AncientGreekLSJSense) {
-		for _, sense := range level {
-			glosses := sense.Glosses
-			if useDefinitions {
-				glosses = sense.Definitions
-			}
-			gloss := strings.Join(glosses, "; ")
-			if strings.TrimSpace(sense.ID) != "" && strings.TrimSpace(gloss) != "" {
-				senses = append(senses, enrichment.LexicalSense{EvidenceID: sense.ID, Source: "lsj", Gloss: gloss})
-			}
-			walk(sense.Senses)
-		}
-	}
-	walk(entry.Senses)
-	return senses
-}
-
-// lsjHasDefinitions reports whether any sense, at any depth, has definitions.
-func lsjHasDefinitions(senses []enrichment.AncientGreekLSJSense) bool {
-	return slices.ContainsFunc(senses, func(sense enrichment.AncientGreekLSJSense) bool {
-		return len(sense.Definitions) > 0 || lsjHasDefinitions(sense.Senses)
-	})
 }
 
 // Passage is the translated passage a representative sentence sits in.

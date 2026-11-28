@@ -37,14 +37,6 @@ func (e AncientGreekLSJEntry) Empty() bool {
 	return e.EntryID == "" && e.Headword == "" && len(e.Senses) == 0
 }
 
-// AncientGreekLSJProvider is the optional local capability that resolves an
-// Ancient Greek headword to its matched LSJ entry. found=false is the normal
-// result for a missing or ambiguous headword and must be treated as "no entry",
-// never as a guess.
-type AncientGreekLSJProvider interface {
-	LookupAncientGreekLSJ(context.Context, string) (AncientGreekLSJEntry, bool)
-}
-
 // AncientGreekLSJEntriesProvider is the optional local capability that resolves
 // an Ancient Greek headword to every competing LSJ entry, in source order
 // (ADR 0139). found=false means no entry competes.

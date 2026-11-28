@@ -21,7 +21,8 @@ const (
 	BoundaryTerminalMark
 )
 
-// Lookup is the rule that matches a lemma to dictionary entries.
+// Lookup is the rule by which the dictionary index's generic lexical lookup
+// (dictionary.Index.Lookup) matches a lemma to dictionary entries.
 type Lookup int
 
 const (
@@ -30,10 +31,9 @@ const (
 	// LookupExactlyOne matches an identity only when exactly one candidate
 	// entry exists.
 	LookupExactlyOne
-	// LookupEveryEntry matches a lemma to every entry under its key in the
-	// language's own dictionary, with no part-of-speech filter and no choice
-	// between homographs (Lewis & Short for Latin; every competing LSJ entry
-	// for Greek Study, ADR 0139).
+	// LookupEveryEntry is a language whose dictionary is read whole, every
+	// entry under the lemma's key, through its own entry lookup (Lewis & Short
+	// for Latin), so the generic lookup gives it no senses.
 	LookupEveryEntry
 )
 
@@ -139,11 +139,10 @@ type Policy struct {
 	NLPAnalysed bool
 	// SentenceBoundary is the sentence-completeness rule.
 	SentenceBoundary Boundary
-	// DictionaryLookup is the dictionary lookup rule of a Prepared deck.
+	// DictionaryLookup is the rule of the dictionary index's generic lexical
+	// lookup. Study's source-evidence entries are resolved by Entries instead,
+	// every competing entry in source order (ADR 0139).
 	DictionaryLookup Lookup
-	// StudyLookup is the dictionary lookup rule of Study. It equals
-	// DictionaryLookup unless Study looks up more entries than the deck (ADR 0139).
-	StudyLookup Lookup
 }
 
 var (
@@ -161,7 +160,6 @@ var (
 		Citations:         CitationsNone,
 		SentenceBoundary:  BoundaryTerminalMark,
 		DictionaryLookup:  LookupExactlyOne,
-		StudyLookup:       LookupEveryEntry,
 	}
 	// sourceEvidenceLatin turns the evidence-assisted pass on (ADR 0138 §1), with
 	// its own Lewis & Short contract. The pass is sent only once the Latin payload
@@ -182,14 +180,12 @@ var (
 		Translations:     TranslationPerseus,
 		SentenceBoundary: BoundaryTerminalMark,
 		DictionaryLookup: LookupEveryEntry,
-		StudyLookup:      LookupEveryEntry,
 	}
 	modern = Policy{
 		Study:            true,
 		NLPAnalysed:      true,
 		SentenceBoundary: BoundaryCapitalisedStart,
 		DictionaryLookup: LookupStored,
-		StudyLookup:      LookupStored,
 	}
 )
 

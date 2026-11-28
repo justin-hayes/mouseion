@@ -185,21 +185,15 @@ func TestResolvePassageOfBookReturnsAStoreFailure(t *testing.T) {
 	require.ErrorIs(t, err, assert.AnError)
 }
 
-func TestLatinPassSensesRepresentEveryEntryWithinTheCap(t *testing.T) {
-	first := enrichment.LatinLSEntry{EntryID: "n1", Senses: nil}
-	for i := range 9 {
-		first.Senses = append(first.Senses, enrichment.LatinLSSense{ID: "n1." + string(rune('a'+i)), Level: 1, Definitions: []string{"d"}})
-	}
-	second := enrichment.LatinLSEntry{EntryID: "n2", Senses: []enrichment.LatinLSSense{
+func TestPassSensesLatinSendsGlossesWhenASenseHasNoDefinitions(t *testing.T) {
+	entry := enrichment.LatinLSEntry{EntryID: "n2", Senses: []enrichment.LatinLSSense{
 		{ID: "n2.0", Level: 1, Glosses: []string{"only a gloss"}},
 		{ID: "n2.1", Level: 1},
 	}}
-	senses := LatinPassSenses(BuildLewisShort([]enrichment.LatinLSEntry{first, second}, nil, nil))
-	require.Len(t, senses, enrichment.DefaultMaxCandidateSenses)
-	assert.Equal(t, enrichment.EntryEvidenceID("n1", "n1.a"), senses[0].EvidenceID, "source order is kept")
-	last := senses[len(senses)-1]
-	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), last.EvidenceID, "a later entry is not starved, and a glosses-only sense is sent")
-	assert.Equal(t, "only a gloss", last.Gloss)
+	senses := PassSenses(cardpolicy.For("la"), BuildLewisShort([]enrichment.LatinLSEntry{entry}, nil, nil))
+	require.Len(t, senses, 1, "a sense with nothing to send is skipped")
+	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), senses[0].EvidenceID)
+	assert.Equal(t, "only a gloss", senses[0].Gloss, "a glosses-only sense is sent")
 }
 
 func TestSharedSenseIDIsFlaggedOnlyOnTheCitedHomograph(t *testing.T) {
@@ -250,20 +244,17 @@ func TestResolveStudyLeavesALoneGreekEntryUnnumbered(t *testing.T) {
 }
 
 func TestResolveStudyFindsNothingWithoutTheEntriesCapability(t *testing.T) {
-	_, found := ResolveStudy(t.Context(), onlyDeckGreek{}, cardpolicy.For("grc"), "λέγω", nil)
+	_, found := ResolveStudy(t.Context(), noGreekEntries{}, cardpolicy.For("grc"), "λέγω", nil)
 	assert.False(t, found)
 }
 
-// onlyDeckGreek has the one-entry LSJ capability and not Study's every-entry one.
-type onlyDeckGreek struct{}
+// noGreekEntries lacks Study's every-entry LSJ capability.
+type noGreekEntries struct{}
 
-func (onlyDeckGreek) Name() string    { return "stub" }
-func (onlyDeckGreek) Version() string { return "stub-v1" }
-func (onlyDeckGreek) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
+func (noGreekEntries) Name() string    { return "stub" }
+func (noGreekEntries) Version() string { return "stub-v1" }
+func (noGreekEntries) Lookup(context.Context, enrichment.LexicalLookupRequest) (enrichment.LexicalEntry, bool, error) {
 	return enrichment.LexicalEntry{}, false, nil
-}
-func (onlyDeckGreek) LookupAncientGreekLSJ(context.Context, string) (enrichment.AncientGreekLSJEntry, bool) {
-	return enrichment.AncientGreekLSJEntry{EntryID: "n1", Headword: "x", Senses: []enrichment.AncientGreekLSJSense{{ID: "n1.0"}}}, true
 }
 
 func TestPassSensesCarryTheirEntryForGreekAndLatin(t *testing.T) {
@@ -319,6 +310,4 @@ func TestPassSensesLatinSendsEverySenseOfEveryEntryInOrder(t *testing.T) {
 	require.Len(t, senses, 35, "Latin Study is not capped")
 	assert.Equal(t, enrichment.EntryEvidenceID("n1", "n1.33"), senses[33].EvidenceID, "a sense past the old cap is sent, in entry order")
 	assert.Equal(t, enrichment.EntryEvidenceID("n2", "n2.0"), senses[34].EvidenceID)
-
-	assert.Len(t, LatinPassSenses(entries), enrichment.DefaultMaxCandidateSenses, "the Prepared deck keeps its cap")
 }
