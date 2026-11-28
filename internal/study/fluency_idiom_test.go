@@ -39,8 +39,7 @@ func fluencyIdiomSentence(ordinal int64, name, surface string, morphology map[st
 func newIdiomFluencyFixture() (*FluencyWorker, *fluencyFakeStore, *fluencyFakeEnricher) {
 	introducing := fluencyIdiomSentence(1, "Emma", "haus", nominative())
 	store := &fluencyFakeStore{
-		reading: domain.CurrentReading{OwnerID: "owner", Language: "de"},
-		tokens:  map[int64][]analyzer.Token{1: introducing.Sentence.Tokens},
+		tokens: map[int64][]analyzer.Token{1: introducing.Sentence.Tokens},
 		progress: domain.StudyProgress{
 			ID: "p1", StudyItem: domain.IdiomItem("de", "mit dem haus"), MaterialID: "m1", LearnedMeaning: "at home",
 			LearnedCitations: domain.StudyCitations{SenseIDs: []string{idiomLearnedSense}, EntryIDs: []string{"mit dem haus"}, DictionaryPin: "test/1"},
@@ -232,16 +231,13 @@ func TestIdiomFormTellsInflectionAndArrangementApart(t *testing.T) {
 
 func TestFluencyWorkerNeverAsksAboutTheIntroducingSentenceAndRanksItsFormLast(t *testing.T) {
 	worker, store, enricher := newIdiomFluencyFixture()
-	// The introducing sentence's text is repeated elsewhere in the library, in
-	// the reading, with the same matched form; two sentences share a form that
+	// The introducing sentence's text is repeated elsewhere in the library, with the same matched form; two sentences share a form that
 	// differs from it.
 	repeat := fluencyIdiomSentence(5, "Emma", "haus", nominative())
-	repeat.InCurrentReading = true
 	store.idiomSentences = append(store.idiomSentences, repeat,
 		fluencyIdiomSentence(10, "Lena", "haeuser", map[string]string{"Number": "Plur"}),
 		fluencyIdiomSentence(11, "Mara", "haeuserr", map[string]string{"Number": "Plur"}))
 	store.idiomSentences = append(store.idiomSentences, fluencyIdiomSentence(12, "Nina", "haus", nominative()))
-	store.idiomSentences[len(store.idiomSentences)-1].InCurrentReading = true
 
 	require.NoError(t, fluencyWork(worker))
 
