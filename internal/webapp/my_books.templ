@@ -14,29 +14,16 @@ templ LibraryPage(user domain.User, csrf string, books []domain.SourceMaterialSu
 
 templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 	<li id={ myBookRowID(book.Book.ID) } class="library-book" aria-labelledby={ "book-title-" + book.Book.ID }>
-			if myBookInReading(book) {
-				<a class="library-book__identity-link" href={ templ.SafeURL(readingBookURL(book.Book.LanguageTag, book.Book.ID)) }>
-					@BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover)
-					<div class="library-book__text">
-						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
-						if author := strings.TrimSpace(book.Book.Author); author != "" {
-							<span class="library-book__author">By { author }</span>
-						}
-						@MyBookIdentityDetails(book)
-					</div>
-				</a>
-			} else {
-				<div class="library-book__identity-link">
-					@BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover)
-					<div class="library-book__text">
-						<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
-						if author := strings.TrimSpace(book.Book.Author); author != "" {
-							<span class="library-book__author">By { author }</span>
-						}
-						@MyBookIdentityDetails(book)
-					</div>
+			<div class="library-book__identity-link">
+				@BookCoverMedia(book.Book.ID, myBookTitlePlate(book), book.Cover)
+				<div class="library-book__text">
+					<h2 id={ "book-title-" + book.Book.ID } class="bibliographic-title">{ myBookDisplayTitle(book) }</h2>
+					if author := strings.TrimSpace(book.Book.Author); author != "" {
+						<span class="library-book__author">By { author }</span>
+					}
+					@MyBookIdentityDetails(book)
 				</div>
-			}
+			</div>
 		<div class="library-book__notes">
 			<p class="library-book__membership">@StatusBadge(myBookWorkflowLabel(book), myBookWorkflowTone(book))</p>
 			if status, needs := myBookNeedsAction(book); needs {
@@ -62,8 +49,11 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 			}
 		</div>
 		<div class="library-book__actions">
-			if myBookInReading(book) {
-				<a class="btn btn-outline library-book__journey-action" href={ templ.SafeURL(readingBookURL(book.Book.LanguageTag, book.Book.ID)) }>View in Reading</a>
+			if myBookCanReadNext(book) {
+				<form method="post" action={ templ.SafeURL("/reading/books/" + url.PathEscape(book.Book.ID) + "/start") }>
+					<input type="hidden" name="csrf_token" value={ csrf }/>
+					<button type="submit" class="btn library-book__journey-action">Read next</button>
+				</form>
 			}
 			<details class="more-actions">
 				<summary>More actions</summary>
@@ -216,6 +206,9 @@ templ MyBooksPage(user domain.User, csrf string, books []domain.MyBook, message,
 		}
 		if pageError != "" {
 			@Feedback(FeedbackError, "My Books needs attention", pageError)
+		}
+		if browse.CurrentReading != nil {
+			@CurrentReadingSection(browse.CurrentReading, csrf, "", "", "")
 		}
 		if len(books) == 0 && (!browse.Enabled || (browse.AllCount == 0 && browse.Language != "")) {
 			@EmptyState("Find your first Book", "My Books holds the Books you choose. Browse the Catalog to add a text to read.") {

@@ -204,6 +204,9 @@ type MyBooksBrowseState struct {
 	TextNoMatch   bool
 	ToReadCount   int
 	ReadCount     int
+	// CurrentReading is the language's Current reading, pinned above the
+	// Books. It is set only on a full-page render.
+	CurrentReading *readingBookView
 }
 
 // myBooksScopedURL is the one place a My Books tab location is spelled.
@@ -604,4 +607,13 @@ func myBookEvidenceNeedsAction(book domain.MyBook) (string, bool) {
 		return "Analysis out of date.", true
 	}
 	return "", false
+}
+
+// myBookCanReadNext reports whether a row offers Read next: a To Read Book with
+// current analysis and a chosen Book language that is not already the Current
+// reading. The server still refuses a stale request (ADR 0136 §4).
+func myBookCanReadNext(book domain.MyBook) bool {
+	return book.Disposition == domain.BookDispositionToRead && !book.IsCurrentReading &&
+		book.Book.LanguageState == domain.LanguageChosen &&
+		book.Acquired != nil && analysisReadyForReading(*book.Acquired)
 }

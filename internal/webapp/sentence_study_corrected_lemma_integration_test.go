@@ -24,17 +24,16 @@ func TestSentenceStudyShowsACorrectedGreekLemmaAsACitationForm(t *testing.T) {
 	require.NoError(t, err)
 	importGreekFixture(t, ctx, store, learner.ID, registration.BookID, "oga-src-browse.conllu")
 
-	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
 	occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, registration.BookID, "δέω")
 	require.NoError(t, err)
 	require.Len(t, occurrences, 2)
-	reviewPath := "/reading/books/" + registration.BookID + "/lemma-review"
 	// λόγος folds to the key λόγοσ, which the Book's λόγος tokens carry with
 	// their headword. φίλος folds to φίλοσ, which no word of the owner carries.
-	confirmLemmaDecision(t, h, reviewPath, cookies, csrf, "correct", "λόγος", occurrences[0].ID())
-	confirmLemmaDecision(t, h, reviewPath, cookies, csrf, "correct", "φίλος", occurrences[1].ID())
+	confirmLemmaDecision(t, h, learner.ID, registration.BookID, "correct", "λόγος", occurrences[0].ID())
+	confirmLemmaDecision(t, h, learner.ID, registration.BookID, "correct", "φίλος", occurrences[1].ID())
 
 	var run, corpus string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text, corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, learner.ID, registration.BookID).Scan(&run, &corpus))

@@ -9,13 +9,6 @@ import (
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
-// readingPagePath is the Reading page of the request's page language. Reading
-// pages carry their language in the URL; a Book-addressed action first adopts
-// its Book's language (adoptBookLanguage), so its redirects return there.
-func readingPagePath(ctx context.Context) string {
-	return pageLanguagePath(ctx, pageKindReading)
-}
-
 // pageLanguagePath is a page kind in the request's page language.
 func pageLanguagePath(ctx context.Context, kind studyLanguagePageKind) string {
 	view := shellViewFromContext(ctx)
@@ -28,11 +21,6 @@ func pageLanguagePath(ctx context.Context, kind studyLanguagePageKind) string {
 // myBooksPagePath is My Books in the request's page language.
 func myBooksPagePath(ctx context.Context) string {
 	return pageLanguagePath(ctx, pageKindMyBooks)
-}
-
-// readingSwitchPath is the Switch page of the request's page language.
-func readingSwitchPath(ctx context.Context) string {
-	return pageLanguagePath(ctx, pageKindReadingSwitch)
 }
 
 // adoptBookLanguage makes a Book's study language the page language of a

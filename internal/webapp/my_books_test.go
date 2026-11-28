@@ -216,8 +216,8 @@ func TestMyBooksReadingActionHidesAddForExistingMember(t *testing.T) {
 	assert.Contains(t, html, "To Read")
 	assert.Contains(t, html, `<span class="status-badge status-badge--neutral"><span class="status-badge__shape status-badge__shape--ring" aria-hidden="true"></span>To Read</span>`)
 	assert.NotContains(t, html, `<span aria-hidden="true">●</span>`)
-	assert.Contains(t, html, "View in Reading")
-	assert.Contains(t, html, `href="/reading#journey-book-journey-book"`)
+	assert.NotContains(t, html, "View in Reading", "Reading is not a page")
+	assert.NotContains(t, html, `href="/reading`)
 }
 
 func TestMyBooksReadingActionHidesAddForCurrentReading(t *testing.T) {
@@ -231,7 +231,7 @@ func TestMyBooksReadingActionHidesAddForCurrentReading(t *testing.T) {
 	assert.False(t, strings.Contains(html, `action="/reading/books/goal-book/to-read"`) || strings.Contains(html, "Move to To Read"), "current reading still exposed add action: %s", html)
 	assert.Contains(t, html, "Currently reading")
 	assert.Contains(t, html, `<span class="status-badge status-badge--info"><span class="status-badge__shape status-badge__shape--dot" aria-hidden="true"></span>Currently reading</span>`)
-	assert.Contains(t, html, `href="/reading#journey-book-goal-book"`)
+	assert.NotContains(t, html, `href="/reading`)
 	assert.NotContains(t, html, "To Read")
 }
 
@@ -249,7 +249,7 @@ func TestAnalyzedMyBookShowsCurrentResultWithoutDuplicateStartAction(t *testing.
 	var output bytes.Buffer
 	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", []domain.MyBook{book}, "", "", MyBooksBrowseState{}).Render(context.Background(), &output))
 	html := output.String()
-	assert.True(t, strings.Contains(html, `href="/reading#journey-book-analyzed-book"`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
+	assert.True(t, !strings.Contains(html, `href="/reading`) && !strings.Contains(html, `href="/books/analyzed-book"`) && !strings.Contains(html, "View analysis result") && !strings.Contains(html, `action="/books/analyzed-book/analyze"`), "analyzed Journey member exposed an invalid My Books action or link: %s", html)
 	assert.NotContains(t, html, "Analysis evidence")
 }
 
@@ -353,15 +353,14 @@ func TestMyBooksListUsesNativeListAndStablePresentationStates(t *testing.T) {
 	end := strings.Index(html[start:], "</li>")
 	require.Positive(t, end)
 	item := html[start : start+end]
-	for _, content := range []string{`<a class="library-book__identity-link"`, "A very long title that remains fully visible", "By An author", "To Read", "View in Reading", "More actions"} {
+	for _, content := range []string{`<div class="library-book__identity-link"`, "A very long title that remains fully visible", "By An author", "To Read", "More actions"} {
 		assert.Contains(t, item, content)
 	}
 	assert.Equal(t, 1, strings.Count(item, `class="library-book__identity-link"`), "cover and title must share one identity link")
 	assert.Less(t, strings.Index(item, `class="book-cover-media"`), strings.Index(item, "A very long title"))
 	assert.Less(t, strings.Index(item, "A very long title"), strings.Index(item, "By An author"))
 	assert.Less(t, strings.Index(item, "By An author"), strings.Index(item, "To Read"))
-	assert.Less(t, strings.Index(item, "To Read"), strings.Index(item, "View in Reading"))
-	assert.Less(t, strings.Index(item, "View in Reading"), strings.Index(item, "More actions"))
+	assert.NotContains(t, item, "View in Reading", "Reading is not a page")
 }
 
 func TestMyBooksBrowseResultsOmitUnfilteredCountAndRedundantHeading(t *testing.T) {
@@ -472,7 +471,7 @@ func TestCompletedAnalysisCompatibilityRouteRedirectsToReadingEntry(t *testing.T
 	response := httptest.NewRecorder()
 	h.ServeHTTP(response, request)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Equal(t, "/de/reading#journey-book-fixture-book", response.Header().Get("Location"))
+	assert.Equal(t, "/de/library#book-row-fixture-book", response.Header().Get("Location"))
 	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/books/fixture-book/analyses/old-run", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)

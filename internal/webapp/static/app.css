@@ -7,8 +7,6 @@
     'Noto Color Emoji';
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
   }
@@ -475,11 +473,6 @@
   }
   .filter {
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
-  }
-  .transition {
-    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, visibility, content-visibility, overlay, pointer-events;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
   .btn-outline {
     &:not( .btn-active, :hover, :active:focus, :focus-visible, :disabled, [disabled], .btn-disabled, :checked ) {
@@ -2749,30 +2742,30 @@
   body.reading-shell .reading-chooser-list {
     padding: 0;
   }
-  body.reading-shell .reading-chooser-book, body.reading-shell .journey-book, body.reading-shell .journey-goal, body.reading-shell .reading-chooser-empty, body.reading-shell #primary-goal-section {
+  body.reading-shell .reading-chooser-book, body:is(.reading-shell, .my-books-shell) .journey-book, body:is(.reading-shell, .my-books-shell) .journey-goal, body.reading-shell .reading-chooser-empty, body:is(.reading-shell, .my-books-shell) #primary-goal-section {
     min-width: 0;
     overflow-wrap: anywhere;
   }
-  body.reading-shell .journey-goal {
+  body:is(.reading-shell, .my-books-shell) .journey-goal {
     color: var(--mouseion-color-text);
   }
-  body.reading-shell .journey-book__identity, body.reading-shell .journey-book__evidence, body.reading-shell .journey-book__controls, body.reading-shell .goal-card__actions {
+  body:is(.reading-shell, .my-books-shell) .journey-book__identity, body:is(.reading-shell, .my-books-shell) .journey-book__evidence, body:is(.reading-shell, .my-books-shell) .journey-book__controls, body:is(.reading-shell, .my-books-shell) .goal-card__actions {
     min-width: 0;
   }
-  body.reading-shell .journey-book__evidence > section, body.reading-shell .goal-card__deck {
+  body:is(.reading-shell, .my-books-shell) .journey-book__evidence > section, body:is(.reading-shell, .my-books-shell) .goal-card__deck {
     max-width: 100%;
   }
-  body.reading-shell .goal-card__actions, body.reading-shell .journey-book__controls, body.reading-shell .goal-card__deck > :is(form, .action-group) {
+  body:is(.reading-shell, .my-books-shell) .goal-card__actions, body:is(.reading-shell, .my-books-shell) .journey-book__controls, body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: var(--mouseion-space-2);
   }
-  body.reading-shell .goal-card__actions > *, body.reading-shell .journey-book__controls > *, body.reading-shell .goal-card__deck > :is(form, .action-group) > * {
+  body:is(.reading-shell, .my-books-shell) .goal-card__actions > *, body:is(.reading-shell, .my-books-shell) .journey-book__controls > *, body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) > * {
     min-width: 0;
     max-width: 100%;
   }
-  body.reading-shell .goal-card__actions form, body.reading-shell .journey-book__controls form, body.reading-shell .goal-card__deck form {
+  body:is(.reading-shell, .my-books-shell) .goal-card__actions form, body:is(.reading-shell, .my-books-shell) .journey-book__controls form, body:is(.reading-shell, .my-books-shell) .goal-card__deck form {
     margin: 0;
   }
   body.reading-shell form.focused-deck-form {
@@ -2784,10 +2777,10 @@
     padding: var(--mouseion-space-5);
     background: var(--mouseion-color-surface-raised);
   }
-  body.reading-shell .focused-deck-form > :last-child {
+  body:is(.reading-shell, .my-books-shell) .focused-deck-form > :last-child {
     margin-bottom: 0;
   }
-  body.reading-shell .goal-card__actions button, body.reading-shell .journey-book__controls a, body.reading-shell .goal-card__deck button, body.reading-shell .goal-card__deck a, body.reading-shell .async-status__actions button, body.reading-shell .async-status__actions a {
+  body:is(.reading-shell, .my-books-shell) .goal-card__actions button, body:is(.reading-shell, .my-books-shell) .journey-book__controls a, body:is(.reading-shell, .my-books-shell) .goal-card__deck button, body:is(.reading-shell, .my-books-shell) .goal-card__deck a, body:is(.reading-shell, .my-books-shell) .async-status__actions button, body:is(.reading-shell, .my-books-shell) .async-status__actions a {
     white-space: normal;
     overflow-wrap: anywhere;
   }
@@ -2797,12 +2790,12 @@
     align-items: center;
     cursor: pointer;
   }
-  body.reading-shell .journey-finish-outcome {
+  body:is(.reading-shell, .my-books-shell) .journey-finish-outcome {
     max-width: var(--mouseion-width-reading);
     border-block: 2px solid var(--mouseion-color-text);
     padding-block: var(--mouseion-space-6);
   }
-  body.reading-shell .journey-finish-outcome h1 {
+  body:is(.reading-shell, .my-books-shell) .journey-finish-outcome h1 {
     font-family: var(--mouseion-font-application);
     font-size: 1.5625rem;
     font-weight: 600;
@@ -2825,11 +2818,11 @@
     min-width: 0;
   }
   @media (max-width: 40rem) {
-    body.reading-shell .goal-card__actions, body.reading-shell .journey-book__controls, body.reading-shell .goal-card__deck > :is(form, .action-group) {
+    body:is(.reading-shell, .my-books-shell) .goal-card__actions, body:is(.reading-shell, .my-books-shell) .journey-book__controls, body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) {
       align-items: stretch;
       flex-direction: column;
     }
-    body.reading-shell .goal-card__actions > *, body.reading-shell .journey-book__controls > *, body.reading-shell .goal-card__deck > :is(form, .action-group) > * {
+    body:is(.reading-shell, .my-books-shell) .goal-card__actions > *, body:is(.reading-shell, .my-books-shell) .journey-book__controls > *, body:is(.reading-shell, .my-books-shell) .goal-card__deck > :is(form, .action-group) > * {
       width: 100%;
     }
   }
@@ -3270,7 +3263,7 @@
     .journey-book--provisional .journey-book__evidence {
       padding-left: var(--mouseion-space-3);
     }
-    body.reading-shell .journey-book--provisional .journey-book__controls {
+    body:is(.reading-shell, .my-books-shell) .journey-book--provisional .journey-book__controls {
       display: grid;
       grid-template-columns: minmax(0, 1fr);
       width: 100%;
@@ -3559,80 +3552,13 @@
     padding-inline: var(--mouseion-space-2);
     overflow-wrap: anywhere;
   }
-  body.reading-shell .lemma-review {
-    width: 100%;
-    max-width: var(--mouseion-width-data);
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review * {
-    min-width: 0;
-  }
-  body.reading-shell .lemma-review > p:first-child {
-    margin-block: var(--mouseion-space-2) var(--mouseion-space-4);
-  }
-  body.reading-shell .lemma-review > p, body.reading-shell .lemma-review > article, body.reading-shell .lemma-review > form, body.reading-shell .lemma-review > details, body.reading-shell .lemma-review > ul {
-    max-width: min(100%, var(--mouseion-width-reading));
-  }
-  body.reading-shell .lemma-review > article {
-    margin-block: var(--mouseion-space-4);
-    border-block: 1px solid var(--mouseion-color-border);
-    padding-block: var(--mouseion-space-3);
-    background: transparent;
-    box-shadow: none;
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review .reading-text {
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review form {
-    display: grid;
-    gap: var(--mouseion-space-3);
-    margin-block: var(--mouseion-space-3);
-  }
-  body.reading-shell .lemma-review label {
-    display: grid;
-    gap: var(--mouseion-space-1);
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-  }
-  body.reading-shell .lemma-review fieldset {
-    min-width: 0;
-    margin: 0;
-    border: 1px solid var(--mouseion-color-control-border);
-    padding: var(--mouseion-space-3);
-  }
-  body.reading-shell .lemma-review fieldset label {
-    display: block;
-    padding-block: var(--mouseion-space-2);
-  }
-  body.reading-shell .lemma-review label:has(input[type="checkbox"]) {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    gap: var(--mouseion-space-2);
-    cursor: pointer;
-  }
-  body.reading-shell .lemma-review label:has(input[type="checkbox"]) > input[type="checkbox"] {
-    flex: 0 0 auto;
-    margin: 0;
-  }
-  body.reading-shell .lemma-review details {
-    margin-block: var(--mouseion-space-2);
-  }
-  body.reading-shell .lemma-review summary {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    overflow-wrap: anywhere;
-    cursor: pointer;
-  }
   #main-content:has(form.concordance-query) > .vocabulary-page-header {
     margin-bottom: var(--mouseion-space-2);
   }
   body.vocabulary-shell #main-content:has(form.concordance-query) > p {
     overflow-wrap: anywhere;
   }
-  body.vocabulary-shell #main-content, body.reading-shell .lemma-review {
+  body.vocabulary-shell #main-content {
     min-width: 0;
   }
   body.vocabulary-shell #main-content > .page-header .page-header__content {

@@ -61,7 +61,7 @@ func TestAncientGreekSentenceStudyShowsConstructions(t *testing.T) {
 	}, analysis.NewGreekImportWriter(store))
 	require.NoError(t, err)
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
-	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
+	cookies, _ := loginCookies(t, h, learner.Username, "learner-password")
 
 	var run, corpus string
 	require.NoError(t, pool.QueryRow(ctx, `SELECT analysis_run_id::text, corpus_id::text FROM current_analysis_identity WHERE owner_id=$1 AND book_id=$2`, learner.ID, registration.BookID).Scan(&run, &corpus))
@@ -130,22 +130,12 @@ func TestAncientGreekSentenceStudyShowsConstructions(t *testing.T) {
 	})
 
 	t.Run("a lemma correction and an exclusion leave the rows unchanged", func(t *testing.T) {
-		reviewPath := "/reading/books/" + registration.BookID + "/lemma-review"
 		occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, registration.BookID, "λύειν")
 		require.NoError(t, err)
 		require.Len(t, occurrences, 2)
 		decide := func(decision, lemma, occurrence string) {
 			t.Helper()
-			preview := perform(t, h, http.MethodPost, reviewPath, url.Values{
-				"csrf_token": {csrf}, "stage": {"preview"}, "form": {"λύειν"}, "target": {occurrence},
-				"decision": {decision}, "lemma": {lemma},
-			}, cookies)
-			require.Equal(t, http.StatusOK, preview.Code, "preview %s body=%s", decision, preview.Body.String())
-			confirm := perform(t, h, http.MethodPost, reviewPath, url.Values{
-				"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"λύειν"}, "decision": {decision}, "lemma": {lemma},
-				"fingerprint": {previewFingerprint(t, preview.Body.String())}, "selected": {occurrence},
-			}, cookies)
-			require.Equal(t, http.StatusSeeOther, confirm.Code, "confirm %s body=%s", decision, confirm.Body.String())
+			confirmLemmaDecisionForm(t, h, learner.ID, registration.BookID, "λύειν", decision, lemma, occurrence)
 		}
 		decide("correct", "λέγω", occurrences[0].ID())
 		decide("exclude", "", occurrences[1].ID())

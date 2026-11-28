@@ -80,7 +80,7 @@ func TestRetiredHiddenBookAppearsAsAnOrdinaryToReadBook(t *testing.T) {
 	cookies, csrf := loginCookies(t, h, owner.Username, "learner-password")
 	startPath := "/reading/books/" + book.ID + "/start"
 
-	chooser := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
+	chooser := perform(t, h, http.MethodGet, "/de/library?disposition=to_read", nil, cookies)
 	require.Equal(t, http.StatusOK, chooser.Code)
 	assert.Contains(t, chooser.Body.String(), startPath, "a previously hidden To Read Book is an ordinary candidate")
 	assert.Contains(t, chooser.Body.String(), book.Title)

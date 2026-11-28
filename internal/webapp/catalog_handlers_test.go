@@ -1141,7 +1141,7 @@ func TestCatalogAndManageSourcesOmitTheShellStudyLanguagePicker(t *testing.T) {
 	catalog := catalogPage(t, h, cookies, "/catalogs").Body.String()
 	assert.Contains(t, catalog, `<select id="catalog-language-filter" name="language">`, "the Language filter is the Catalog's language control")
 
-	reading := catalogPage(t, h, cookies, "/de/reading").Body.String()
+	reading := catalogPage(t, h, cookies, "/de/library").Body.String()
 	assert.Contains(t, reading, `id="active-study-language"`, "per-language pages keep the picker")
 }
 

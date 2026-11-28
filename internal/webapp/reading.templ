@@ -1,18 +1,12 @@
 package webapp
 
 import (
-	"strings"
-
 	"github.com/justin-hayes/mouseion/internal/domain"
 )
 
 templ ReadingPage(user domain.User, csrf string, readingView readingPageView, message string, pageError string) {
-	@ShellLayout("Reading", &user, csrf, NavigationReading, shellStyleReading) {
-		if readingView.CurrentReading == nil {
-			@PageHeader("Reading", "Choose a To Read book when you are ready.", nil) {
-				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Add books from My Books</a>
-			}
-		}
+	@ShellLayout("Book vocabulary", &user, csrf, NavigationLibrary, shellStyleReading) {
+		<h1 class="sr-only">Book vocabulary</h1>
 		if message != "" {
 			@Feedback(FeedbackSuccess, "", message)
 		}
@@ -21,14 +15,14 @@ templ ReadingPage(user domain.User, csrf string, readingView readingPageView, me
 		}
 		@CurrentReadingSection(readingView.CurrentReading, csrf, "", "", "")
 		if readingView.CurrentReading != nil {
-			<p class="reading-add-books"><a href={ templ.SafeURL(myBooksPagePath(ctx)) }>Add books from My Books</a></p>
+			<p class="reading-add-books"><a href={ templ.SafeURL(myBooksPagePath(ctx)) }>Back to My Books</a></p>
 			@ReadingBrowse(readingView.Browse)
 		}
 	}
 }
 
 templ CurrentReadingFinishPage(user domain.User, csrf string, outcome currentReadingFinishView) {
-	@ShellLayout("Reading finished", &user, csrf, NavigationReading, shellStyleReading) {
+	@ShellLayout("Reading finished", &user, csrf, NavigationLibrary, shellStyleReading) {
 		@CurrentReadingFinish(outcome)
 	}
 }
@@ -37,7 +31,7 @@ templ CurrentReadingFinish(outcome currentReadingFinishView) {
 	<section id="primary-goal-section" tabindex="-1" aria-labelledby="primary-goal-finish-heading" class="journey-goal journey-finish-outcome" data-focus-id="primary-goal-finish-heading">
 		<h1 id="primary-goal-finish-heading" tabindex="-1">Reading finished</h1>
 		<p role="status" aria-live="polite" aria-atomic="true">Reading finished for <strong>{ outcome.BookTitle }</strong>.</p>
-		<p><a class="button button--outline" href={ templ.SafeURL(readingPagePath(ctx)) }>Choose a To Read book</a></p>
+		<p><a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Choose a To Read book in My Books</a></p>
 	</section>
 }
 
@@ -50,7 +44,7 @@ templ CurrentReadingSection(currentReading *readingBookView, csrf string, messag
 			<article role="alert" class="feedback feedback--error"><strong>Action needed</strong><p>{ sectionError }</p></article>
 		}
 		if currentReading == nil {
-			@EmptyState("No current Book yet", "Start an analyzed To Read book when you are ready to begin reading.")
+			@EmptyState("No current Book yet", "Choose Read next on a To Read book when you are ready to begin reading.")
 		} else {
 			@ReadingBookCard(*currentReading, csrf)
 		}
@@ -65,16 +59,17 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 				if !item.ReadingSince.IsZero() {
 					<p class="journey-book__since"><span>Reading since</span> <time datetime={ item.ReadingSince.Format("2006-01-02") }>{ item.ReadingSince.Format("January 2, 2006") }</time></p>
 				}
-				<h1 class="journey-book__title">
+				<h2 class="journey-book__title">
 					if readingEntryAvailable(item) {
-						<a href={ templ.SafeURL(readingBookURL(item.Book.Source.Language, readingBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
+						<a href={ templ.SafeURL(readingDeskURL(item.Book.Source.Language, readingBookID(item))) }>{ canonicalBookTitle(item.Book) }</a>
 					} else {
 						{ canonicalBookTitle(item.Book) }
 					}
-				</h1>
+				</h2>
 				if author := canonicalBookAuthor(item.Book); author != "" {
 					<p class="journey-book__author">By { author }</p>
 				}
+				@CurrentReadingCoverage(item)
 				@CurrentReadingLifecycleActions(item, csrf)
 			</div>
 		</div>
@@ -87,21 +82,29 @@ templ ReadingBookCard(item readingBookView, csrf string) {
 						<p>Current analysis evidence is available for this Book.</p>
 					}
 					@ReadingEvidence(item, csrf)
-					if analysisReadyForReading(item.Book) {
-						<p><a href={ templ.SafeURL("/reading/books/" + readingBookID(item) + "/lemma-review") }>Review flagged dictionary forms</a></p>
-					}
 				</section>
 			</details>
 		</div>
 	</article>
 }
 
+templ CurrentReadingCoverage(item readingBookView) {
+	if item.Coverage != nil {
+		<div class="journey-book__coverage" role="group" aria-label="Coverage of this Book">
+			<p class="numeric"><strong>Mature coverage:</strong> <span data-current-reading-mature>{ readingCoverageMatureDisplay(*item.Coverage) }</span> ({ readingCoverageCount(item.Coverage.MatureTokenCount) } of { readingCoverageCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
+			<p class="numeric"><strong>With words in study:</strong> <span data-current-reading-in-study>{ readingCoverageInStudyDisplay(*item.Coverage) }</span></p>
+			<p class="numeric" data-current-reading-to-target>{ readingCoverageToTargetText(*item.Coverage) }</p>
+		</div>
+	} else if readingEvidenceState(item) != "current" {
+		<p class="journey-book__coverage-note"><strong>{ readingEvidenceLabel(item) }:</strong> { readingEvidenceDescription(item) }</p>
+	}
+}
+
 templ CurrentReadingLifecycleActions(item readingBookView, csrf string) {
 	<div class="journey-book__lifecycle" role="group" aria-label="Reading actions">
 		@Confirmation("Mark reading finished", currentReadingCompletionConfirmationText, StatusNeutral) {
-			<form method="post" action="/reading/finish" hx-post="/reading/finish" hx-target="#primary-goal-section" hx-swap="outerHTML"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ item.Book.Source.Language }/><button class="button" type="submit">Mark reading finished</button></form>
+			<form method="post" action="/reading/finish"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ item.Book.Source.Language }/><button class="button" type="submit">Mark reading finished</button></form>
 		}
-		<a class="button button--quiet" href={ templ.SafeURL(readingSwitchPath(ctx)) }>Switch current reading</a>
 		@Confirmation("End current reading", "This ends your commitment to this Book without finishing it and records no completion. The Book stays in To Read, and its analysis and history remain. Reading never ends on its own.", StatusDanger) {
 			<form method="post" action="/reading/end"><input type="hidden" name="csrf_token" value={ csrf }/><input type="hidden" name="language" value={ item.Book.Source.Language }/><button type="submit" class="button button--outline">Confirm end current reading</button></form>
 		}
@@ -130,115 +133,4 @@ templ ReadingEvidence(item readingBookView, csrf string) {
 
 func readingEntryAvailable(item readingBookView) bool {
 	return analysisReadyForReading(item.Book)
-}
-
-templ ReadingChooserPage(user domain.User, csrf string, chooser readingChooserPageView, message string, pageError string) {
-	@ShellLayout(readingChooserPageTitle(chooser), &user, csrf, NavigationReading, shellStyleReading) {
-		@PageHeader(readingChooserPageTitle(chooser), readingChooserPageDescription(chooser), nil) {
-			if chooser.CurrentBookID != "" {
-			<a class="button button--outline" href={ templ.SafeURL(readingPagePath(ctx)) }>Return to current reading</a>
-			} else {
-			<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx) + "?disposition=to_read") }>Review To Read books</a>
-			}
-		}
-		if message != "" {
-			@Feedback(FeedbackSuccess, "", message)
-		}
-		if pageError != "" {
-			@Feedback(FeedbackError, "Action needed", pageError)
-		}
-		if chooser.Language == "" {
-			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-no-language-heading">
-				<h2 id="reading-chooser-no-language-heading">Choose a study language</h2>
-				<p>Reading candidates appear after My Books has a book with a chosen language.</p>
-				<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Open My Books</a>
-			</section>
-		}
-		if chooser.Language != "" && readingChooserCandidateCount(chooser) == 0 {
-			<section class="reading-chooser-empty" aria-labelledby="reading-chooser-empty-heading">
-				if chooser.CurrentBookID != "" {
-					<h2 id="reading-chooser-empty-heading">No other eligible To Read books</h2>
-					<p>Your current book remains unchanged. Move another book to To Read or return to your current reading.</p>
-					<a class="button button--outline" href={ templ.SafeURL(readingPagePath(ctx)) }>Return to current reading</a>
-				} else {
-					<h2 id="reading-chooser-empty-heading">No To Read books yet</h2>
-					<p>Add a book as To Read in the Catalog when you may want to read it. My Books holds only the Books you choose.</p>
-					<a class="button button--outline" href={ templ.SafeURL(myBooksPagePath(ctx)) }>Browse My Books</a>
-				}
-			</section>
-		}
-		if chooser.Language != "" && readingChooserCandidateCount(chooser) > 0 {
-			if readingChooserHasCoverage(chooser) {
-				<p>Coverage shows how often your Mature words appear in each Book. These groups use exact counts, though the displayed percentages are rounded. They are not reading recommendations.</p>
-			}
-			<ul class="reading-chooser-list" role="list">
-				for _, entry := range chooser.Entries {
-					@ReadingChooserBook(entry.Book, csrf)
-				}
-			</ul>
-		}
-	}
-}
-
-templ ReadingChooserBook(item readingChooserBookView, csrf string) {
-	<li class="reading-chooser-book" id={ readingChooserCandidateAnchorID(item) } tabindex="-1">
-		@ReadingChooserCandidate(item, csrf)
-	</li>
-}
-
-templ ReadingChooserCandidate(item readingChooserBookView, csrf string) {
-	<article class="reading-chooser-entry">
-		<div class="reading-chooser-entry__cover">@BookCoverMedia(item.Book.Book.ID, myBookTitlePlate(item.Book), item.Book.Cover)</div>
-		<div class="reading-chooser-entry__identity">
-				<h3 class="bibliographic-title">{ readingChooserBookTitle(item.Book) }</h3>
-				if author := strings.TrimSpace(item.Book.Book.Author); author != "" {
-					<p>By { author }</p>
-				}
-			<div class="reading-chooser-entry__actions">
-				@AnalysisUpdateNotice(item.Book, csrf, "button button--outline")
-				@SourceStructureUpdateNotice(item.Book, csrf, "button button--outline")
-				if item.Coverage != nil {
-					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/start") }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button class="button" type="submit">Read next</button>
-					</form>
-					<p><a href={ templ.SafeURL("/reading/books/"+item.Book.Book.ID+"/lemma-review") }>Review a word in this Book</a></p>
-				} else if item.State == readingChooserInProgress {
-					if item.Book.Acquired != nil && item.Book.Acquired.AnalysisJobID > 0 {
-						<a href={ templ.SafeURL(readingChooserAnalysisJobURL(item.Book.Acquired.AnalysisJobID)) }>Review analysis progress</a>
-					} else if readingChooserPreparationInProgress(item) {
-						<p>No action is needed while preparation runs.</p>
-					} else {
-						<a href={ templ.SafeURL(myBooksPagePath(ctx) + "?disposition=to_read") }>Review To Read books</a>
-					}
-				} else if item.State == readingChooserNeedsAttention && item.RecoveryAllowed && item.RecoveryLabel != "" {
-					<form method="post" action={ templ.SafeURL("/reading/books/" + item.Book.Book.ID + "/reanalyze") }>
-						<input type="hidden" name="csrf_token" value={ csrf }/>
-						<button class="button button--outline" type="submit">{ item.RecoveryLabel }</button>
-					</form>
-				}
-			</div>
-		</div>
-		<div class="reading-chooser-entry__evidence">
-			if item.Coverage != nil {
-				<p class="reading-chooser-entry__band"><strong>{ readingChooserBandLabel(item.Band) }</strong></p>
-				<p class="numeric"><strong>Mature vocabulary coverage:</strong> { readingChooserCoverageDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.MatureTokenCount) } of { readingChooserCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
-				<p class="numeric"><strong>With words in study:</strong> { readingChooserInStudyDisplay(*item.Coverage) } ({ readingChooserCount(item.Coverage.InStudyTokenCount) } word occurrences)</p>
-				<p class="numeric">{ readingChooserNextMarkerText(*item.Coverage, item.Band) }</p>
-				<details>
-					<summary>Words to reach 95%, 97%, and 99%</summary>
-					<ul>
-					for _, threshold := range item.Coverage.Thresholds {
-						if threshold.TargetPercent == 95 || threshold.TargetPercent == 97 || threshold.TargetPercent == 99 {
-							<li class="numeric">{ readingChooserThresholdText(threshold) }</li>
-						}
-					}
-					</ul>
-					<p>These counts are distinct words, not a number of cards.</p>
-				</details>
-			} else {
-				<p><strong>{ readingChooserStateLabel(item.State) }</strong> — { item.Description }</p>
-				}
-		</div>
-	</article>
 }

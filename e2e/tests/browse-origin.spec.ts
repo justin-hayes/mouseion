@@ -37,7 +37,7 @@ test('Browse to Concordance to Study and back restores the row with native navig
 
 test('A copied Back link for an expired reading is explained, not restored', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/reading?reading=fixture-book&snapshot=stale-snapshot&page=2&q=ha');
+  await page.goto('/de/reading?reading=fixture-route-match&snapshot=stale-snapshot&page=2&q=ha');
   await expect(page.getByRole('heading', { name: 'That book vocabulary was not restored' })).toBeFocused();
   await expect(page.locator('#vocabulary-workflow')).toHaveCount(0);
 });

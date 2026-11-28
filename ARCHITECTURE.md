@@ -437,7 +437,6 @@ flowchart TB
         lexical[lexical]
         gdex[gdex]
         sentencequality[sentencequality]
-        lemmarisk[lemmarisk]
         dictionary[dictionary]
         enrichment[enrichment]
         cardexport[cardexport]
@@ -451,7 +450,7 @@ flowchart TB
     server --> webapp & analysis & cataloguesync & prepareddeck & sourcecheck
     fixture --> webapp
     webapp --> webauth --> auth
-    webapp --> persistence & lemmarisk
+    webapp --> persistence
     webapp --> readingintent
     readingintent --> analysis & cataloguesync & classical & domain
     readingintent --> opds & epub
@@ -482,7 +481,6 @@ flowchart TB
 | [`canonicalization`](internal/canonicalization) | Language-specific canonical lemma profiles |
 | [`lexical`](internal/lexical), [`selection`](internal/selection) | Eligibility rules and deterministic vocabulary candidates |
 | [`analysisinsights`](internal/analysisinsights) | Coverage and threshold metrics for a learner and a book |
-| [`lemmarisk`](internal/lemmarisk) | Conservative detection of occurrences that merit learner review |
 | [`gdex`](internal/gdex) | GDEX-informed example-sentence scoring |
 | [`sentencequality`](internal/sentencequality) | The shared sentence-quality gate and representative-sentence selection for the deck and the Reading freeze |
 | [`dictionary`](internal/dictionary) | Read-only access to the Wiktionary-derived index |

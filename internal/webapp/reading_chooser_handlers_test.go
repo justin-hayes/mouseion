@@ -2,14 +2,12 @@ package webapp
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
-	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/fixtures"
 	"github.com/stretchr/testify/assert"
@@ -25,6 +23,32 @@ func (b readingChooserBooks) ListMyBooksWithEvidence(context.Context, string) ([
 	return b.books, nil
 }
 
+// stubbedMyBooksBrowse is the browse page a stubbed store serves: the given
+// Books, filtered to the requested language and disposition.
+func stubbedMyBooksBrowse(books []domain.MyBook, language, disposition string) domain.MyBooksBrowseResult {
+	var items []domain.MyBook
+	toRead := 0
+	for _, book := range books {
+		if language != "" && book.Book.LanguageTag != language {
+			continue
+		}
+		if book.Disposition == domain.BookDispositionToRead {
+			toRead++
+		}
+		if disposition == "" || string(book.Disposition) == disposition {
+			items = append(items, book)
+		}
+	}
+	return domain.MyBooksBrowseResult{
+		Items: items, Total: len(items), ScopeTotal: len(items), AllCount: len(books),
+		DispositionCounts: []domain.DispositionCount{{Disposition: domain.BookDispositionToRead, Count: toRead}},
+	}
+}
+
+func (b readingChooserBooks) ListMyBooksBrowse(_ context.Context, _, _, language, disposition string, _ bool, _, _ int) (domain.MyBooksBrowseResult, error) {
+	return stubbedMyBooksBrowse(b.books, language, disposition), nil
+}
+
 type readingChooserInsights struct{ fixtures.Insights }
 
 func (i readingChooserInsights) Coverage(ctx context.Context, owner, corpusID string) (domain.AnalysisCoverage, error) {
@@ -32,17 +56,6 @@ func (i readingChooserInsights) Coverage(ctx context.Context, owner, corpusID st
 		return domain.AnalysisCoverage{}, nil
 	}
 	return i.Insights.Coverage(ctx, owner, corpusID)
-}
-
-func TestReadingChooserFormatsEvidenceWithoutChangingBandBoundaries(t *testing.T) {
-	assert.Equal(t, "To reach 99%: 1,206 more distinct words marked Known.", readingChooserThresholdText(domain.CoverageThreshold{
-		TargetPercent: 99, LemmaCount: 1206, Reachable: true,
-	}))
-	assert.Equal(t, "1,234,567", readingChooserCount(1234567))
-	assert.Equal(t, "98.9%", readingChooserCoverageDisplay(domain.AnalysisCoverage{
-		MatureTokenCount: 989, AnalyzableTokenCount: 1000,
-	}))
-	assert.Equal(t, domain.CoverageBand97To99, domain.CoverageBandFor(989, 1000), "display rounding must not determine group membership")
 }
 
 // endGermanFixtureReading ends the fixture's German current reading through the
@@ -53,7 +66,7 @@ func endGermanFixtureReading(t *testing.T, store *fixtures.Store) {
 	require.NoError(t, store.EndCurrentReading(ctx, fixtures.OwnerID, "de"))
 }
 
-func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *testing.T) {
+func TestMyBooksOffersReadNextOnlyOnAnalysedToReadBooks(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
 	handler, ok := h.(*Handler)
@@ -61,51 +74,20 @@ func TestReadingChooserShowsAuthenticatedToReadCandidatesAndRecoveryStates(t *te
 	books, err := store.ListMyBooksWithEvidence(context.Background(), fixtures.OwnerID)
 	require.NoError(t, err)
 	for i := range books {
-		if books[i].Acquired != nil {
-			switch books[i].Acquired.Source.ID {
-			case "fixture-route-match":
-				books[i].Acquired.Signals = testPending
-			case "fixture-route-differs":
-				books[i].Acquired.Signals = testStale
-			}
+		if books[i].Acquired != nil && books[i].Acquired.Source.ID == "fixture-route-differs" {
+			books[i].Acquired.Signals = testStale
 		}
 	}
 	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})
-	handler.services.AnalysisInsights = readingChooserInsights{Insights: fixtures.Insights{}}
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-
+	response := getAs(t, h, "/de/library?disposition=to_read", cookies)
 	require.Equal(t, http.StatusOK, response.Code)
 	body := response.Body.String()
-	assert.Contains(t, body, "Choose a To Read book in German")
-	assert.NotContains(t, body, "Choose your next book")
-	assert.Contains(t, body, "Mature vocabulary coverage:")
-	assert.Contains(t, body, `<ul class="reading-chooser-list" role="list">`)
-	assert.Contains(t, body, `class="reading-chooser-entry__cover"`)
-	assert.Contains(t, body, "more distinct words marked Known")
-	assert.NotContains(t, body, "eligible vocabulary identities")
-	assert.NotContains(t, body, "analyzable tokens")
 	assert.Contains(t, body, "Read next")
 	assert.NotContains(t, body, "Confirm start reading")
-	assert.Contains(t, body, "Analysis in progress")
-	assert.Contains(t, body, "This Book is not shown as analyzed until publication completes")
-	assert.Contains(t, body, "Review To Read books")
-	assert.Contains(t, body, "Not assessed")
-	assert.Contains(t, body, "The last analysis did not complete.")
-	assert.Contains(t, body, `action="/reading/books/fixture-failed/reanalyze"`)
-	assert.Contains(t, body, "The analysis no longer matches the current book content")
-	assert.Contains(t, body, "No vocabulary comparison")
-	assert.Contains(t, body, "No words to compare")
-	assert.NotContains(t, body, "Mature vocabulary coverage: 0.0%")
-	assert.NotContains(t, body, "Italian goal")
-	assert.NotContains(t, body, "Metadata-only migration book")
-	assert.True(t, strings.Contains(body, `action="/reading/books/`) && strings.Contains(body, `/start"`) && strings.Contains(body, `name="csrf_token"`))
-	assert.Less(t, strings.Index(body, "Der lange Weg nach Hause"), strings.Index(body, "Route differs: new German"), "same-band candidates should be in neutral title order")
+	assert.True(t, strings.Contains(body, `action="/reading/books/fixture-route-match/start"`) && strings.Contains(body, `name="csrf_token"`))
+	assert.NotContains(t, body, `action="/reading/books/fixture-route-differs/start"`, "a stale analysis offers no Read next")
+	assert.NotContains(t, body, "reading-chooser", "the chooser page is gone")
 }
 
 func TestReanalyzeReportsAnUnclassifiedFailureAsAnError(t *testing.T) {
@@ -116,15 +98,15 @@ func TestReanalyzeReportsAnUnclassifiedFailureAsAnError(t *testing.T) {
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/reanalyze", url.Values{"csrf_token": {csrf}}, cookies)
 
 	require.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "/de/reading?error="+url.QueryEscape(analysisCouldNotStartMessage))
+	assert.Contains(t, response.Header().Get("Location"), "/de/library?error="+url.QueryEscape(analysisCouldNotStartMessage))
 }
 
-func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
+func TestReadNextReturnsToMyBooks(t *testing.T) {
 	h, cookies, csrf, store := readingFixtureSession(t)
 	endGermanFixtureReading(t, store)
 	response := readingTestRequest(t, h, "/reading/books/fixture-route-match/start", url.Values{"csrf_token": {csrf}}, cookies)
 	assert.Equal(t, http.StatusSeeOther, response.Code)
-	assert.Contains(t, response.Header().Get("Location"), "/de/reading?message=")
+	assert.Contains(t, response.Header().Get("Location"), "/de/library?message=")
 	current, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, "fixture-route-match", current.BookID)
@@ -133,7 +115,7 @@ func TestReadingChooserStartConfirmationReturnsToReading(t *testing.T) {
 	retried, err := store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.Equal(t, current, retried, "a retry leaves the reading unchanged")
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -150,7 +132,7 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	handler, ok := h.(*Handler)
 	require.True(t, ok)
 	handler.services.AnalysisInsights = fixtures.Insights{}
-	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
+	readingRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
 	for _, cookie := range cookies {
 		readingRequest.AddCookie(cookie)
 	}
@@ -165,15 +147,11 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	assert.Contains(t, readingPage.Body.String(), `action="/reading/finish"`)
 	assert.NotContains(t, readingPage.Body.String(), `action="/goal/finish"`)
 
-	switchRequest := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading/switch", nil)
-	for _, cookie := range cookies {
-		switchRequest.AddCookie(cookie)
-	}
-	switchPage := httptest.NewRecorder()
-	h.ServeHTTP(switchPage, switchRequest)
-	require.Equal(t, http.StatusOK, switchPage.Code)
-	assert.Contains(t, switchPage.Body.String(), "Switch current reading")
-	assert.Contains(t, switchPage.Body.String(), `action="/reading/books/fixture-route-match/start"`, "Switch current reading is Read next")
+	switchPage := getAs(t, h, "/de/reading/switch", cookies)
+	require.Equal(t, http.StatusSeeOther, switchPage.Code, "Switch is no longer a page")
+	assert.Equal(t, "/de/library", switchPage.Header().Get("Location"))
+	toRead := getAs(t, h, "/de/library?disposition=to_read", cookies)
+	assert.Contains(t, toRead.Body.String(), `action="/reading/books/fixture-route-match/start"`, "Switch current reading is Read next")
 	switched := readingTestRequest(t, h, "/reading/books/fixture-route-match/switch", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusSeeOther, switched.Code)
 	assert.Contains(t, switched.Header().Get("Location"), "is+now+your+current+reading")
@@ -209,7 +187,7 @@ func TestAuthenticatedCurrentReadingCanSwitchAndEnd(t *testing.T) {
 	finished := readingTestRequest(t, h, "/reading/finish", url.Values{"csrf_token": {csrf}}, cookies)
 	require.Equal(t, http.StatusOK, finished.Code)
 	assert.Contains(t, finished.Body.String(), "Reading finished")
-	assert.Contains(t, finished.Body.String(), `href="/de/reading">Choose a To Read book</a>`)
+	assert.Contains(t, finished.Body.String(), `href="/de/library">Choose a To Read book in My Books</a>`)
 	current, err = store.GetCurrentReading(context.Background(), fixtures.OwnerID, "de")
 	require.NoError(t, err)
 	assert.False(t, current.IsActive())
@@ -238,65 +216,28 @@ func TestLegacyCurrentReadingMutationsAreRejectedWithoutChangingCurrentReading(t
 	assert.Equal(t, currentBefore, currentAfter)
 }
 
-func TestReadingChooserEmptyStateAndAuthentication(t *testing.T) {
-	h, cookies, _, store := readingFixtureSession(t)
-	endGermanFixtureReading(t, store)
-	handler, ok := h.(*Handler)
-	require.True(t, ok)
-	handler.services.Store = storeDependencies(readingChooserBooks{Store: store})
+func TestReadingAddressesRedirectToMyBooksKeepingTheStudyLanguage(t *testing.T) {
+	h, cookies, _, _ := readingFixtureSession(t)
 
 	unauthenticated := httptest.NewRecorder()
 	h.ServeHTTP(unauthenticated, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil))
 	assert.Equal(t, http.StatusUnauthorized, unauthenticated.Code)
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
+	for path, want := range map[string]string{
+		"/de/reading":                     "/de/library",
+		"/it/reading":                     "/it/library",
+		"/de/reading/switch":              "/de/library",
+		"/de/reading?message=Read+it":     "/de/library?message=Read+it",
+		"/it/reading?error=Nothing+moved": "/it/library?error=Nothing+moved",
+	} {
+		response := getAs(t, h, path, cookies)
+		assert.Equal(t, http.StatusSeeOther, response.Code, path)
+		assert.Equal(t, want, response.Header().Get("Location"), path)
 	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Contains(t, response.Body.String(), "No To Read books yet")
-	assert.Contains(t, response.Body.String(), "Browse My Books")
-}
 
-func TestReadingChooserKeepsAllPendingCandidatesVisible(t *testing.T) {
-	h, cookies, _, store := readingFixtureSession(t)
-	endGermanFixtureReading(t, store)
-	handler, ok := h.(*Handler)
-	require.True(t, ok)
-	books, err := store.ListMyBooksWithEvidence(context.Background(), fixtures.OwnerID)
-	require.NoError(t, err)
-	for i := range books {
-		if books[i].Disposition == domain.BookDispositionToRead && books[i].Acquired != nil {
-			books[i].Acquired.Signals = testQueued
-		}
-	}
-	handler.services.Store = storeDependencies(readingChooserBooks{Store: store, books: books})
-
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
-	for _, cookie := range cookies {
-		request.AddCookie(cookie)
-	}
-	response := httptest.NewRecorder()
-	h.ServeHTTP(response, request)
-
-	require.Equal(t, http.StatusOK, response.Code)
-	assert.Contains(t, response.Body.String(), "Analysis in progress")
-	assert.NotContains(t, response.Body.String(), "No To Read books yet")
-	assert.NotContains(t, response.Body.String(), "Mature vocabulary coverage:")
-}
-
-// chooserInsights answers every coverage read with one fixed value, so the
-// chooser's coverage handling can be driven without a real corpus.
-type chooserInsights struct {
-	fixtures.Insights
-	coverage domain.AnalysisCoverage
-	err      error
-}
-
-func (i chooserInsights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
-	return i.coverage, i.err
+	unprefixed := getAs(t, h, "/reading", cookies)
+	require.Equal(t, http.StatusSeeOther, unprefixed.Code)
+	assert.Equal(t, "/de/reading", unprefixed.Header().Get("Location"), "the unprefixed address first takes the language, then redirects again")
 }
 
 // chooserEvidenceBooks supplies the chooser's candidates and a read failure that
@@ -324,97 +265,6 @@ func chooserReadyCandidate() domain.MyBook {
 	}
 }
 
-// chooserBooksByBand returns every candidate in one coverage band, across all
-// entries, so a test can assert classification without the old band sections.
-func chooserBooksByBand(view readingChooserPageView, band domain.CoverageBand) []readingChooserBookView {
-	var books []readingChooserBookView
-	for _, entry := range view.Entries {
-		if entry.Book.Coverage != nil && entry.Book.Band == band {
-			books = append(books, entry.Book)
-		}
-	}
-	return books
-}
-
-// chooserBooksInState returns every candidate carrying one evidence state.
-func chooserBooksInState(view readingChooserPageView, state readingChooserState) []readingChooserBookView {
-	var books []readingChooserBookView
-	for _, entry := range view.Entries {
-		if entry.Book.Coverage == nil && entry.Book.State == state {
-			books = append(books, entry.Book)
-		}
-	}
-	return books
-}
-
-func newChooserHandler(books []domain.MyBook, err error, insights AnalysisInsights) *Handler {
-	return &Handler{services: Services{
-		Store:            storeDependencies(chooserEvidenceBooks{Store: fixtures.NewStore(), books: books, err: err}),
-		AnalysisInsights: insights,
-	}}
-}
-
-func TestBuildReadingChooserSurfacesCandidateReadFailure(t *testing.T) {
-	handler := newChooserHandler(nil, errors.New("evidence read failed"), nil)
-	_, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
-	require.Error(t, err)
-}
-
-func TestBuildReadingChooserPlacesUnavailableCoverageWithAttention(t *testing.T) {
-	candidate := chooserReadyCandidate()
-	t.Run("no insights service", func(t *testing.T) {
-		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, nil).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
-		require.NoError(t, err)
-		require.Len(t, chooserBooksInState(view, readingChooserNeedsAttention), 1)
-		assert.Equal(t, readingChooserNeedsAttention, chooserBooksInState(view, readingChooserNeedsAttention)[0].State)
-		assert.Equal(t, "Completed analysis statistics are unavailable. Refresh the page or retry analysis.", chooserBooksInState(view, readingChooserNeedsAttention)[0].Description)
-	})
-	t.Run("statistics unavailable", func(t *testing.T) {
-		insights := chooserInsights{err: analysisinsights.ErrStatisticsUnavailable}
-		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
-		require.NoError(t, err)
-		require.Len(t, chooserBooksInState(view, readingChooserNeedsAttention), 1)
-		assert.Equal(t, "Completed analysis statistics are unavailable. Retry analysis to refresh the evidence.", chooserBooksInState(view, readingChooserNeedsAttention)[0].Description)
-	})
-	t.Run("counts updating", func(t *testing.T) {
-		insights := chooserInsights{err: analysisinsights.ErrCountsUpdating}
-		view, err := newChooserHandler([]domain.MyBook{candidate}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
-		require.NoError(t, err)
-		require.Len(t, chooserBooksInState(view, readingChooserUpdating), 1)
-		assert.Equal(t, vocabularyCountsUpdatingDescription, chooserBooksInState(view, readingChooserUpdating)[0].Description)
-	})
-	t.Run("blank corpus identity", func(t *testing.T) {
-		blank := chooserReadyCandidate()
-		blank.Acquired.CorpusID = "   "
-		insights := chooserInsights{coverage: domain.AnalysisCoverage{MatureTokenCount: 1, AnalyzableTokenCount: 1}}
-		view, err := newChooserHandler([]domain.MyBook{blank}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
-		require.NoError(t, err)
-		require.Len(t, chooserBooksInState(view, readingChooserNeedsAttention), 1)
-		assert.Equal(t, "Completed analysis statistics are unavailable. Refresh the page or retry analysis.", chooserBooksInState(view, readingChooserNeedsAttention)[0].Description)
-	})
-}
-
-func TestBuildReadingChooserReportsUnexpectedCoverageFailure(t *testing.T) {
-	insights := chooserInsights{err: errors.New("coverage read failed")}
-	_, err := newChooserHandler([]domain.MyBook{chooserReadyCandidate()}, nil, insights).buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
-	require.Error(t, err)
-}
-
-func TestBuildReadingChooserGroupsCoverageByBand(t *testing.T) {
-	for _, coverage := range []domain.AnalysisCoverage{
-		{MatureTokenCount: 995, AnalyzableTokenCount: 1000},
-		{MatureTokenCount: 980, AnalyzableTokenCount: 1000},
-		{MatureTokenCount: 960, AnalyzableTokenCount: 1000},
-		{MatureTokenCount: 900, AnalyzableTokenCount: 1000},
-		{AnalyzableTokenCount: 0},
-	} {
-		band := domain.CoverageBandFor(coverage.MatureTokenCount, coverage.AnalyzableTokenCount)
-		t.Run(string(band), func(t *testing.T) {
-			handler := newChooserHandler([]domain.MyBook{chooserReadyCandidate()}, nil, chooserInsights{coverage: coverage})
-			view, err := handler.buildReadingChooser(context.Background(), fixtures.OwnerID, "de", "Deutsch", "")
-			require.NoError(t, err)
-			require.Len(t, chooserBooksByBand(view, band), 1, "band %s", band)
-			assert.Equal(t, band, chooserBooksByBand(view, band)[0].Band)
-		})
-	}
+func (b chooserEvidenceBooks) ListMyBooksBrowse(_ context.Context, _, _, language, disposition string, _ bool, _, _ int) (domain.MyBooksBrowseResult, error) {
+	return stubbedMyBooksBrowse(b.books, language, disposition), b.err
 }

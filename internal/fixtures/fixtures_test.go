@@ -789,7 +789,7 @@ func TestStoreReadNextReplacesTheCurrentReadingAndRefusesIneligibleBooks(t *test
 	assert.Equal(t, BookID, current.BookID, "a refused Read next keeps the current reading")
 
 	flagged, err := store.StartCurrentReadingResult(ctx, OwnerID, "de", LemmaFlagBookID)
-	require.NoError(t, err, "lemma review flags never gate Read next")
+	require.NoError(t, err, "a Book with no prior reading is eligible for Read next")
 	assert.Equal(t, LemmaFlagBookID, flagged.Reading.BookID)
 	assert.False(t, flagged.Replayed)
 

@@ -142,10 +142,6 @@ func (h *contractHarness) ListCorpusLemmaReviewOccurrences(owner, language, surf
 	return h.store.ListCorpusLemmaReviewOccurrences(context.Background(), owner, language, surface, lemma)
 }
 
-func (h *contractHarness) SaveLemmaReviewFlags(flags []domain.LemmaReviewFlag) error {
-	return h.store.SaveLemmaReviewFlags(context.Background(), flags)
-}
-
 func (h *contractHarness) ReadLemmaReviewProposal(proposal domain.LemmaReviewProposal) (domain.LemmaReviewPreview, error) {
 	return h.store.ReadLemmaReviewProposal(context.Background(), proposal)
 }

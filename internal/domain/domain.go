@@ -263,8 +263,6 @@ type LemmaReviewOccurrence struct {
 	Dependency                               string
 	SentenceText, CorrectedLemma             string
 	Excluded                                 bool
-	ReviewFlagReason, ReviewFlagResolution   string
-	ReviewFlagProvenance                     map[string]any
 	// NormalizationProfile and NormalizationVersion are the profile the
 	// occurrence's analysis recorded, so a correction is normalized by exactly
 	// that version rather than by whatever profile is active now. Both are empty
@@ -278,16 +276,6 @@ type LemmaReviewDecision struct {
 	Excluded             bool
 	NormalizationProfile string
 	NormalizationVersion string
-}
-
-// LemmaReviewFlag is a source-attributed, non-authoritative review signal for
-// one occurrence in one exact analysis. Resolution is empty until the learner
-// explicitly keeps, corrects, or excludes that occurrence.
-type LemmaReviewFlag struct {
-	Occurrence LemmaReviewOccurrence
-	Reason     string
-	Provenance map[string]any
-	Resolution string
 }
 
 type OccurrenceLemmaCorrection struct {
@@ -335,7 +323,11 @@ type AnalysisCoverage struct {
 	UnknownConcentration CoverageProjection
 	Projections          []CoverageProjection
 	Thresholds           []CoverageThreshold
-	TextProfile          *TextProfile
+	// ToTarget is the fewest not-yet-in-study words, most frequent first, that
+	// bring the in-study share of the Book to Target coverage (ADR 0136 §2). It
+	// is Reachable only when study investment alone could get there.
+	ToTarget    CoverageThreshold
+	TextProfile *TextProfile
 }
 
 // ConcordanceOccurrence is one exact-match token occurrence from a current

@@ -6,11 +6,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -23,7 +20,7 @@ import (
 
 // TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs is the acceptance
 // seam for the seventh Ancient Greek slice. A learner previews and confirms a
-// correction of one δέω homograph and an exclusion of the other through HTTP,
+// correction of one δέω homograph and an exclusion of the other,
 // the Browse projection updates in the same transaction with the correct
 // discriminator, and re-importing the same pinned file under a new
 // interpretation version carries none of those decisions onto the new run.
@@ -44,7 +41,6 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 		"λόγοσ|NOUN|morpheus:1": 1,
 	}, initial)
 
-	cookies, csrf := loginCookies(t, h, learner.Username, "learner-password")
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, learner.ID, "grc"))
 
 	occurrences, err := store.ListLemmaReviewOccurrences(ctx, learner.ID, registration.BookID, "δέω")
@@ -53,28 +49,15 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	require.Equal(t, "morpheus:1", occurrences[0].LexicalDiscriminator)
 	require.Equal(t, "morpheus:2", occurrences[1].LexicalDiscriminator, "the review carries each homograph's discriminator")
 
-	reviewPath := "/reading/books/" + registration.BookID + "/lemma-review"
-	page := perform(t, h, "GET", reviewPath+"?form="+url.QueryEscape("δέω"), nil, cookies)
-	require.Equal(t, http.StatusOK, page.Code, "review body=%s", page.Body.String())
-
 	// Correct the first homograph to λύω; the recorded ancient-greek/1 profile
 	// normalizes it and the correction carries no discriminator.
-	confirmLemmaDecision(t, h, reviewPath, cookies, csrf, "correct", "λύω", occurrences[0].ID())
+	confirmLemmaDecision(t, h, learner.ID, registration.BookID, "correct", "λύω", occurrences[0].ID())
 
 	// Re-entering the same correction keeps the original decision.
-	preview := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"preview"}, "form": {"δέω"}, "target": {occurrences[0].ID()},
-		"decision": {"correct"}, "lemma": {"λύω"},
-	}, cookies)
-	require.Equal(t, http.StatusOK, preview.Code, "re-preview body=%s", preview.Body.String())
-	repeated := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {"δέω"}, "decision": {"correct"}, "lemma": {"λύω"},
-		"fingerprint": {previewFingerprint(t, preview.Body.String())}, "selected": {occurrences[0].ID()},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, repeated.Code, "re-confirm body=%s", repeated.Body.String())
+	confirmLemmaDecision(t, h, learner.ID, registration.BookID, "correct", "λύω", occurrences[0].ID())
 
 	// Exclude the second homograph.
-	confirmLemmaDecision(t, h, reviewPath, cookies, csrf, "exclude", "", occurrences[1].ID())
+	confirmLemmaDecision(t, h, learner.ID, registration.BookID, "exclude", "", occurrences[1].ID())
 
 	// The decisions persist for exactly their occurrences and record the
 	// analysis's normalization profile by its exact version.
@@ -123,37 +106,6 @@ func TestAncientGreekLemmaReviewCorrectsAndExcludesHomographs(t *testing.T) {
 	assert.Equal(t, []bool{false, true}, exclusions, "and so does the exclusion")
 	assert.Equal(t, decided, greekBrowseCounts(t, ctx, pool, learner.ID, registration.BookID),
 		"the new run's projection already reflects the carried decisions")
-}
-
-// confirmLemmaDecision previews and confirms one decision through the review
-// form, using the fingerprint the preview returned.
-func confirmLemmaDecision(t *testing.T, h http.Handler, reviewPath string, cookies []*http.Cookie, csrf, decision, lemma, occurrenceID string) {
-	t.Helper()
-	confirmLemmaDecisionForm(t, h, reviewPath, cookies, csrf, "δέω", decision, lemma, occurrenceID)
-}
-
-// confirmLemmaDecisionForm previews and confirms one decision on an occurrence
-// of a surface form through the lemma-review routes.
-func confirmLemmaDecisionForm(t *testing.T, h http.Handler, reviewPath string, cookies []*http.Cookie, csrf, form, decision, lemma, occurrenceID string) {
-	t.Helper()
-	preview := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"preview"}, "form": {form}, "target": {occurrenceID},
-		"decision": {decision}, "lemma": {lemma},
-	}, cookies)
-	require.Equal(t, http.StatusOK, preview.Code, "preview %s body=%s", decision, preview.Body.String())
-	confirm := perform(t, h, "POST", reviewPath, url.Values{
-		"csrf_token": {csrf}, "stage": {"confirm"}, "form": {form}, "decision": {decision}, "lemma": {lemma},
-		"fingerprint": {previewFingerprint(t, preview.Body.String())}, "selected": {occurrenceID},
-	}, cookies)
-	require.Equal(t, http.StatusSeeOther, confirm.Code, "confirm %s body=%s", decision, confirm.Body.String())
-}
-
-// previewFingerprint reads the stale-state fingerprint a preview page carries.
-func previewFingerprint(t *testing.T, body string) string {
-	t.Helper()
-	match := regexp.MustCompile(`name="fingerprint" value="([a-f0-9]+)"`).FindStringSubmatch(body)
-	require.Len(t, match, 2, "preview body has no fingerprint: %s", body)
-	return match[1]
 }
 
 // browseFixtureImport pins the synthetic browse fixture as the import definition

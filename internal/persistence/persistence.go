@@ -46,7 +46,6 @@ var ErrBookLanguageRequired = errors.New("persistence: book language must be cho
 var ErrPreparedDeckClaimLost = errors.New("persistence: prepared-deck claim lost")
 var ErrFenced = ErrPreparedDeckClaimLost
 var ErrPreparedDeckIdentity = errors.New("persistence: prepared-deck identity mismatch")
-var ErrUnresolvedLemmaReviewFlags = domain.ErrUnresolvedLemmaReviewFlags
 
 var ErrAliasConflict = errors.New("persistence: book alias conflict")
 var ErrSourceBookConflict = errors.New("persistence: source material belongs to a different book")

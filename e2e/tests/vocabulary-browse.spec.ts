@@ -17,7 +17,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
   const noScriptPage = await noScriptContext.newPage();
   try {
     await signIn(noScriptPage);
-    await noScriptPage.goto('/de/reading');
+    await noScriptPage.goto('/de/reading?page=1');
     await expect(noScriptPage.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
     await expect(noScriptPage.locator('body')).not.toContainText('Browse selection');
     await expect(noScriptPage.locator('body')).not.toContainText('Custom deck');
@@ -53,7 +53,7 @@ test('Current-reading Browse keeps its prefix form usable without JavaScript', a
 
   await signIn(page);
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   await expect(page.getByRole('searchbox', { name: 'Canonical lemma prefix' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

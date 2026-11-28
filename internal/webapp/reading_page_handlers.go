@@ -45,8 +45,16 @@ func readingReanalyzeURL(bookID string) string {
 	return "/reading/books/" + url.PathEscape(bookID) + "/reanalyze"
 }
 
+// readingBookURL is a Book's place in My Books in its study language. Reading
+// is no longer a page, so every "open this Book" link lands on its row.
 func readingBookURL(language, bookID string) string {
-	return studyLanguagePath(pageKindReading, language) + "#" + url.PathEscape(readingBookAnchorID(bookID))
+	return studyLanguagePath(pageKindMyBooks, language) + "#" + url.PathEscape(myBookRowID(bookID))
+}
+
+// readingDeskURL is the working-desk seam for #2743: the Book-scoped vocabulary
+// Browse, which only the Current reading has.
+func readingDeskURL(language, bookID string) string {
+	return studyLanguagePath(pageKindReading, language) + "?reading=" + url.QueryEscape(bookID)
 }
 
 func canonicalBookTitle(book domain.SourceMaterialSummary) string {
@@ -206,7 +214,7 @@ func readingAnalysisAction(item readingBookView) bookLifecycleAction {
 		action.Submit = true
 	} else if action.Status == "Analysis result ready" && analysisReadyForReading(item.Book) {
 		action.URL = readingBookURL(item.Book.Source.Language, bookID)
-		action.Label = "View in Reading"
+		action.Label = "View in My Books"
 	}
 	return action
 }

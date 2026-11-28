@@ -19,10 +19,10 @@ function isCompact(projectName: string) {
 
 test('Reading shows the current Book with Vocabulary Browse in the primary area and no Other To Read section', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const goal = page.locator('#primary-goal-section');
   const browse = page.locator('#vocabulary-workflow');
-  await expect(goal.getByRole('heading', { level: 1, name: 'Der lange Weg nach Hause' })).toBeVisible();
+  await expect(goal.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause' })).toBeVisible();
   await expect(browse.getByRole('heading', { name: 'Vocabulary', exact: true })).toBeVisible();
   await expect(page.locator('main #vocabulary-workflow')).toHaveCount(1);
   await expect(page.locator('details #vocabulary-workflow')).toHaveCount(0);
@@ -36,24 +36,26 @@ test('Reading shows the current Book with Vocabulary Browse in the primary area 
   await expect(page.getByRole('button', { name: 'Read next' })).toHaveCount(0);
 });
 
-test('Reading chooser lists the other To Read books and returns to the current Book', async ({ page }) => {
+test('My Books lists the other To Read books with Read next and keeps the Current reading pinned', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/reading');
-  await page.getByRole('link', { name: 'Switch current reading', exact: true }).click();
-  await expect(page).toHaveURL(/\/reading\/switch$/);
-  await expect(page.getByRole('heading', { level: 1, name: 'Switch current reading' })).toBeVisible();
-  const candidates = page.locator('li.reading-chooser-book');
-  await expect(candidates.filter({ hasText: 'Route match: familiar German' })).toBeVisible();
-  await expect(candidates.filter({ hasText: 'Der lange Weg nach Hause' })).toHaveCount(0);
+  await page.goto('/de/library');
+  const pinned = page.locator('#primary-goal-section');
+  await expect(pinned.getByRole('heading', { level: 2, name: 'Der lange Weg nach Hause' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Switch current reading', exact: true })).toHaveCount(0);
+  const candidate = page.locator('.library-books .library-book').filter({ hasText: 'Route match: familiar German' });
+  await expect(candidate.getByRole('button', { name: 'Read next' })).toBeVisible();
+  await expect(page.locator('.library-books .library-book').filter({ hasText: 'Der lange Weg nach Hause' }).getByRole('button', { name: 'Read next' })).toHaveCount(0);
 
-  await page.getByRole('link', { name: 'Return to current reading', exact: true }).click();
-  await expect(page).toHaveURL(/\/reading$/);
-  await expect(page.locator('.journey-book--goal')).toBeVisible();
+  // Reading is not a page: its addresses return to My Books in the same language.
+  await page.goto('/de/reading');
+  await expect(page).toHaveURL(/\/de\/library$/);
+  await page.goto('/de/reading/switch');
+  await expect(page).toHaveURL(/\/de\/library$/);
 });
 
 test('Reading keeps analysis details in a disclosure that is open on desktop and collapsed on compact', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const disclosure = page.locator('details.reading-supporting');
   const summary = disclosure.locator(':scope > summary');
   const analysis = page.getByRole('heading', { name: 'Analysis', exact: true });
@@ -99,7 +101,7 @@ test('Browse controls keep readable contrast and no page overflow in this colour
 
 test('Reading keyboard order reaches the Browse search field after the current Book', async ({ page }) => {
   await signIn(page);
-  await page.goto('/de/reading');
+  await page.goto('/de/reading?page=1');
   const goalLink = page.locator('.journey-book--goal a').first();
   await goalLink.focus();
   await expect(goalLink).toBeFocused();

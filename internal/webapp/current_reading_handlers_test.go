@@ -34,7 +34,7 @@ func TestCurrentReadingSectionRendersEmptyStateAndLiveFeedback(t *testing.T) {
 		`role="status"`,
 		"current reading cleared.",
 		"No current Book yet",
-		"Start an analyzed To Read book when you are ready to begin reading.",
+		"Choose Read next on a To Read book when you are ready to begin reading.",
 	} {
 		assert.Contains(t, html, want, "Goal section missing %q: %s", want, html)
 	}
@@ -79,11 +79,35 @@ func TestMyBooksCurrentReadingControlsAndReadingLink(t *testing.T) {
 	require.True(t, currentReadingStart >= 0 && otherStart >= 0, "book cards missing: %s", html)
 	currentReadingCard := html[currentReadingStart:otherStart]
 	otherCard := html[otherStart:]
-	for _, want := range []string{"Currently reading", "View in Reading", "/reading#journey-book-goal-book"} {
-		assert.Contains(t, currentReadingCard, want, "current Book card missing %q: %s", want, currentReadingCard)
-	}
+	assert.Contains(t, currentReadingCard, "Currently reading")
+	assert.NotContains(t, currentReadingCard, "View in Reading", "Reading is not a page")
+	assert.NotContains(t, currentReadingCard, "/reading#", "Reading is not a page")
 	assert.NotContains(t, currentReadingCard, "To Read", "current Book was also presented as To Read: %s", currentReadingCard)
 	assert.False(t, strings.Contains(otherCard, "Start reading") || strings.Contains(otherCard, `action="/goal/books/other-book"`), "My Books exposed a choose form: %s", otherCard)
+}
+
+func TestMyBooksPinsTheCurrentReadingAboveItsBooks(t *testing.T) {
+	current := testReadingBook("goal", "Goal book", testAnalyzed)
+	current.Book.Source.Language = "de"
+	current.Coverage = &domain.AnalysisCoverage{
+		AnalyzableTokenCount: 1000, MatureTokenCount: 925, InStudyTokenCount: 950,
+		ToTarget: domain.CoverageThreshold{TargetPercent: 98, LemmaCount: 1234, Reachable: true},
+	}
+	books := []domain.MyBook{{Book: domain.Book{ID: "other-book", OwnerID: "owner", Title: "Other book"}}}
+	var output bytes.Buffer
+	require.NoError(t, MyBooksPage(domain.User{Username: "learner"}, "csrf", books, "", "", MyBooksBrowseState{CurrentReading: &current}).Render(context.Background(), &output))
+	html := output.String()
+
+	pinned, other := strings.Index(html, `id="primary-goal-section"`), strings.Index(html, `aria-labelledby="book-title-other-book"`)
+	require.True(t, pinned >= 0 && other > pinned, "the Current reading is pinned above the Books: %s", html)
+	for _, want := range []string{
+		"data-current-reading-mature>92.5%</span>", "data-current-reading-in-study>95.0%</span>",
+		"About 1,234 more words to reach Target coverage (98%).",
+		`action="/reading/finish"`, `action="/reading/end"`,
+	} {
+		assert.Contains(t, html, want)
+	}
+	assert.NotContains(t, html, "/reading/switch", "Read next replaces Switch")
 }
 
 func readingFixtureSession(t *testing.T) (http.Handler, []*http.Cookie, string, *fixtures.Store) {
@@ -167,7 +191,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	h, cookies, _, store := readingFixtureSession(t)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/reading", nil)
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/it/library", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -185,7 +209,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 	}
 	assert.True(t, strings.Contains(body, `id="journey-book-fixture-italian-goal"`) && !strings.Contains(body, `id="journey-book-fixture-book"`), "Italian Journey page exposed the German Goal: %s", body)
 	require.NoError(t, store.SetActiveStudyLanguage(context.Background(), fixtures.OwnerID, "de"))
-	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
+	request = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/library", nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -200,7 +224,7 @@ func TestReadingPageScopesCurrentReadingToActiveLanguage(t *testing.T) {
 func TestReadingPageReservesNothingAndOffersNoDeck(t *testing.T) {
 	h, cookies, _, _ := readingFixtureSession(t)
 
-	page := performReadingRequest(t, h, http.MethodGet, "/de/reading", nil, cookies)
+	page := performReadingRequest(t, h, http.MethodGet, "/de/library", nil, cookies)
 	require.Equal(t, http.StatusOK, page.Code)
 	body := page.Body.String()
 	assert.NotContains(t, body, "set aside from vocabulary selection")
@@ -222,7 +246,9 @@ func TestReadingPageShowsEmptyActiveLanguageReading(t *testing.T) {
 	}
 	require.NoError(t, store.SetActiveStudyLanguage(ctx, fixtures.OwnerID, "it"))
 
-	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/de/reading", nil)
+	// The working desk survives as a seam for the Book detail page: only an
+	// address that names a Book to browse still reaches it.
+	request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, readingDeskURL("de", fixtures.BookID), nil)
 	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
@@ -265,7 +291,7 @@ func TestCurrentReadingFinishRendersTruthfulOutcomeWithNoVocabularyEffect(t *tes
 	assert.Equal(t, http.StatusOK, finished.Code)
 	for _, want := range []string{
 		"Reading finished",
-		`href="/de/reading">Choose a To Read book</a>`,
+		`href="/de/library">Choose a To Read book in My Books</a>`,
 	} {
 		assert.Contains(t, finished.Body.String(), want, "finish outcome missing %q: %s", want, finished.Body.String())
 	}
