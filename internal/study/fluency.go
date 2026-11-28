@@ -210,8 +210,14 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	if word.IsIdiom() {
 		return w.workIdiom(ctx, owner, word, assessed, agreeing, scannedAt)
 	}
-	// Ranking comes before the provider gate: that no candidate is left does
-	// not depend on a provider assessment, so it is recorded either way.
+	// A job the gate will snooze reads nothing: it would retry, and rescan up to
+	// maxFluencyPages of the concordance, every notConfiguredDelay. Otherwise
+	// ranking comes before the gate's other outcome: that no candidate is left
+	// does not depend on a provider assessment, so it is recorded either way.
+	evidence, proceed, err := w.wordGate(ctx, word)
+	if err != nil {
+		return err
+	}
 	ranked, complete, err := w.rankedCandidates(ctx, owner, word, assessed)
 	if err != nil {
 		return err
@@ -221,9 +227,8 @@ func (w *FluencyWorker) Work(ctx context.Context, job *river.Job[PrepareFluencyA
 	if len(ranked) == 0 && complete {
 		return w.Store.RecordStudyFluencyExhausted(ctx, owner, word.ID, scannedAt)
 	}
-	evidence, proceed, err := w.wordGate(ctx, word)
-	if err != nil || !proceed {
-		return err
+	if !proceed {
+		return nil
 	}
 	return w.askAbout(ctx, owner, word, ranked, agreeing, evidence)
 }

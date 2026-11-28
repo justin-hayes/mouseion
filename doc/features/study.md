@@ -221,8 +221,9 @@ Fluency gives variety once a word is familiar, without grading it.
   to 5 contexts per word are prepared when the word becomes mature, so
   preparation is limited to words the learner is keeping. When a scan finds
   no unassessed sentence left for a word, the word is not scanned again until
-  the language's library changes (a Book added to or removed from My Books, or a
-  new completed analysis) or the word lapses; a scan that stops with sentences
+  the language's library changes (a Book added to or removed from My Books, a
+  new completed analysis, or a confirmed Lemma correction or exclusion) or the
+  word lapses; a scan that stops with sentences
   still unasked leaves the word to be scanned again.
 - **Only the Learned meaning.** A Fluency context is kept only if the word
   carries its Learned meaning there. Each context has its own Gloss check and
