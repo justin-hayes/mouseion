@@ -480,7 +480,6 @@ func TestVocabularyBrowseServesReadyProjectionOverHTTP(t *testing.T) {
 	assert.Contains(t, updating.Body.String(), "Updating vocabulary counts")
 	assert.NotContains(t, updating.Body.String(), `href="/vocabulary/selection"`)
 	assert.NotContains(t, updating.Body.String(), "No eligible vocabulary in this analysis")
-	require.NoError(t, analysis.MigrateRiver(ctx, store.Pool()))
 	riverClient, err := river.NewClient(riverpgxv5.New(store.Pool()), &river.Config{})
 	require.NoError(t, err)
 	testutil.StopOnCleanup(t, "River client", riverClient.Stop)

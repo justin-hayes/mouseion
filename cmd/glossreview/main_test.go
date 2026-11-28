@@ -562,3 +562,13 @@ func TestReviewReportsTheRejectedAnswerAndAcceptsABlankTranslationOnAnOmission(t
 	require.Contains(t, rendered, `"gloss":"cold"`)
 	require.Equal(t, 1, strings.Count(rendered, "- Rejected answer:"), "only the rejected case shows its answer")
 }
+
+// runWithEnvironment is run for the contextual Gloss review with an injectable
+// environment for tests.
+func runWithEnvironment(ctx context.Context, args []string, output io.Writer, open reviewEnvironmentOpener) error {
+	options, err := parseReviewCommand(args)
+	if err != nil {
+		return err
+	}
+	return executeGlossCommand(ctx, options, output, open)
+}

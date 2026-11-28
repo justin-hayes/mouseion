@@ -665,7 +665,6 @@ func TestConversionEvidenceDiffersLeavesAPublishedAnalysisAndAnUpdateOffer(t *te
 	// Confirming the offer revalidates it and queues the dedicated preparation
 	// job once the Book is not the Current reading. The worker publishes a
 	// fresh analysis with no test-only SQL.
-	require.NoError(t, MigrateRiver(ctx, pool))
 	sourceBytes, err := os.ReadFile(filepath.Join("..", "ancientgreek", "testdata", "oga-src-book1.conllu"))
 	require.NoError(t, err)
 	require.NoError(t, store.PutClassicalSource(ctx, domain.ClassicalSource{

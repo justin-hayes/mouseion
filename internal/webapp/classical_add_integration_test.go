@@ -49,7 +49,6 @@ func classicalAddHarness(t *testing.T) (context.Context, *persistence.PostgresSt
 	store, err := persistence.Open(ctx, databaseURL)
 	require.NoError(t, err)
 	testutil.Cleanup(t, "store", store.Close)
-	require.NoError(t, analysis.MigrateRiver(ctx, pool))
 	workers := river.NewWorkers()
 	analysis.AddClassicalPreparationWorker(workers, store, analysis.ClassicalPreparationConfig{})
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
