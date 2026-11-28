@@ -162,7 +162,6 @@ func TestBrowseConcordanceStudyRoundTripRestoresOrExplainsOverHTTP(t *testing.T)
 	t.Run("invalid or foreign origins are dropped and expose nothing", func(t *testing.T) {
 		for name, mutate := range map[string]func(url.Values){
 			"page zero":       func(v url.Values) { v.Set(originKeyPage, "0") },
-			"bad accounting":  func(v url.Values) { v.Set(originKeyAll, "yes") },
 			"missing book":    func(v url.Values) { v.Del(originKeyBook) },
 			"oversized value": func(v url.Values) { v.Set(originKeyPrefix, string(make([]byte, maxOriginValueLength+1))) },
 		} {

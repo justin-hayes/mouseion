@@ -53,7 +53,7 @@ test('Book detail hosts the analysis actions and lists the Book words by Study s
   const table = words.getByRole('table', { name: 'Words by Study state' });
   await expect(table).toBeVisible();
   await expect(table.getByRole('columnheader', { name: 'Study state' })).toBeVisible();
-  await expect(table.locator('[data-study-state]')).toHaveText(['Not yet introduced', 'Not yet introduced']);
+  await expect(table.locator('[data-study-state]')).toHaveText(['Not yet introduced', 'Mature', 'In study']);
   await expect(words).not.toContainText(/\b(Known|Reserved|Unknown)\b/);
   // The list edits nothing: its only form is the GET prefix search.
   await expect(words.locator('form')).toHaveCount(1);
@@ -179,7 +179,7 @@ test('Word list works without JavaScript for prefix, paging and page recovery', 
     await expect(noScriptPage).toHaveURL(/\/books\/fixture-book\?q=haus/);
     await expect(noScriptPage.locator('.vocabulary-applied-query')).toContainText('Applied prefix: haus');
     await expect(noScriptPage.locator('#vocabulary-results-heading')).toBeFocused();
-    await expect(noScriptPage.getByRole('row').filter({ hasText: 'haus' })).toContainText('Not yet introduced');
+    await expect(noScriptPage.getByRole('row').filter({ hasText: 'haus' })).toContainText('Mature');
     await expectNoPageOverflow(noScriptPage, 'no-script word list');
 
     await noScriptPage.goto(`${detail}?q=zznotfound`);

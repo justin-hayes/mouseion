@@ -103,7 +103,7 @@ func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT book_id::text FROM current_analysis_identity WHERE owner_id=$1 AND source_material_id=$2`, owner.ID, otherSource.ID).Scan(&otherBookID))
 	buildBrowseProjection(t, ctx, store, otherBookID)
 	page, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{
-		CurrentBookID: current.ID, Sort: "occurrences", IncludeAll: true, Page: 1,
+		CurrentBookID: current.ID, Sort: "occurrences", Page: 1,
 	})
 	require.NoError(t, err)
 	page.CurrentBookID = current.ID
@@ -121,7 +121,7 @@ func TestVocabularyBrowseRendersCrossBookOrderFromEvidenceProjection(t *testing.
 
 	_, err = store.Pool().Exec(ctx, `DELETE FROM vocabulary_browse_count_readiness WHERE owner_id=$1 AND book_id=$2`, owner.ID, otherBookID)
 	require.NoError(t, err)
-	updating, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: current.ID, IncludeAll: true, Page: 1})
+	updating, err := store.ListVocabularyBrowsePage(ctx, owner.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: current.ID, Page: 1})
 	require.NoError(t, err)
 	updating.CurrentBookID = current.ID
 	updating.ReadingBookID = current.ID
@@ -211,11 +211,10 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	var readingCountAfter int
 	require.NoError(t, store.Pool().QueryRow(ctx, `SELECT count(*) FROM primary_goals WHERE owner_id=$1`, alice.ID).Scan(&readingCountAfter))
 	assert.Equal(t, readingCountBefore, readingCountAfter, "Browse must not create or change Reading state")
-	beforeKnown, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1, IncludeAll: true})
+	beforeKnown, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1})
 	require.NoError(t, err)
-	_, err = store.PutKnownVocabulary(ctx, alice.ID, "de", "haus", "NOUN")
-	require.NoError(t, err)
-	afterKnown, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1, IncludeAll: true})
+	seedStudyWord(t, ctx, store, alice.ID, "haus", true)
+	afterKnown, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Page: 1})
 	require.NoError(t, err)
 	assert.NotEqual(t, beforeKnown.CorpusRevision, afterKnown.CorpusRevision, "learner-state changes invalidate Browse paging")
 
@@ -224,7 +223,6 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Equal(t, http.StatusOK, search.Code)
 	filteredQuery := url.Values{
 		"q":        {"ha"},
-		"all":      {"1"},
 		"book":     {aliceBook.ID, aliceOtherBook.ID},
 		"pos":      {"VERB"},
 		"known":    {"not-known"},
@@ -243,7 +241,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.NotContains(t, filtered.Body.String(), "heim")
 
 	selectedBooks := []string{aliceBook.ID, aliceOtherBook.ID}
-	scoped, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{BookIDs: selectedBooks, UPOS: []string{"NOUN"}, KnownFilter: "known", ReservedFilter: "not-reserved", Sort: "books", Page: 1, IncludeAll: true})
+	scoped, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{BookIDs: selectedBooks, UPOS: []string{"NOUN"}, Sort: "books", Page: 1})
 	require.NoError(t, err)
 	require.Len(t, scoped.Rows, 1)
 	assert.Equal(t, "haus", scoped.Rows[0].CanonicalLemma)
@@ -253,11 +251,6 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	assert.Equal(t, int64(1), scoped.ScopedInventoryTotal)
 	assert.ElementsMatch(t, selectedBooks, scoped.SelectedBooks)
 	assert.Equal(t, "books", scoped.Sort)
-	unfilteredState, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{BookIDs: selectedBooks, UPOS: []string{"NOUN"}, ReservedFilter: "not-reserved", Sort: "books", Page: 1, IncludeAll: true})
-	require.NoError(t, err)
-	require.Len(t, unfilteredState.Rows, 1)
-	assert.Equal(t, unfilteredState.Rows[0].OccurrenceCount, scoped.Rows[0].OccurrenceCount, "Known filters must not change effective occurrence counts")
-	assert.Equal(t, unfilteredState.Rows[0].BookCount, scoped.Rows[0].BookCount, "Known filters must not change distinct-Book counts")
 
 	otherOwnerScope, err := store.ListVocabularyBrowsePage(ctx, bob.ID, "de", domain.VocabularyBrowseQuery{BookIDs: []string{aliceBook.ID}, Page: 1})
 	require.NoError(t, err)
@@ -278,7 +271,7 @@ func TestVocabularyBrowseServesOwnerScopedCurrentEvidenceOverHTTP(t *testing.T) 
 	correctedHeim := perform(t, h, http.MethodGet, aliceDetail+"?q=heim", nil, cookies)
 	require.Equal(t, http.StatusOK, correctedHeim.Code)
 	assert.Contains(t, correctedHeim.Body.String(), "In this Book: 1; Across analyzed books: 1", "the corrected occurrence moves to the effective identity in the Current reading only")
-	correctedEvidence, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Prefix: "heim", IncludeAll: true, Page: 1})
+	correctedEvidence, err := store.ListVocabularyBrowsePage(ctx, alice.ID, "de", domain.VocabularyBrowseQuery{CurrentBookID: aliceBook.ID, Prefix: "heim", Page: 1})
 	require.NoError(t, err)
 	require.Len(t, correctedEvidence.Rows, 1)
 	assert.Equal(t, int64(1), correctedEvidence.Rows[0].OccurrenceCount)

@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/justin-hayes/mouseion/internal/lemmadisplay"
@@ -75,28 +74,15 @@ func (v bookWordsView) rowOrigin(row domain.VocabularyBrowseRow) browseOrigin {
 	}
 }
 
-// bookWordStates maps each Study item the learner has progress on to its state.
-// A withdrawn word is out of Study, so it is not introduced again until it is
-// reintroduced.
-func bookWordStates(progress []domain.StudyProgress) map[domain.StudyItem]bookWordState {
-	states := make(map[domain.StudyItem]bookWordState, len(progress))
-	for _, item := range progress {
-		switch {
-		case item.Withdrawn:
-		case domain.IsStudyMature(item):
-			states[item.StudyItem] = bookWordMature
-		default:
-			states[item.StudyItem] = bookWordInStudy
-		}
-	}
-	return states
-}
-
-// bookWordStateOf is the state of a word of the list.
-func bookWordStateOf(states map[domain.StudyItem]bookWordState, language string, row domain.VocabularyBrowseRow) bookWordState {
-	item := domain.WordItem(language, strings.TrimSpace(row.CanonicalLemma), strings.ToUpper(strings.TrimSpace(row.UPOS)), strings.TrimSpace(row.LexicalDiscriminator))
-	if state, ok := states[item]; ok {
-		return state
+// bookWordStateOf is the Study state the store reports for a word of the list.
+func bookWordStateOf(row domain.VocabularyBrowseRow) bookWordState {
+	switch row.StudyState {
+	case domain.VocabularyStudyMature:
+		return bookWordMature
+	case domain.VocabularyStudyInStudy:
+		return bookWordInStudy
+	case domain.VocabularyStudyNotIntroduced:
+		return bookWordNotIntroduced
 	}
 	return bookWordNotIntroduced
 }
@@ -152,20 +138,9 @@ func (h *Handler) loadBookWords(ctx context.Context, r *http.Request, owner, lan
 		view.Problem = problem
 		return view, status
 	}
-	progress, err := h.services.Store.Study.ListStudyProgress(readCtx, owner, language)
-	if err != nil {
-		log.Printf("mouseion: load Study progress for the Book word list: %v", err)
-		view.Problem = bookWordsFailed
-		if vocabularyBrowseErrorStatus(err, readCtx) == http.StatusGatewayTimeout {
-			view.Problem = bookWordsTimedOut
-			return view, http.StatusGatewayTimeout
-		}
-		return view, http.StatusInternalServerError
-	}
-	states := bookWordStates(progress)
 	view.Rows = make([]bookWordRow, 0, len(page.Rows))
 	for _, row := range page.Rows {
-		view.Rows = append(view.Rows, bookWordRow{VocabularyBrowseRow: row, State: bookWordStateOf(states, language, row)})
+		view.Rows = append(view.Rows, bookWordRow{VocabularyBrowseRow: row, State: bookWordStateOf(row)})
 	}
 	view.FocusRow = values.Get("row")
 	view.FocusRowFound = bookWordsHasRow(page.Rows, view.FocusRow)
@@ -181,7 +156,7 @@ func parseBookWordsRequest(values url.Values, language, bookID string) (bookWord
 		// The list is always the Book's complete identity set in frequency order.
 		// Study state, not an accounting filter, tells the learner where each word
 		// stands.
-		Sort: "occurrences", Page: 1, Revision: values.Get("rev"), IncludeAll: true,
+		Sort: "occurrences", Page: 1, Revision: values.Get("rev"),
 	}
 	if view.RequestedPage != "" {
 		page, err := strconv.Atoi(view.RequestedPage)

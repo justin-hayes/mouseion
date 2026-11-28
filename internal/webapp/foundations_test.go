@@ -356,7 +356,7 @@ func TestVocabularyBrowsePagerPreservesAppliedPrefixWithoutJavaScript(t *testing
 }
 
 func TestVocabularyBrowseHasNoSelectionControls(t *testing.T) {
-	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1", IncludeAll: true,
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "book-1", ReadingBookID: "book-1", CorpusRevision: "rev-1",
 		Books: []domain.VocabularyBrowseBook{{ID: "book-1", Title: "Current Book", HasCurrentAnalysis: true}},
 		Rows:  []domain.VocabularyBrowseRow{{CanonicalLemma: "haus", UPOS: "NOUN"}}}
 	html := renderBookWords(t, "de", page, "ha")
@@ -392,7 +392,7 @@ func TestVocabularyBrowseRendersScopedAndAcrossBookCountsAndDisplayLemma(t *test
 }
 
 func TestVocabularyBrowsePagerPreservesPrefixReadingScopeAndRevision(t *testing.T) {
-	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "occurrences", IncludeAll: true, CorpusRevision: "revision-1"}
+	page := domain.VocabularyBrowsePage{Page: 2, Total: 51, CurrentBookID: "current-book", ReadingBookID: "current-book", SelectedBooks: []string{"book-1", "book-2"}, SelectedUPOS: []string{"NOUN"}, Sort: "occurrences", CorpusRevision: "revision-1"}
 	url := bookWordsPageURL(3, page, "Haus")
 	for _, value := range []string{"q=Haus", "/books/current-book", "page=3", "rev=revision-1"} {
 		assert.Contains(t, url, value)
@@ -403,7 +403,7 @@ func TestVocabularyBrowsePagerPreservesPrefixReadingScopeAndRevision(t *testing.
 }
 
 func TestVocabularyBrowseRestartDropsOldRevisionAndObsoleteControls(t *testing.T) {
-	page := domain.VocabularyBrowsePage{CurrentBookID: "book-1", ReadingBookID: "book-1", SelectedBooks: []string{"book-1"}, SelectedUPOS: []string{"NOUN"}, KnownFilter: "not-known", ReservedFilter: "not-reserved", Sort: "books"}
+	page := domain.VocabularyBrowsePage{CurrentBookID: "book-1", ReadingBookID: "book-1", SelectedBooks: []string{"book-1"}, SelectedUPOS: []string{"NOUN"}, Sort: "books"}
 	url := bookWordsPageURL(1, page, "Haus")
 	for _, value := range []string{"q=Haus", "/books/book-1"} {
 		assert.Contains(t, url, value)
