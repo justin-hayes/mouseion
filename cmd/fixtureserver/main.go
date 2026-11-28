@@ -99,8 +99,8 @@ func main() {
 			log.Printf("write health response: %v", err)
 		}
 	})
-	// Browser acceptance selects the Working desk's degraded and accounted states
-	// here; the route exists only in the fixture server.
+	// Browser acceptance selects the Working desk's degraded states here; the
+	// route exists only in the fixture server.
 	mux.HandleFunc("POST /fixture/vocabulary-browse-scenario", func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)

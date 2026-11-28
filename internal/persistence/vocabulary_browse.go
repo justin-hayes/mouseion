@@ -51,7 +51,7 @@ func normalizeVocabularyBrowseQuery(queryParams domain.VocabularyBrowseQuery) do
 // parameters. The Browse scale test explains the same text with these
 // arguments, so it inspects the plan a learner's request executes.
 func vocabularyBrowseArgs(owner, language string, queryParams domain.VocabularyBrowseQuery) []any {
-	return []any{owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.Sort, queryParams.Page, queryParams.CurrentBookID}
+	return []any{owner, language, strings.TrimSpace(queryParams.Prefix), queryParams.BookIDs, queryParams.UPOS, queryParams.Sort, queryParams.Page, queryParams.CurrentBookID, int64(domain.FluencyMaturityDays)}
 }
 
 const vocabularyBrowseSQL = `
@@ -155,7 +155,7 @@ WITH all_books AS (
  ), annotated AS MATERIALIZED (
   -- The learner state is Study progress (ADR 0136 §5): a word is Mature, in
   -- study, or not yet introduced. Mature means a day-scale schedule of at least
-  -- domain.FluencyMaturityDays; a withdrawn word counts as neither. Inlining
+  -- domain.FluencyMaturityDays ($9); a withdrawn word counts as neither. Inlining
   -- repeats correlated lookups and can exceed the Browse deadline.
   SELECT g.lemma,g.upos,g.discriminator,g.headword,g.bare_with_numbered_sibling,g.occurrences,g.books,g.corrected,
     g.across_books_occurrences,
@@ -164,7 +164,7 @@ WITH all_books AS (
         WHERE sp.owner_id=$1 AND sp.language=$2 AND sp.item_kind='word'
           AND sp.canonical_lemma=btrim(g.lemma) AND sp.upos=upper(btrim(g.upos))
           AND sp.lexical_discriminator=btrim(g.discriminator) AND sp.withdrawn_at IS NULL
-          AND sp.state='review' AND sp.scheduled_days>=21) THEN 'mature'
+          AND sp.state='review' AND sp.scheduled_days>=$9::bigint) THEN 'mature'
       WHEN EXISTS (SELECT 1 FROM study_progress sp
         WHERE sp.owner_id=$1 AND sp.language=$2 AND sp.item_kind='word'
           AND sp.canonical_lemma=btrim(g.lemma) AND sp.upos=upper(btrim(g.upos))
@@ -211,8 +211,8 @@ WITH all_books AS (
       FROM occurrence_lemma_corrections d JOIN all_books b ON b.id=d.book_id::text
       JOIN current_analysis_identity cai ON cai.owner_id=d.owner_id AND cai.book_id=d.book_id AND cai.corpus_id=d.corpus_id AND cai.analysis_run_id=d.analysis_run_id
       WHERE d.owner_id=$1),'')
-    || '|' || COALESCE((SELECT string_agg(sp.canonical_lemma || ':' || sp.upos || ':' || sp.lexical_discriminator || ':' || sp.state || ':' || sp.scheduled_days::text, ',' ORDER BY sp.canonical_lemma,sp.upos,sp.lexical_discriminator)
-      FROM study_progress sp WHERE sp.owner_id=$1 AND sp.language=$2 AND sp.item_kind='word'),'')
+    || '|' || COALESCE((SELECT string_agg(sp.canonical_lemma || ':' || sp.upos || ':' || sp.lexical_discriminator || ':' || CASE WHEN sp.state='review' AND sp.scheduled_days>=$9::bigint THEN 'mature' ELSE 'in-study' END, ',' ORDER BY sp.canonical_lemma,sp.upos,sp.lexical_discriminator)
+      FROM study_progress sp WHERE sp.owner_id=$1 AND sp.language=$2 AND sp.item_kind='word' AND sp.withdrawn_at IS NULL),'')
   ) AS value
 )
 SELECT p.lemma,p.upos,p.discriminator,p.headword,p.bare_with_numbered_sibling,p.occurrences,p.across_books_occurrences,p.books,p.corrected,p.study_state,
