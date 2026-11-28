@@ -215,6 +215,18 @@ func bookDetailURL(bookID string) string {
 	return "/books/" + url.PathEscape(bookID)
 }
 
+// bookActionRedirect answers a Book action with its message or error. A form
+// posted from the Book's own detail page names it in return_to and returns
+// there; any other form returns to My Books, so return_to is never an open
+// redirect.
+func bookActionRedirect(w http.ResponseWriter, r *http.Request, bookID, key, text string) {
+	location := myBooksPagePath(r.Context())
+	if r.FormValue("return_to") == bookDetailURL(bookID) {
+		location = bookDetailURL(bookID)
+	}
+	redirect(w, r, location+"?"+key+"="+url.QueryEscape(text))
+}
+
 // bookWordsURL is the Book detail page at one page and prefix of its word list.
 func bookWordsURL(bookID string, page int, prefix, revision, row string) string {
 	values := url.Values{}

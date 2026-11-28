@@ -31,10 +31,10 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 			}
 			if evidence := myBookMarginEvidence(book); evidence != "" {
 				<p class="library-book__evidence">{ evidence }</p>
-				@MyBookEvidenceRecovery(book, csrf)
+				@MyBookEvidenceRecovery(book, csrf, "")
 			}
-			@AnalysisUpdateNotice(book, csrf, "btn btn-outline")
-			@SourceStructureUpdateNotice(book, csrf, "btn btn-outline")
+			@AnalysisUpdateNotice(book, csrf, "", "btn btn-outline")
+			@SourceStructureUpdateNotice(book, csrf, "", "btn btn-outline")
 			if book.CompletionCount > 0 {
 				<p class="metadata"><strong>Reading history</strong>: { myBooksReadCountLabel(book.CompletionCount) }</p>
 				<p class="metadata"><strong>Latest completion</strong>: { myBooksCompletionDateLabel(book.LatestCompletionAt) } · { myBooksCompletionSourceLabel(book.LatestCompletionSource) }</p>
@@ -76,10 +76,13 @@ templ MyBookRow(csrf string, book domain.MyBook, returnTo string) {
 
 // MyBookEvidenceRecovery is the Book's retry: the one action that queues its
 // analysis again. It is shared by the My Books row and the Book detail page.
-templ MyBookEvidenceRecovery(book domain.MyBook, csrf string) {
+templ MyBookEvidenceRecovery(book domain.MyBook, csrf, returnTo string) {
 	if action := myBookEvidenceRecovery(book); action != "" {
 		<form method="post" action={ templ.SafeURL(myBookEvidenceRecoveryURL(book)) }>
 			<input type="hidden" name="csrf_token" value={ csrf }/>
+			if returnTo != "" {
+				<input type="hidden" name="return_to" value={ returnTo }/>
+			}
 			if book.Disposition != domain.BookDispositionToRead {
 				<input type="hidden" name="expected_revision" value={ fmt.Sprint(book.DispositionRevision) }/>
 			}

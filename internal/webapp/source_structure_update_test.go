@@ -60,7 +60,7 @@ func TestReadingChooserOffersAConfirmedSourceStructureUpdate(t *testing.T) {
 	assert.Contains(t, body, "switches it to the new source structure and queues its re-analysis")
 	assert.Contains(t, body, "The current analysis becomes stale immediately and is replaced when the new analysis publishes.")
 	assert.Contains(t, body, "Your 1 confirmed lemma correction and 2 occurrence exclusions on the current analysis do not apply to the new analysis.")
-	assert.Contains(t, body, "Earlier Readings and prepared decks keep the evidence they froze.")
+	assert.NotContains(t, body, "prepared decks")
 	assert.Contains(t, body, "There is no way back to the old structure.")
 	assert.Contains(t, body, `action="/reading/books/fixture-route-match/source-structure-update"`)
 	assert.Contains(t, body, `name="expected_content_revision_id" value="revision-1"`)
@@ -81,7 +81,7 @@ func TestCurrentReadingCanAdoptSourceStructureWithoutLosingEvidence(t *testing.T
 
 	body := readingGet(t, h, "/de/library", cookies)
 	assert.Contains(t, body, "A source structure update is available.")
-	assert.Contains(t, body, "Your active Reading keeps its exact current evidence, Reserved vocabulary and prepared deck; new evidence needs End, restart and re-preparation.")
+	assert.NotContains(t, body, "Reserved vocabulary")
 	assert.Contains(t, body, "Confirm source structure update", "the current Reading may adopt; its own evidence stays pinned")
 }
 
@@ -106,7 +106,7 @@ func TestSourceStructureUpdateConfirmationSubmitsTheCheckedOffer(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/de/library", location.Path)
 	assert.Contains(t, location.Query().Get("message"), "adopted as analysis job #9")
-	assert.Contains(t, location.Query().Get("message"), "Earlier Readings and decks keep the evidence they froze.")
+	assert.NotContains(t, location.Query().Get("message"), "decks")
 	assert.Equal(t, []domain.SourceStructureUpdateExpectation{structureUpdateCandidate().Expectation()}, updates.submitted)
 }
 

@@ -100,7 +100,7 @@ func (h *Handler) reanalyzeToReadBook(w http.ResponseWriter, r *http.Request) {
 	if isError {
 		queryParam = "error"
 	}
-	redirect(w, r, myBooksPagePath(r.Context())+"?"+queryParam+"="+url.QueryEscape(message))
+	bookActionRedirect(w, r, bookID, queryParam, message)
 }
 
 // analysisCouldNotStartMessage is the retry sentence for a submission that

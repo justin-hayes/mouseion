@@ -60,12 +60,12 @@ templ BookDetailActions(book domain.MyBook, csrf string) {
 		<h2 id="book-detail-analysis-heading">Analysis</h2>
 		if evidence := myBookMarginEvidence(book); evidence != "" {
 			<p class="library-book__evidence">{ evidence }</p>
-			@MyBookEvidenceRecovery(book, csrf)
+			@MyBookEvidenceRecovery(book, csrf, bookDetailURL(book.Book.ID))
 		} else {
 			<p>No analysis evidence for this Book yet.</p>
 		}
-		@AnalysisUpdateNotice(book, csrf, "btn btn-outline")
-		@SourceStructureUpdateNotice(book, csrf, "btn btn-outline")
+		@AnalysisUpdateNotice(book, csrf, bookDetailURL(book.Book.ID), "btn btn-outline")
+		@SourceStructureUpdateNotice(book, csrf, bookDetailURL(book.Book.ID), "btn btn-outline")
 	</section>
 }
 
