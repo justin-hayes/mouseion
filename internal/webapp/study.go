@@ -303,32 +303,53 @@ func studyIdiomsOf(batch []domain.StudyBatchItem) int {
 	return idioms
 }
 
-func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
-	ctx, store, now := r.Context(), h.services.Store.Study, h.now()
-	counts, err := store.CountStudyMaterial(ctx, owner, view.Language)
+// studyFinishLine is where the learner stands on Today's finish line. One count
+// is Today's remaining reviews and the Study tab's chip, read after
+// reconciliation, so they cannot disagree; the chip takes this value and reads
+// nothing more.
+func (h *Handler) studyFinishLine(ctx context.Context, owner, language string, progress []domain.StudyProgress, now time.Time) (domain.StudyToday, error) {
+	due, err := h.services.Store.Study.CountStudyReviewsDue(ctx, owner, language, now)
 	if err != nil {
-		return err
-	}
-	progress, err := store.ListStudyProgress(ctx, owner, view.Language)
-	if err != nil {
-		return err
-	}
-	if counts, view.IdiomCounts, err = h.idiomMaterialCounts(r, owner, view.Language, counts, progress); err != nil {
-		return err
-	}
-	view.Counts = counts
-	// One count is Today's remaining reviews and the Study tab's chip, read
-	// after reconciliation: they cannot disagree.
-	due, err := store.CountStudyReviewsDue(ctx, owner, view.Language, now)
-	if err != nil {
-		return err
+		return domain.StudyToday{}, err
 	}
 	today := domain.StudyFinishLine(progress, now)
 	today.Remaining, today.Finished = due, due == 0
-	view.Remaining, view.Finished = today.Remaining, today.Finished
-	if shell := shellViewFromContext(ctx); shell != nil && shell.LastLanguage == view.Language {
+	if shell := shellViewFromContext(ctx); shell != nil && shell.LastLanguage == language {
 		shell.setStudyDue(due)
 	}
+	return today, nil
+}
+
+// loadStudyCounts reads the learner's Study progress and the material counts
+// the page shows, Idioms included.
+func (h *Handler) loadStudyCounts(r *http.Request, owner string, view *studyPageView) ([]domain.StudyProgress, domain.StudyMaterialCounts, error) {
+	ctx, store := r.Context(), h.services.Store.Study
+	counts, err := store.CountStudyMaterial(ctx, owner, view.Language)
+	if err != nil {
+		return nil, counts, err
+	}
+	progress, err := store.ListStudyProgress(ctx, owner, view.Language)
+	if err != nil {
+		return nil, counts, err
+	}
+	if counts, view.IdiomCounts, err = h.idiomMaterialCounts(r, owner, view.Language, counts, progress); err != nil {
+		return nil, counts, err
+	}
+	view.Counts = counts
+	return progress, counts, nil
+}
+
+func (h *Handler) loadStudyView(r *http.Request, owner string, view *studyPageView) error {
+	ctx, store, now := r.Context(), h.services.Store.Study, h.now()
+	progress, counts, err := h.loadStudyCounts(r, owner, view)
+	if err != nil {
+		return err
+	}
+	today, err := h.studyFinishLine(ctx, owner, view.Language, progress, now)
+	if err != nil {
+		return err
+	}
+	view.Remaining, view.Finished = today.Remaining, today.Finished
 	if view.Held, err = h.studyHeldCount(ctx, owner, view.Language); err != nil {
 		return err
 	}
