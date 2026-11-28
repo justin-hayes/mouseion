@@ -103,7 +103,8 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	// The pinned Current reading on Reading shows the same figures.
 	pinned := perform(t, h, http.MethodGet, "/de/reading", nil, cookies)
 	require.Equal(t, http.StatusOK, pinned.Code)
-	assert.Contains(t, pinned.Body.String(), `data-current-reading-mature>66.7%</span> (4 of 6 word occurrences)`)
+	assert.Contains(t, pinned.Body.String(), `data-current-reading-mature>66.7%</span>`)
+	assert.Contains(t, pinned.Body.String(), `4 of 6 word occurrences are Mature.`)
 	assert.Contains(t, pinned.Body.String(), `data-current-reading-in-study>83.3%</span>`)
 }
 

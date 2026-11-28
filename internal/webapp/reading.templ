@@ -35,15 +35,41 @@ templ CurrentReadingSection(currentReading *readingBookView, csrf string, messag
 }
 
 templ CurrentReadingCoverage(item readingBookView) {
-	if item.Coverage != nil {
-		<div class="journey-book__coverage" role="group" aria-label="Coverage of this Book">
-			<p class="numeric"><strong>Mature coverage:</strong> <span data-current-reading-mature>{ readingCoverageMatureDisplay(*item.Coverage) }</span> ({ readingCoverageCount(item.Coverage.MatureTokenCount) } of { readingCoverageCount(item.Coverage.AnalyzableTokenCount) } word occurrences)</p>
-			<p class="numeric"><strong>With words in study:</strong> <span data-current-reading-in-study>{ readingCoverageInStudyDisplay(*item.Coverage) }</span></p>
-			<p class="numeric" data-current-reading-to-target>{ readingCoverageToTargetText(*item.Coverage) }</p>
-		</div>
-	} else if readingEvidenceState(item) != "current" {
-		<p class="journey-book__coverage-note"><strong>{ readingEvidenceLabel(item) }:</strong> { readingEvidenceDescription(item) }</p>
+	{{ view := currentReadingCoverageFor(item) }}
+	<div class="current-hero__figures" role="group" aria-label="Coverage of this Book">
+		<p class="current-hero__stat">
+			if view.Ready {
+				<span class="current-hero__figure numeric" data-current-reading-mature>{ view.MatureText }</span>
+			} else {
+				<span class="current-hero__figure current-hero__figure--word">{ view.Word }</span>
+			}
+			<span class="current-hero__caption">Mature</span>
+		</p>
+		<p class="current-hero__stat">
+			if view.Ready {
+				<span class="current-hero__figure current-hero__figure--study numeric" data-current-reading-in-study>{ view.InStudyText }</span>
+			} else {
+				<span class="current-hero__figure current-hero__figure--word">{ view.Word }</span>
+			}
+			<span class="current-hero__caption">With words in study</span>
+		</p>
+	</div>
+	if view.Ready {
+		@CoverageBar(view.BarLabel, view.MaturePct, view.ExtraPct)
+		<p class="current-hero__detail numeric">{ view.Occurrences }</p>
+		<p class="current-hero__detail numeric" data-current-reading-to-target>{ view.Target }</p>
+	} else {
+		<p class="current-hero__detail">Coverage returns when the counts are ready.</p>
 	}
+}
+
+// CoverageBar is a two-segment bar, Mature then the further share in study. A
+// native meter shows one value, so the bar is an image named with both.
+templ CoverageBar(label string, maturePct, extraPct float64) {
+	<div class="coverage-bar" role="img" aria-label={ label }>
+		<span class="coverage-bar__mature" aria-hidden="true" style={ coverageBarWidth(maturePct) }></span>
+		<span class="coverage-bar__study" aria-hidden="true" style={ coverageBarWidth(extraPct) }></span>
+	</div>
 }
 
 templ CurrentReadingLifecycleActions(item readingBookView, csrf string) {

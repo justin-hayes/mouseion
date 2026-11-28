@@ -46,9 +46,7 @@ templ CurrentReadingHero(item readingBookView, csrf string) {
 				</details>
 			}
 			<div class="current-hero__coverage">
-				if item.Coverage != nil || !needsAction || !status.Evidence {
-					@CurrentReadingCoverage(item)
-				}
+				@CurrentReadingCoverage(item)
 			</div>
 			<div class="current-hero__actions">
 				<a class="button current-hero__open" href={ templ.SafeURL(bookDetailURL(readingBookID(item))) }>Open Book</a>

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/justin-hayes/mouseion/internal/analysis"
+	"github.com/justin-hayes/mouseion/internal/analysisinsights"
 	"github.com/justin-hayes/mouseion/internal/domain"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -149,9 +150,25 @@ func (Analysis) GetCompletedAnalysis(_ context.Context, _ string, sourceMaterial
 	return result, nil
 }
 
+const (
+	// CountsUpdatingCorpusID is the corpus of Route tie B, whose counts are updating.
+	CountsUpdatingCorpusID = "fixture-route-tie-b-corpus"
+	// StatisticsUnavailableCorpusID is the corpus of Route differs, which has no statistics.
+	StatisticsUnavailableCorpusID = "fixture-route-differs-corpus"
+)
+
 type Insights struct{}
 
-func (Insights) Coverage(context.Context, string, string) (domain.AnalysisCoverage, error) {
+// Coverage is the canned coverage. Two Books stand in for the degraded states
+// Reading shows as words, for browser acceptance: Route tie B has updating
+// counts and Route differs has no statistics.
+func (Insights) Coverage(_ context.Context, _, corpusID string) (domain.AnalysisCoverage, error) {
+	switch corpusID {
+	case CountsUpdatingCorpusID:
+		return domain.AnalysisCoverage{}, analysisinsights.ErrCountsUpdating
+	case StatisticsUnavailableCorpusID:
+		return domain.AnalysisCoverage{}, analysisinsights.ErrStatisticsUnavailable
+	}
 	lemmas := make([]domain.LemmaOccurrence, 0, 18)
 	for i := 1; i <= 18; i++ {
 		lemmas = append(lemmas, domain.LemmaOccurrence{Language: "de", CanonicalLemma: fmt.Sprintf("Randlemma-%02d", i), UPOS: "NOUN", OccurrenceCount: int64(100 - i)})

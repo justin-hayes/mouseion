@@ -366,8 +366,9 @@ Reading answers questions in this order:
 3. What current coverage evidence is available for each candidate?
 4. What happens to my modeled vocabulary when I finish the current Book?
 
-Current reading is visually distinct but remains book-led rather than a large
-metric card. The between-Books chooser lists candidates in neutral title order
+Current reading is visually distinct and book-led: a cover-led hero whose two
+coverage figures are the one oversized-metric exception (`components.md`, Hero
+figure). The between-Books chooser lists candidates in neutral title order
 with one ordinary entry per Book; incomplete evidence stays distinct in that
 Book's margin, and each Book carries the ordinary per-Book Analysis update
 notice. No learner order,

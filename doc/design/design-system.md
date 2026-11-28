@@ -186,6 +186,7 @@ losing their meaningful control boundary.
 | `--mouseion-font-application` | Navigation, controls, forms, and explanatory UI                                |
 | `--mouseion-font-reading`     | Book titles, quotations, and sustained source-text samples                     |
 | `--mouseion-font-size-stat`   | Comparable coverage and threshold values; supporting evidence, not page heroes |
+| `--mouseion-font-size-hero-stat` | The Current reading hero's two coverage figures only (`components.md`, Hero figure) |
 | `.bibliographic-title`        | Bibliographic titles; serif, restrained, and visually textual                  |
 | `.reading-text`               | Source passages or reading samples with a 60–75-character measure and 1.65 line height |
 | `.metadata`                   | Dates, language, media type, provenance summary, and secondary labels          |
