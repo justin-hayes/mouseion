@@ -101,21 +101,21 @@ func (h *Handler) openWrongWordReport(w http.ResponseWriter, r *http.Request) (d
 
 // reportedOccurrence finds the occurrence a report names among the Book's
 // occurrences of its word, by its place in the Book, as Lemma review does.
-func (h *Handler) reportedOccurrence(r *http.Request, owner string, report domain.StudyReport) (lemmareview.Review, domain.LemmaReviewOccurrence, bool, error) {
+func (h *Handler) reportedOccurrence(r *http.Request, owner string, report domain.StudyReport) (domain.LemmaReviewOccurrence, bool, error) {
 	owned := report
 	if located, err := h.services.Store.Study.StudyOccurrenceLocator(r.Context(), owner, report.Source); err == nil {
 		owned.Source = located
 	}
 	review, err := h.services.LemmaReview.Review(r.Context(), owner, report.Source.BookID, report.TargetWord)
 	if err != nil {
-		return review, domain.LemmaReviewOccurrence{}, false, err
+		return domain.LemmaReviewOccurrence{}, false, err
 	}
 	for _, occurrence := range review.Occurrences {
 		if lemmaReviewReported(owned, occurrence) {
-			return review, occurrence, true, nil
+			return occurrence, true, nil
 		}
 	}
-	return review, domain.LemmaReviewOccurrence{}, false, nil
+	return domain.LemmaReviewOccurrence{}, false, nil
 }
 
 // studyRemediation serves the remediation screen: the reported occurrence with
@@ -140,7 +140,7 @@ func (h *Handler) studyRemediationView(r *http.Request, report domain.StudyRepor
 		return studyRemediationView{}, err
 	}
 	adoptDetailLanguage(r.Context(), detail)
-	_, occurrence, found, err := h.reportedOccurrence(r, owner, report)
+	occurrence, found, err := h.reportedOccurrence(r, owner, report)
 	if err != nil {
 		return studyRemediationView{}, err
 	}
@@ -193,7 +193,7 @@ func (h *Handler) decideStudyRemediation(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	owner := user(r).ID
-	_, occurrence, found, err := h.reportedOccurrence(r, owner, report)
+	occurrence, found, err := h.reportedOccurrence(r, owner, report)
 	if err != nil {
 		writeLemmaDecisionError(w, r, err)
 		return

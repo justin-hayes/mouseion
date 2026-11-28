@@ -67,14 +67,6 @@ func uuidString(value pgtype.UUID) string {
 	return uuid.UUID(value.Bytes).String()
 }
 
-func uuidStringPtr(value pgtype.UUID) *string {
-	if !value.Valid {
-		return nil
-	}
-	s := uuid.UUID(value.Bytes).String()
-	return &s
-}
-
 func pgText(value pgtype.Text) string {
 	if !value.Valid {
 		return ""
