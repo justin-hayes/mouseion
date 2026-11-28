@@ -222,7 +222,7 @@ Fluency gives variety once a word is familiar, without grading it.
   preparation is limited to words the learner is keeping. When a scan finds
   no unassessed sentence left for a word, the word is not scanned again until
   the language's library changes (a Book added to or removed from My Books, a
-  new completed analysis, or a confirmed Lemma correction or exclusion) or the
+  new completed analysis, a confirmed Lemma correction or exclusion, or the undoing of one) or the
   word lapses; a scan that stops with sentences
   still unasked leaves the word to be scanned again.
 - **Only the Learned meaning.** A Fluency context is kept only if the word

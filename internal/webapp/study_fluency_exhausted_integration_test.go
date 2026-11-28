@@ -95,6 +95,19 @@ func TestStudyFluencyEnqueueSkipsAnExhaustedWordUntilItsCorpusChangesOrItLapses(
 	require.NoError(t, s.store.RecordStudyFluencyExhausted(s.ctx, s.owner.ID, word.ID, scanned))
 	require.Zero(t, s.enqueuedFluencyJobs())
 
+	t.Run("a Lemma decision undone, which rebuilds the Book's candidate counts", func(t *testing.T) {
+		_, err := s.store.Pool().Exec(s.ctx, `INSERT INTO idiom_candidate_count_readiness(owner_id,book_id,language,analysis_run_id,corpus_id,builder_version,index_version,ready_at)
+			SELECT cai.owner_id, cai.book_id, 'de', cai.analysis_run_id, cai.corpus_id, 1, 'x', $2
+			  FROM current_analysis_identity cai WHERE cai.owner_id=$1 LIMIT 1
+			ON CONFLICT (owner_id, book_id) DO UPDATE SET ready_at=excluded.ready_at`, s.owner.ID, scanned.Add(time.Minute))
+		require.NoError(t, err)
+		assert.Equal(t, 1, s.enqueuedFluencyJobs())
+	})
+
+	scanned = scanned.Add(2 * time.Minute)
+	require.NoError(t, s.store.RecordStudyFluencyExhausted(s.ctx, s.owner.ID, word.ID, scanned))
+	require.Zero(t, s.enqueuedFluencyJobs())
+
 	t.Run("a word re-introduced after its Lemma correction", func(t *testing.T) {
 		_, err := s.store.Pool().Exec(s.ctx, `UPDATE study_progress SET corrected_at=$2 WHERE owner_id=$1 AND id=$3`, s.owner.ID, scanned.Add(time.Minute), word.ID)
 		require.NoError(t, err)

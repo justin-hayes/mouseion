@@ -97,13 +97,18 @@ SELECT s.progress_id::text AS progress_id, s.exhausted_at,
 -- language added to or removed from My Books, or an analysis run of one of its
 -- Books completing, or a confirmed Lemma correction or Occurrence exclusion that
 -- changes which occurrences belong to a word: a correction row written, a word
--- re-introduced after its correction, or a report ended by an undo, correction
--- or exclusion; the Unix epoch means none.
+-- re-introduced after its correction, a report ended by an undo, correction or
+-- exclusion, or a Book's candidate counts rebuilt, which follows every decision
+-- change (a deleted decision leaves no row of its own) and every completed
+-- analysis; the Unix epoch means none.
 SELECT GREATEST(
   COALESCE((SELECT max(d.updated_at)
               FROM occurrence_lemma_corrections d
               JOIN books b ON b.owner_id = d.owner_id AND b.id = d.book_id
              WHERE d.owner_id = sqlc.arg('owner') AND b.language_state = 'chosen' AND b.language_tag = sqlc.arg('language')::text), 'epoch'::timestamptz),
+  COALESCE((SELECT max(c.ready_at)
+              FROM idiom_candidate_count_readiness c
+             WHERE c.owner_id = sqlc.arg('owner') AND c.language = sqlc.arg('language')::text), 'epoch'::timestamptz),
   COALESCE((SELECT max(p.corrected_at) FROM study_progress p
              WHERE p.owner_id = sqlc.arg('owner') AND p.language = sqlc.arg('language')), 'epoch'::timestamptz),
   COALESCE((SELECT max(r.ended_at) FROM study_report r

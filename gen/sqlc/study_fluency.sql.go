@@ -45,6 +45,9 @@ SELECT GREATEST(
               FROM occurrence_lemma_corrections d
               JOIN books b ON b.owner_id = d.owner_id AND b.id = d.book_id
              WHERE d.owner_id = $1 AND b.language_state = 'chosen' AND b.language_tag = $2::text), 'epoch'::timestamptz),
+  COALESCE((SELECT max(c.ready_at)
+              FROM idiom_candidate_count_readiness c
+             WHERE c.owner_id = $1 AND c.language = $2::text), 'epoch'::timestamptz),
   COALESCE((SELECT max(p.corrected_at) FROM study_progress p
              WHERE p.owner_id = $1 AND p.language = $2), 'epoch'::timestamptz),
   COALESCE((SELECT max(r.ended_at) FROM study_report r
@@ -72,8 +75,10 @@ type GetStudyCorpusChangedAtParams struct {
 // language added to or removed from My Books, or an analysis run of one of its
 // Books completing, or a confirmed Lemma correction or Occurrence exclusion that
 // changes which occurrences belong to a word: a correction row written, a word
-// re-introduced after its correction, or a report ended by an undo, correction
-// or exclusion; the Unix epoch means none.
+// re-introduced after its correction, a report ended by an undo, correction or
+// exclusion, or a Book's candidate counts rebuilt, which follows every decision
+// change (a deleted decision leaves no row of its own) and every completed
+// analysis; the Unix epoch means none.
 func (q *Queries) GetStudyCorpusChangedAt(ctx context.Context, arg GetStudyCorpusChangedAtParams) (time.Time, error) {
 	row := q.db.QueryRow(ctx, getStudyCorpusChangedAt, arg.Owner, arg.Language)
 	var changed_at time.Time
