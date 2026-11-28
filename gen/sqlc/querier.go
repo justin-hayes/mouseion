@@ -472,8 +472,7 @@ type Querier interface {
 	// correction supplies the lemma, an excluded Occurrence matches nothing). It is
 	// a cheap superset of the sentences the matcher accepts, which Go still
 	// decides. Only Books whose Idiom counts list the headword are scanned, so the
-	// cost follows the Books that hold the Idiom, not the Corpus. The Current
-	// reading's sentences come first. words are the distinct, lower-case component
+	// cost follows the Books that hold the Idiom, not the Corpus. words are the distinct, lower-case component
 	// words. The sentence's unit and source locate it for the speaker-label rule.
 	ListStudyIdiomSentences(ctx context.Context, arg ListStudyIdiomSentencesParams) ([]ListStudyIdiomSentencesRow, error)
 	// Book, membership, and alias identity queries. Domain-level conflict and

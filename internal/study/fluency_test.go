@@ -151,8 +151,7 @@ func nominative() map[string]string { return map[string]string{"Number": "Sing",
 // sentence. The concordance lists that introducing occurrence too.
 func newFluencyFixture() (*FluencyWorker, *fluencyFakeStore, *fluencyFakeEnricher) {
 	store := &fluencyFakeStore{
-		reading: domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
-		tokens:  map[int64][]analyzer.Token{},
+		tokens: map[int64][]analyzer.Token{},
 		progress: domain.StudyProgress{
 			ID: "p1", StudyItem: domain.StudyItem{Language: "de", CanonicalLemma: "haus", UPOS: "NOUN"}, MaterialID: "m1", LearnedMeaning: "a building",
 			Memory: domain.StudyMemory{State: domain.StudyStateReview, ScheduledDays: 30},

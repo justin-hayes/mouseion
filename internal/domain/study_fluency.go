@@ -117,8 +117,7 @@ type FluencyCandidate struct {
 	// InIdiom is set when the word lies inside an Idiom candidate of the
 	// sentence and the language's idiom switch is on. Such a candidate ranks
 	// behind every candidate outside one (ADR 0137 §3).
-	InIdiom          bool
-	InCurrentReading bool
+	InIdiom bool
 	// Quality is the sentence's score under the existing sentence-quality
 	// rules, higher first.
 	Quality float64
@@ -129,8 +128,8 @@ type FluencyCandidate struct {
 // features (a split separable verb counts as one), then one that adds only a
 // new surface form, then one of a form already chosen, so different sentences
 // of the same form come after. The word's introducing form counts as chosen.
-// A candidate inside an Idiom candidate comes after every other. Ties go to the Current reading, then to the higher sentence quality, then to
-// the key. The input is not modified.
+// A candidate inside an Idiom candidate comes after every other. Ties go to the
+// higher sentence quality, then to the key. The input is not modified.
 func RankFluencyCandidates(introduced FluencyForm, candidates []FluencyCandidate) []FluencyCandidate {
 	remaining := append([]FluencyCandidate{}, candidates...)
 	seenKeys := map[string]bool{introduced.Key(): true}
@@ -168,9 +167,6 @@ func fluencyCandidateBefore(a, b FluencyCandidate, seenKeys, seenSurfaces map[st
 	}
 	if na, nb := fluencyNovelty(a, seenKeys, seenSurfaces), fluencyNovelty(b, seenKeys, seenSurfaces); na != nb {
 		return na > nb
-	}
-	if a.InCurrentReading != b.InCurrentReading {
-		return a.InCurrentReading
 	}
 	if a.Quality != b.Quality {
 		return a.Quality > b.Quality

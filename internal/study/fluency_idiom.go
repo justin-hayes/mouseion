@@ -97,7 +97,7 @@ func (w *FluencyWorker) rankedIdiomChoices(ctx context.Context, owner string, ma
 		ref := choice.sentenceRef
 		key := fmt.Sprintf("%s/%d/%d", ref.AnalysisRunID, ref.SentenceOrdinal, ref.TokenOrdinal)
 		byKey[key] = choice
-		candidates = append(candidates, domain.FluencyCandidate{Key: key, Form: choice.form, InCurrentReading: choice.inReading, Quality: choice.quality.GDEXScore + float64(choice.quality.Score)})
+		candidates = append(candidates, domain.FluencyCandidate{Key: key, Form: choice.form, Quality: choice.quality.GDEXScore + float64(choice.quality.Score)})
 	}
 	ordered := make([]idiomChoice, 0, len(choices))
 	for _, candidate := range domain.RankFluencyCandidates(introduced, candidates) {

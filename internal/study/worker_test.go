@@ -24,8 +24,9 @@ const (
 )
 
 type fakeStore struct {
-	material     domain.StudyMaterial
-	reading      domain.CurrentReading
+	material domain.StudyMaterial
+	// priorities are the concordance priorities the search asked for.
+	priorities   []string
 	occurrences  []domain.ConcordanceResultOccurrence
 	ready        *domain.StudyMaterialReadyContent
 	unpreparable string
@@ -80,13 +81,10 @@ func (s *fakeStore) GetStudyMaterial(context.Context, string, string) (domain.St
 	return s.material, nil
 }
 
-func (s *fakeStore) GetCurrentReading(context.Context, string, string) (domain.CurrentReading, error) {
-	return s.reading, nil
-}
-
 // ListVocabularyConcordance serves the occurrences one per page, so a word
 // with many occurrences is read over many pages.
 func (s *fakeStore) ListVocabularyConcordance(_ context.Context, _, _ string, lookup domain.ConcordanceLookup) (domain.ConcordanceResult, error) {
+	s.priorities = append(s.priorities, lookup.Priority)
 	if lookup.Page > len(s.occurrences) {
 		return domain.ConcordanceResult{}, nil
 	}
@@ -191,30 +189,20 @@ func resolved() enrichment.ContextualMeaning {
 	return enrichment.ContextualMeaning{Gloss: "a building", SentenceTranslation: "The old house.", SentenceTranslationTargets: []string{"house"}}
 }
 
-func TestWorkPrefersTheCurrentReadingsSentence(t *testing.T) {
+func TestWorkChoosesFromTheWholeCorpusWithNoBookPreferred(t *testing.T) {
 	store := &fakeStore{
-		reading:     domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
 		occurrences: []domain.ConcordanceResultOccurrence{occurrence(otherBook, goodText, 1), occurrence(readingBook, otherText, 2)},
 	}
 	enricher := &fakeEnricher{meaning: resolved()}
 	require.NoError(t, work(newWorker(store, enricher)))
 
 	require.NotNil(t, store.ready)
-	assert.Equal(t, readingBook, store.ready.BookID, "the Current reading's sentence wins even when the library has another")
-	assert.Equal(t, otherText, store.ready.Sentence)
+	assert.Equal(t, otherBook, store.ready.BookID, "the Current reading's sentence is not preferred")
+	assert.Equal(t, goodText, store.ready.Sentence)
 	assert.Equal(t, "a building", store.ready.Gloss)
+	assert.Equal(t, []string{domain.ConcordancePriorityNone}, store.priorities, "the concordance is read with no Book first")
 	require.Len(t, enricher.requests, 1)
 	assert.Equal(t, "Haus", enricher.requests[0].TargetWord)
-}
-
-func TestWorkFallsBackToTheLibraryWhenTheReadingHasNoUsableSentence(t *testing.T) {
-	store := &fakeStore{
-		reading:     domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
-		occurrences: []domain.ConcordanceResultOccurrence{occurrence(readingBook, "Haus.", 1), occurrence(otherBook, goodText, 2)},
-	}
-	require.NoError(t, work(newWorker(store, &fakeEnricher{meaning: resolved()})))
-	require.NotNil(t, store.ready)
-	assert.Equal(t, otherBook, store.ready.BookID)
 }
 
 func TestWorkRecordsASentenceQualityOmissionWithoutCallingTheProvider(t *testing.T) {
@@ -272,15 +260,15 @@ func TestWorkSearchesPastTheFirstPagesForAQualifyingSentence(t *testing.T) {
 	assert.Empty(t, store.unpreparable)
 }
 
-func TestWorkStopsReadingOnceTheCurrentReadingHasASentence(t *testing.T) {
-	occurrences := []domain.ConcordanceResultOccurrence{occurrence(readingBook, goodText, 1)}
-	for ordinal := int64(2); ordinal <= 30; ordinal++ {
+func TestWorkStopsReadingOnceAPageHasAnAcceptedSentence(t *testing.T) {
+	var occurrences []domain.ConcordanceResultOccurrence
+	for ordinal := int64(1); ordinal <= 30; ordinal++ {
 		occurrences = append(occurrences, occurrence(otherBook, goodText, ordinal))
 	}
-	store := &fakeStore{reading: domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook}, occurrences: occurrences}
+	store := &fakeStore{occurrences: occurrences}
 	require.NoError(t, work(newWorker(store, &fakeEnricher{meaning: resolved()})))
-	assert.Equal(t, readingBook, store.ready.BookID)
-	assert.Less(t, store.pagesRead, 30, "the library is not read once the Current reading has an accepted sentence")
+	require.NotNil(t, store.ready)
+	assert.Equal(t, 1, store.pagesRead, "the search stops at the first page with an accepted sentence")
 }
 
 func TestWorkRecordsASentenceQualityOmissionOnlyWhenEvidenceIsExhausted(t *testing.T) {
@@ -323,14 +311,13 @@ func TestWorkUsesOnlyOccurrencesOfTheFullIdentity(t *testing.T) {
 func TestWorkNeverChoosesARetiredOccurrence(t *testing.T) {
 	retired := occurrence(readingBook, goodText, 1)
 	store := &fakeStore{
-		reading:     domain.CurrentReading{OwnerID: "owner", Language: "de", BookID: readingBook},
 		occurrences: []domain.ConcordanceResultOccurrence{retired, occurrence(otherBook, otherText, 2)},
 		retired:     []domain.StudyOccurrenceRef{retired.StudyRef()},
 	}
 	enricher := &fakeEnricher{meaning: resolved()}
 	require.NoError(t, work(newWorker(store, enricher)))
 	require.NotNil(t, store.ready)
-	assert.Equal(t, otherBook, store.ready.BookID, "the reported sentence is passed over for another one, though it is the Current reading's")
+	assert.Equal(t, otherBook, store.ready.BookID, "the reported sentence is passed over for another one, though it is the earlier one")
 	assert.Equal(t, otherText, store.ready.Sentence)
 	require.Len(t, enricher.requests, 1)
 	assert.Equal(t, otherText, enricher.requests[0].ExampleSentence, "the provider never sees the retired sentence")
