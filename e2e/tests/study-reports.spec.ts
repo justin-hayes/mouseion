@@ -65,9 +65,9 @@ test.describe('Study reports', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Repair a reported word' })).toBeVisible();
     await expect(page.locator('.study-remediation')).toContainText('The highlighted word is another word here.');
     await expect(page.locator('.study-remediation .reading-text')).toHaveCount(1);
-    // The fixture Book is current reading, which blocks a decision until it
-    // ends; the preview and confirmation are covered over HTTP against Postgres.
-    await expect(page.getByRole('alert')).toContainText('End current reading before changing its vocabulary');
+    // The Current reading's Book is repaired like any other; the preview and
+    // confirmation are covered over HTTP against Postgres.
+    await expect(page.getByRole('button', { name: 'Preview correction' })).toBeVisible();
     await page.goto('/de/study/reports');
 
     // Dismiss ends the report: the entry leaves the list and the word is no
