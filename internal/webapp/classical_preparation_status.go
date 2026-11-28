@@ -50,22 +50,6 @@ func classicalPreparationForClassification(classification domain.BookEvidenceCla
 	return classicalPreparationViewFor(classification), true
 }
 
-// classicalPreparationTone is the status tone for a preparation state. A
-// terminal refusal is an error; a recoverable failure or a cleared failure is a
-// warning; in-progress preparation is informational.
-func classicalPreparationTone(classification domain.BookEvidenceClassification) StatusTone {
-	switch classification.Preparation.State {
-	case domain.PreparationQueued, domain.PreparationRunning, domain.PreparationCleared,
-		domain.PreparationFetchFailed, domain.PreparationImportFailed:
-		return StatusWarning
-	case domain.PreparationSourceRefused, domain.PreparationWithdrawn,
-		domain.PreparationCatalogUnavailable:
-		return StatusDanger
-	case domain.PreparationNone:
-	}
-	return StatusInfo
-}
-
 // classicalPreparationViewFor maps the classified preparation state onto
 // learner words and the one recovery the classification returned.
 func classicalPreparationViewFor(classification domain.BookEvidenceClassification) classicalPreparationView {

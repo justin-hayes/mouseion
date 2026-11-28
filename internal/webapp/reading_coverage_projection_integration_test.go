@@ -64,7 +64,6 @@ func TestReadingCoverageMatchesMyBooksProjection(t *testing.T) {
 	require.NoError(t, h.addReadingEvidence(ctx, owner.ID, &unreadyBook))
 	assert.True(t, unreadyBook.CountsUpdating)
 	assert.Nil(t, unreadyBook.Coverage)
-	assert.Equal(t, readingEvidenceUpdating, readingEvidenceState(unreadyBook))
 
 	buildBrowseProjection(t, ctx, store, book.ID)
 

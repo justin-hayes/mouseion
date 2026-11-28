@@ -43,10 +43,9 @@ func currentReadingHeroStatusFor(item readingBookView) (currentReadingHeroStatus
 		return currentReadingHeroStatus{Label: "Analysis failed.", Description: "The last analysis failed. " + currentReadingRecoveryHint}, true
 	case analysisAttentionStale:
 		return currentReadingHeroStatus{Label: "Analysis out of date.", Description: "The content no longer matches this analysis. " + currentReadingRecoveryHint}, true
-	case analysisAttentionReAnalysisFailed:
+	default: // analysisAttentionReAnalysisFailed, the last state analysisAttentionFor reports.
 		return currentReadingHeroStatus{Label: "Re-analysis failed.", Description: "The current analysis stays in effect. " + currentReadingRecoveryHint}, true
 	}
-	return currentReadingHeroStatus{}, false
 }
 
 // currentReadingHeroTitle is the Work title for a classical Book, which stays
