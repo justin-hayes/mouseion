@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -43,6 +45,22 @@ const (
 	serverReadTimeout       = 30 * time.Second
 	serverWriteTimeout      = 30 * time.Second
 	serverIdleTimeout       = 2 * time.Minute
+)
+
+// Shutdown deadlines. Docker Compose sends SIGTERM and then SIGKILL after a
+// 10 s stop grace period, so the whole sequence has to finish inside it:
+//
+//	3 s HTTP drain + 2 s River soft stop + 3 s River hard stop = 8 s,
+//
+// which leaves about 2 s for the deferred closes (store, NLP client, dictionary
+// index). Requests are short, so 3 s drains them; a handler still running
+// after that is closed. Jobs get 2 s to finish on their own; any still running
+// have their context cancelled, which River records as interrupted (available
+// again, attempt refunded) instead of leaving them running for the rescuer.
+const (
+	httpShutdownTimeout  = 3 * time.Second
+	riverSoftStopTimeout = 2 * time.Second
+	riverHardStopTimeout = 3 * time.Second
 )
 
 func main() {
@@ -85,7 +103,11 @@ type serverDependencies struct {
 }
 
 func run() (err error) {
+	// ctx outlives a shutdown signal: the River client starts on it, and
+	// cancelling it would cancel running jobs without the staged stop below.
 	ctx := context.Background()
+	signalCtx, stopSignals := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 	cfg, err := loadServerConfig()
 	if err != nil {
 		return err
@@ -135,8 +157,62 @@ func run() (err error) {
 		return err
 	}
 	mux.Handle("/", handler)
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.addr)
+	if err != nil {
+		return err
+	}
 	log.Print("mouseion web server listening")
-	return newHTTPServer(cfg.addr, mux).ListenAndServe()
+	return serveUntilShutdown(signalCtx, newHTTPServer(cfg.addr, mux), listener, deps.riverClient)
+}
+
+// workerStopper is the part of the River client the shutdown sequence uses.
+type workerStopper interface {
+	Stop(ctx context.Context) error
+	StopAndCancel(ctx context.Context) error
+}
+
+// serveUntilShutdown serves on listener until it fails or ctx is cancelled.
+// On cancellation it stops accepting requests and drains the HTTP server, then
+// stops the workers, so no job is left running. A shutdown that ctx initiated
+// returns nil; http.ErrServerClosed is not an error.
+func serveUntilShutdown(ctx context.Context, srv *http.Server, listener net.Listener, workers workerStopper) error {
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- srv.Serve(listener) }()
+	select {
+	case err := <-serveErr:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-ctx.Done():
+	}
+	log.Print("shutdown signal received; stopping")
+	httpCtx, cancelHTTP := context.WithTimeout(context.Background(), httpShutdownTimeout)
+	defer cancelHTTP()
+	var result error
+	if err := srv.Shutdown(httpCtx); err != nil {
+		// Handlers outlasted the drain; close their connections.
+		result = errors.Join(result, fmt.Errorf("shut down HTTP server: %w", err), srv.Close())
+	}
+	<-serveErr
+	return errors.Join(result, stopWorkers(workers))
+}
+
+// stopWorkers lets running jobs finish for riverSoftStopTimeout, then cancels
+// them. River records a job cancelled this way as interrupted and runs it
+// again on the next start.
+func stopWorkers(workers workerStopper) error {
+	softCtx, cancelSoft := context.WithTimeout(context.Background(), riverSoftStopTimeout)
+	defer cancelSoft()
+	if err := workers.Stop(softCtx); err == nil {
+		return nil
+	}
+	hardCtx, cancelHard := context.WithTimeout(context.Background(), riverHardStopTimeout)
+	defer cancelHard()
+	if err := workers.StopAndCancel(hardCtx); err != nil {
+		return fmt.Errorf("stop analysis workers: %w", err)
+	}
+	return nil
 }
 
 // loadServerConfig validates the environment every start depends on: a usable
