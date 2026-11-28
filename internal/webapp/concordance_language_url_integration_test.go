@@ -4,7 +4,11 @@ package webapp
 
 import (
 	"context"
+	"html"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,6 +121,22 @@ func TestCorpusPagesAreAddressedByStudyLanguage(t *testing.T) {
 			assert.Equal(t, http.StatusSeeOther, response.code, tc.from)
 			assert.Equal(t, tc.to, response.location, tc.from)
 		}
+	})
+	t.Run("a retired Sentence study link keeps its saved search and focus", func(t *testing.T) {
+		results := get("/de/corpus/concordance?term=gehen&as=lemma")
+		link := regexp.MustCompile(`href="(/de/corpus/concordance/sentence\?[^"]+)"`).FindStringSubmatch(results.body)
+		require.NotNil(t, link, "a result links to Sentence study")
+		current, err := url.Parse(html.UnescapeString(link[1]))
+		require.NoError(t, err)
+		query := current.Query()
+		back := query.Get("return")
+		require.Contains(t, back, "/de/corpus/concordance?", "the current return path")
+		query.Set("return", strings.Replace(back, "/de/corpus/", "/de/vocabulary/", 1))
+		retired := get("/de/vocabulary/concordance/sentence?" + query.Encode())
+		require.Equal(t, http.StatusSeeOther, retired.code)
+		followed := get(retired.location)
+		require.Equal(t, http.StatusOK, followed.code)
+		assert.Contains(t, followed.body, html.EscapeString(back), "the way back is the saved search, focus included")
 	})
 	t.Run("results link to prefixed pages", func(t *testing.T) {
 		response := get("/de/corpus/concordance?term=gehen")
