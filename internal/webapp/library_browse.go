@@ -598,14 +598,15 @@ func myBookEvidenceNeedsAction(book domain.MyBook) (string, bool) {
 	if book.Acquired == nil {
 		return "", false
 	}
-	if classification.Phase == domain.PhaseFailed {
-		return "Analysis failed.", true
-	}
-	if classification.ReAnalysisShadowed() && classification.Run == domain.RunFailed {
-		return "Re-analysis failed.", true
-	}
-	if classification.Phase == domain.PhaseStale {
-		return "Analysis out of date.", true
+	if attention, ok := analysisAttentionFor(classification); ok {
+		switch attention {
+		case analysisAttentionFailed:
+			return "Analysis failed.", true
+		case analysisAttentionReAnalysisFailed:
+			return "Re-analysis failed.", true
+		case analysisAttentionStale:
+			return "Analysis out of date.", true
+		}
 	}
 	return "", false
 }

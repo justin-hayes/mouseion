@@ -139,12 +139,23 @@ test.describe('keyboard, focus, and asynchronous-state acceptance', () => {
     await expect(page.getByRole('status').first()).toContainText('Journey updated');
     // The pinned Current reading precedes the To Read list.
     expect(await goalHeading.evaluate((node) => node.compareDocumentPosition(document.querySelector('#library-results')!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTruthy();
-    const goalLink = page.locator('.current-hero a:visible').first();
-    await goalLink.focus();
-    await expect(goalLink).toBeFocused();
-    // Focus order in the hero: the title, Open Book, then Finish and End.
-    const order = await page.locator('.current-hero').evaluate((hero) => Array.from(hero.querySelectorAll<HTMLElement>('a[href], summary')).filter((node) => node.tabIndex >= 0).map((node) => node.textContent?.trim()));
-    expect(order).toEqual(['Der lange Weg nach Hause', 'Open Book', 'Mark reading finished', 'End current reading']);
+    // Real Tab order in the hero: the title link, Open Book, then Finish and End.
+    // The cover link is aria-hidden and stays out of the tab order.
+    const titleLink = page.locator('.current-hero__title a');
+    await titleLink.focus();
+    await expect(titleLink).toBeFocused();
+    const focused = () => page.evaluate(() => {
+      const node = document.activeElement as HTMLElement;
+      return node.closest('.current-hero') ? node.textContent?.trim() : `outside: ${node.tagName}`;
+    });
+    expect(await focused()).toBe('Der lange Weg nach Hause');
+    const order: Array<string | undefined> = [];
+    for (let stop = 0; stop < 3; stop++) {
+      await page.keyboard.press('Tab');
+      order.push(await focused());
+    }
+    expect(order).toEqual(['Open Book', 'Mark reading finished', 'End current reading']);
+    await expect(page.locator('.current-hero__cover a')).toHaveAttribute('tabindex', '-1');
   });
 
   test('unassessed books offer no standalone analysis action on their detail page', async ({ page }) => {

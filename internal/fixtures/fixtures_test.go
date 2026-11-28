@@ -813,11 +813,17 @@ func TestStartCurrentReadingAcceptsAProjectedClassicalBook(t *testing.T) {
 }
 
 func TestInsightsCoverageHasDegradedStatesForTwoBooks(t *testing.T) {
-	_, err := Insights{}.Coverage(t.Context(), OwnerID, CountsUpdatingCorpusID)
-	require.ErrorIs(t, err, analysisinsights.ErrCountsUpdating)
-	_, err = Insights{}.Coverage(t.Context(), OwnerID, StatisticsUnavailableCorpusID)
-	require.ErrorIs(t, err, analysisinsights.ErrStatisticsUnavailable)
-	coverage, err := Insights{}.Coverage(t.Context(), OwnerID, "fixture-corpus")
-	require.NoError(t, err)
-	assert.Equal(t, int64(123456), coverage.AnalyzableTokenCount)
+	t.Run("counts updating", func(t *testing.T) {
+		_, err := Insights{}.Coverage(t.Context(), OwnerID, CountsUpdatingCorpusID)
+		require.ErrorIs(t, err, analysisinsights.ErrCountsUpdating)
+	})
+	t.Run("statistics unavailable", func(t *testing.T) {
+		_, err := Insights{}.Coverage(t.Context(), OwnerID, StatisticsUnavailableCorpusID)
+		require.ErrorIs(t, err, analysisinsights.ErrStatisticsUnavailable)
+	})
+	t.Run("ordinary Book", func(t *testing.T) {
+		coverage, err := Insights{}.Coverage(t.Context(), OwnerID, "fixture-corpus")
+		require.NoError(t, err)
+		assert.Equal(t, int64(123456), coverage.AnalyzableTokenCount)
+	})
 }

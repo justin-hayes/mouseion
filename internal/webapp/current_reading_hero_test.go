@@ -117,44 +117,62 @@ func TestCurrentReadingHeroStatusLineAppearsOnlyWhenTheBookNeedsAction(t *testin
 	}
 }
 
-func TestCurrentReadingHeroKeepsAnalysisRecoveryForAFailedAnalysis(t *testing.T) {
-	item := testReadingBook("failed", "Failed", testFailed)
-	item.Book.Source.MediaType = "application/epub+zip"
-	item.Book.Source.ContentRevisionID = "revision"
-	item.Book.Source.ContentSnapshotID = "snapshot"
-	html := renderHero(t, item)
-	requireInOrder(t, html, "data-needs-action", "<summary>Analysis details</summary>", `>Retry analysis</button>`, "Open Book")
-	assert.Contains(t, html, `action="/reading/books/failed/reanalyze"`)
-	assert.Equal(t, 2, strings.Count(html, "The last analysis failed"), "the status line and the details say it once each; the coverage note does not repeat it")
+func TestCurrentReadingHeroNeverOffersAnActionTheServerRejects(t *testing.T) {
+	// The server refuses to retry the Current reading's analysis (ADR 0107), so
+	// the hero names the failure and where recovery works, with no form.
+	failed := testReadingBook("failed", "Failed", testFailed)
+	failed.Book.Source.MediaType = "application/epub+zip"
+	failed.Book.Source.ContentRevisionID = "revision"
+	failed.Book.Source.ContentSnapshotID = "snapshot"
+	noContent := testReadingBook("goal", "No content", testNoContent)
+	noContent.Book.Source.MediaType = "application/epub+zip"
+	noContent.Book.Source.ContentRevisionID = "revision"
+	missingStatistics := heroTestBook()
+	missingStatistics.StatisticsUnavailable = true
+
+	for _, test := range []struct {
+		name   string
+		item   readingBookView
+		status string
+	}{
+		{"failed analysis", failed, "<strong>Analysis failed.</strong>"},
+		{"stale analysis", testReadingBook("stale", "Stale", testStale), "<strong>Analysis out of date.</strong>"},
+		{"unavailable content", noContent, ""},
+		{"missing statistics", missingStatistics, ""},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			html := renderHero(t, test.item)
+			assert.NotContains(t, html, "Analysis details")
+			assert.NotContains(t, html, "reanalyze")
+			assert.NotContains(t, html, "Retry")
+			if test.status == "" {
+				assert.NotContains(t, html, "data-needs-action", "only a failed or stale analysis is a status line")
+				return
+			}
+			assert.Contains(t, html, test.status)
+			assert.Contains(t, html, "End this reading to retry it from To Read.")
+		})
+	}
 }
 
-func TestCurrentReadingHeroLinksTheTitleOnlyWhenTheBookIsReadable(t *testing.T) {
-	unreadable := testReadingBook("goal", "Not yet", testNoContent)
-	html := renderHero(t, unreadable)
-	assert.Contains(t, html, `<h2 id="current-reading-title" class="current-hero__title">Not yet</h2>`)
+func TestCurrentReadingHeroLinksTheTitleToBookDetailEvenWithoutReadyAnalysis(t *testing.T) {
+	html := renderHero(t, testReadingBook("goal", "Not yet", testNoContent))
+	assert.Contains(t, html, `<h2 id="current-reading-title" class="current-hero__title"><a href="/books/goal">Not yet</a></h2>`)
 	assert.Contains(t, html, `>Open Book</a>`)
 }
 
 func TestCurrentReadingHeroShowsAClassicalWorkOnce(t *testing.T) {
 	item := heroTestBook()
-	item.Book.BookTitle = "Iliad"
+	item.Book.BookTitle = "Iliad (registered copy)"
 	item.Book.BookAuthor = "Homer"
 	item.Book.Source.Language = "grc"
 	item.ReadingUnit = &domain.BookReadingUnit{WorkTitle: "Iliad", OriginalTitle: "Ἰλιάς"}
 	html := renderHero(t, item)
 	assert.Equal(t, 1, strings.Count(html, "<article"), "one hero")
-	assert.Contains(t, html, `class="current-hero__title"><a href="/books/goal">Iliad</a>`)
+	assert.Contains(t, html, `class="current-hero__title"><a href="/books/goal">Iliad</a>`, "the Work title, not the registered copy")
+	assert.NotContains(t, html, "registered copy")
 	assert.Contains(t, html, `<p class="current-hero__original" lang="grc">Ἰλιάς</p>`)
 	requireInOrder(t, html, "current-hero__title", "current-hero__original", "current-hero__author")
-}
-
-func TestCurrentReadingHeroOffersRetryAcquisitionWithoutAStatusLine(t *testing.T) {
-	item := testReadingBook("goal", "No content", testNoContent)
-	item.Book.Source.MediaType = "application/epub+zip"
-	item.Book.Source.ContentRevisionID = "revision"
-	html := renderHero(t, item)
-	assert.NotContains(t, html, "data-needs-action", "unavailable content is not a status line")
-	requireInOrder(t, html, "<summary>Analysis details</summary>", ">Retry acquisition</button>", "Open Book")
 }
 
 func TestCurrentReadingHeroStatusLineForClassicalPreparation(t *testing.T) {

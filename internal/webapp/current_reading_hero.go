@@ -1,24 +1,27 @@
 package webapp
 
 import (
-	"github.com/a-h/templ"
+	"strings"
 
-	"github.com/justin-hayes/mouseion/internal/domain"
+	"github.com/a-h/templ"
 )
 
 // currentReadingHeroStatus is the hero's status line: present only when the
-// Current reading needs the learner's action. A Book that is ready, updating or
-// merely being prepared has no line.
+// Current reading needs the learner's attention. A Book that is ready, updating
+// or merely being prepared has no line.
 type currentReadingHeroStatus struct {
 	Label       string
 	Description string
-	// Evidence is true when the line comes from the Book's analysis, so the hero
-	// keeps the analysis details and their recovery directly after it.
-	Evidence bool
 }
 
-// currentReadingHeroStatusFor reports the action the Current reading needs, the
-// most basic first: a missing Book language, then a failed or stale analysis.
+// currentReadingRecoveryHint says where recovery works. The Current reading's
+// analysis is frozen, so the server refuses a retry until the reading ends
+// (ADR 0107); the hero therefore names the way out instead of offering a form
+// the server would reject.
+const currentReadingRecoveryHint = "End this reading to retry it from To Read."
+
+// currentReadingHeroStatusFor reports what the Current reading needs, the most
+// basic first: a missing Book language, then a failed or stale analysis.
 func currentReadingHeroStatusFor(item readingBookView) (currentReadingHeroStatus, bool) {
 	if item.LanguageMissing {
 		return currentReadingHeroStatus{Label: "Choose a Book language."}, true
@@ -29,31 +32,30 @@ func currentReadingHeroStatusFor(item readingBookView) (currentReadingHeroStatus
 		if !view.Actionable {
 			return currentReadingHeroStatus{}, false
 		}
-		return currentReadingHeroStatus{Label: view.Label + ".", Description: view.Description, Evidence: true}, true
+		return currentReadingHeroStatus{Label: view.Label + ".", Description: view.Description + " " + currentReadingRecoveryHint}, true
 	}
-	switch readingEvidenceState(item) {
-	case readingEvidenceFailed:
-		return currentReadingHeroStatus{Label: readingEvidenceLabel(item) + ".", Description: readingEvidenceDescription(item), Evidence: true}, true
-	case readingEvidenceStale:
-		// The To Read entry of the same Book words this state the same way.
-		return currentReadingHeroStatus{Label: "Analysis out of date.", Description: readingEvidenceDescription(item), Evidence: true}, true
-	case readingEvidenceCurrent, readingEvidenceIncomplete, readingEvidenceUnavailable, readingEvidencePublishing, readingEvidenceUpdating:
+	attention, ok := analysisAttentionFor(classification)
+	if !ok {
+		return currentReadingHeroStatus{}, false
 	}
-	if classification.ReAnalysisShadowed() && classification.Run == domain.RunFailed {
-		return currentReadingHeroStatus{Label: "Re-analysis failed.", Evidence: true}, true
+	switch attention {
+	case analysisAttentionFailed:
+		return currentReadingHeroStatus{Label: "Analysis failed.", Description: "The last analysis failed. " + currentReadingRecoveryHint}, true
+	case analysisAttentionStale:
+		return currentReadingHeroStatus{Label: "Analysis out of date.", Description: "The content no longer matches this analysis. " + currentReadingRecoveryHint}, true
+	case analysisAttentionReAnalysisFailed:
+		return currentReadingHeroStatus{Label: "Re-analysis failed.", Description: "The current analysis stays in effect. " + currentReadingRecoveryHint}, true
 	}
 	return currentReadingHeroStatus{}, false
 }
 
-// currentReadingHeroShowsRecovery reports whether the hero keeps the analysis
-// details with their recovery action: whenever the status line comes from the
-// Book's analysis, and whenever the Book offers a recovery such as Retry
-// acquisition or Retry analysis even though it needs no status line.
-func currentReadingHeroShowsRecovery(item readingBookView, status currentReadingHeroStatus, needsAction bool) bool {
-	if needsAction && status.Evidence {
-		return true
+// currentReadingHeroTitle is the Work title for a classical Book, which stays
+// right when the manifest is corrected after registration, else the Book title.
+func currentReadingHeroTitle(item readingBookView) string {
+	if item.ReadingUnit != nil && strings.TrimSpace(item.ReadingUnit.WorkTitle) != "" {
+		return item.ReadingUnit.WorkTitle
 	}
-	return readingAnalysisAction(item).Submit
+	return canonicalBookTitle(item.Book)
 }
 
 func currentReadingHeroTitleID() string { return "current-reading-title" }

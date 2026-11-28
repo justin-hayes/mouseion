@@ -58,3 +58,28 @@ func readingEvidenceStatusFor(c domain.BookEvidenceClassification, coverageAvail
 func analysisReadyForReading(book domain.SourceMaterialSummary) bool {
 	return book.EvidenceClassification().AnalysisInEffect() && book.AnalysisRunID != "" && book.CorpusID != ""
 }
+
+// analysisAttention is an analysis state that needs the learner's action,
+// shared by every surface that says so so they agree on when.
+type analysisAttention int
+
+const (
+	analysisAttentionFailed analysisAttention = iota + 1
+	analysisAttentionReAnalysisFailed
+	analysisAttentionStale
+)
+
+// analysisAttentionFor reports whether the Book's analysis failed, is out of
+// date, or has a failed re-analysis shadowed by a published one. Missing
+// statistics alone need no action.
+func analysisAttentionFor(c domain.BookEvidenceClassification) (analysisAttention, bool) {
+	switch {
+	case c.Phase == domain.PhaseFailed:
+		return analysisAttentionFailed, true
+	case c.ReAnalysisShadowed() && c.Run == domain.RunFailed:
+		return analysisAttentionReAnalysisFailed, true
+	case c.Phase == domain.PhaseStale:
+		return analysisAttentionStale, true
+	}
+	return 0, false
+}
