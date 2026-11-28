@@ -35,7 +35,7 @@ const (
 // and only compares jobs inside the current bucket, so a job still waiting from
 // 10:57 does not stop another at 11:00, and the queue doubles every hour Today
 // is opened. A word that finished with too few agreeing contexts therefore waits
-// out the retention period instead of the hour the period used to give.
+// out the retention period instead of up to an hour.
 var fluencyUniqueStates = []rivertype.JobState{
 	rivertype.JobStateAvailable,
 	rivertype.JobStatePending,
